@@ -69,12 +69,10 @@ import java.util.regex.PatternSyntaxException;
 
 import de.unkrig.commons.lang.AssertionUtil;
 import de.unkrig.commons.lang.protocol.Predicate;
-import de.unkrig.commons.lang.protocol.ProducerWhichThrows;
 import de.unkrig.commons.nullanalysis.Nullable;
 import de.unkrig.commons.text.parser.AbstractParser;
 import de.unkrig.commons.text.parser.ParseException;
 import de.unkrig.commons.text.scanner.AbstractScanner.Token;
-import de.unkrig.commons.text.scanner.ScanException;
 import de.unkrig.commons.text.scanner.StatefulScanner;
 
 /**
@@ -83,7 +81,8 @@ import de.unkrig.commons.text.scanner.StatefulScanner;
 public final
 class Pattern {
 
-    private final Node node;
+    private final String pattern;
+    private final Node   node;
 
     static { AssertionUtil.enableAssertionsForThisClass(); }
 
@@ -93,30 +92,30 @@ class Pattern {
     public
     interface Matcher { 
         
-//        /**
-//         * @see java.util.regex.Matcher#pattern()
-//         */
-//        Pattern pattern();
-//
+        /**
+         * @see java.util.regex.Matcher#pattern()
+         */
+        Pattern pattern();
+
 //        /**
 //         * @see java.util.regex.Matcher#toMatchResult()
 //         */
 //        MatchResult toMatchResult();
-//
-//        /**
-//         * @see java.util.regex.Matcher#usePattern(java.util.regex.Pattern)
-//         */
-//        Matcher usePattern(Pattern newPattern);
-//
-//        /**
-//         * @see java.util.regex.Matcher#reset()
-//         */
-//        Matcher reset();
-//
-//        /**
-//         * @see java.util.regex.Matcher#reset(CharSequence)
-//         */
-//        Matcher reset(CharSequence input);
+
+        /**
+         * @see java.util.regex.Matcher#usePattern(java.util.regex.Pattern)
+         */
+        Matcher usePattern(Pattern newPattern);
+
+        /**
+         * @see java.util.regex.Matcher#reset()
+         */
+        Matcher reset();
+
+        /**
+         * @see java.util.regex.Matcher#reset(CharSequence)
+         */
+        Matcher reset(CharSequence input);
 
         /**
          * @see java.util.regex.Matcher#start()
@@ -137,12 +136,12 @@ class Pattern {
 //         * @see java.util.regex.Matcher#end(int)
 //         */
 //        int end(int group);
-//
-//        /**
-//         * @see java.util.regex.Matcher#group()
-//         */
-//        String group();
-//
+
+        /**
+         * @see java.util.regex.Matcher#group()
+         */
+        String group();
+
 //        /**
 //         * @see java.util.regex.Matcher#group(int)
 //         */
@@ -163,10 +162,10 @@ class Pattern {
          */
         boolean find();
 
-//        /**
-//         * @see java.util.regex.Matcher#find(int)
-//         */
-//        boolean find(int start);
+        /**
+         * @see java.util.regex.Matcher#find(int)
+         */
+        boolean find(int start);
 
         /**
          * @see java.util.regex.Matcher#lookingAt()
@@ -348,7 +347,10 @@ class Pattern {
     }
 
     private
-    Pattern(Node node) { this.node = node; }
+    Pattern(String pattern, Node node) {
+        this.pattern = pattern;
+        this.node    = node;
+    }
         
     /**
      * This scanner is intended to be cloned by {@link StatefulScanner#StatefulScanner(StatefulScanner)} when a
@@ -548,17 +550,180 @@ class Pattern {
      * @see java.util.regex.Pattern#compile(String)
      */
     public static Pattern
-    compile(String s) throws PatternSyntaxException {
+    compile(String regex) throws PatternSyntaxException {
+
 
         StatefulScanner<TokenType, State> ss = new StatefulScanner<TokenType, State>(REGEX_SCANNER);
-        
-        ss.setInput(s);
 
-        class RegexParser extends AbstractParser<TokenType> {
+        try {
+            ss.setInput(regex);
+            return new Pattern(regex, Pattern.parse(ss));
+        } catch (ParseException pe) {
+            PatternSyntaxException pse = new PatternSyntaxException(pe.getMessage(), regex, ss.getOffset());
+            pse.initCause(pe);
+            throw pse;
+        }
+    }
 
-            RegexParser(ProducerWhichThrows<? extends Token<TokenType>, ? extends ScanException> scanner) {
-                super(scanner);
+//    /**
+//     * @see java.util.regex.Pattern#compile(String, int)
+//     */
+//    public static Pattern compile(String regex, int flags) {}
+
+    /**
+     * @see java.util.regex.Pattern#pattern()
+     */
+    public String pattern() { return this.pattern; }
+
+    /**
+     * @see java.util.regex.Pattern#toString()
+     */
+    @Override public String toString() { return this.pattern; }
+
+    /**
+     * @see java.util.regex.Pattern#matcher(CharSequence)
+     */
+    public Matcher
+    matcher(final CharSequence subject) {
+
+        return new Matcher() {
+            
+            private CharSequence subject2 = subject;
+            private Pattern      pattern = Pattern.this;
+            private int          offset;
+            private int          start = -1, end;
+
+            @Override public Pattern
+            pattern() { return Pattern.this; }
+
+            @Override public Matcher
+            usePattern(Pattern newPattern) {
+                this.start   = -1;
+                this.pattern = newPattern;
+                return this;
             }
+
+            @Override public Matcher
+            reset() {
+                this.offset = 0;
+                this.start  = -1;
+                return this;
+            }
+
+            @Override public Matcher
+            reset(CharSequence input) {
+                this.subject2 = input;
+                this.offset   = 0;
+                this.start    = -1;
+                return this;
+            }
+
+            @Override public int
+            start() {
+                if (this.start == -1) throw new IllegalStateException("No match available");
+                return this.start;
+            }
+
+            @Override public int
+            end() {
+                if (this.start == -1) throw new IllegalStateException("No match available");
+                return this.end;
+            }
+
+            @Override public String
+            group() {
+                if (this.start == -1) throw new IllegalStateException("No match available");
+                return this.subject2.subSequence(this.start, this.end).toString();
+            }
+
+            @Override public boolean
+            matches() {
+                if (!this.pattern.matches(this.subject2, 0)) return false;
+                this.start = 0;
+                this.end   = this.subject2.length();
+                return true;
+            }
+
+            @Override public boolean
+            find() {
+                for (; this.offset < this.subject2.length(); this.offset++) {
+                    Match m = this.pattern.node.bestMatch(this.subject2, this.offset);
+                    if (m != null) {
+                        this.start  = this.offset;
+                        this.offset = (this.end = m.end);
+                        return true;
+                    }
+                }
+                this.start = -1;
+                return false;
+            }
+
+            @Override public boolean
+            find(int start) {
+                this.offset = start;
+                return this.find();
+            }
+
+            @Override public boolean
+            lookingAt() {
+                
+                Match m = this.pattern.node.bestMatch(this.subject2, 0);
+                if (m == null) return false;
+                
+                this.start = 0;
+                this.end   = m.end;
+                return true;
+            }
+        };
+    }
+
+//    /**
+//     * @see java.util.regex.Pattern#flags()
+//     */
+//  public int flags();
+
+    /**
+     * @see java.util.regex.Pattern#matches(String, CharSequence)
+     * @see java.util.regex.Pattern#split(CharSequence, int)
+     * @see java.util.regex.Pattern#split(CharSequence)
+     * @see java.util.regex.Pattern#quote(String)
+     */
+    public static boolean
+    matches(String regex, CharSequence input) { return Pattern.compile(regex).matches(input, 0); }
+
+//    /**
+//     * @see java.util.regex.Pattern#split(CharSequence, int)
+//     */
+//  public String[] split(CharSequence input, int limit);
+//
+//    /**
+//     * @see java.util.regex.Pattern#split(CharSequence)
+//     */
+//  public String[] split(CharSequence input);
+//
+//    /**
+//     * @see java.util.regex.Pattern#quote(String)
+//     */
+//  public static String quote(String s);
+
+    /**
+     * @return Whether the suffix starting at position <var>offset</var> matches this pattern
+     */
+    public boolean
+    matches(CharSequence subject, int offset) {
+        for (Match m = Pattern.this.node.bestMatch(subject, offset); m != null; m = m.next()) {
+            if (m.end == subject.length()) return true;
+        }
+        return false;
+    }
+
+    /**
+     * Parses a regular expression into a tree of nodes.
+     */
+    private static Node
+    parse(StatefulScanner<TokenType, State> ss) throws ParseException {
+
+        return new AbstractParser<TokenType>(ss) {
 
             public Node
             parse() throws ParseException { return this.parseAlternatives(); }
@@ -837,127 +1002,6 @@ class Pattern {
 
                 throw new AssertionError(t);
             }
-        }
-
-        try {
-            return new Pattern(new RegexParser(ss).parse());
-        } catch (ParseException pe) {
-            PatternSyntaxException pse = new PatternSyntaxException(pe.getMessage(), s, ss.getOffset());
-            pse.initCause(pe);
-            throw pse;
-        }
-    }
-
-//    /**
-//     * @see java.util.regex.Pattern#compile(String, int)
-//     */
-//    public static Pattern compile(String regex, int flags) {}
-//
-//    /**
-//     * @see java.util.regex.Pattern#pattern()
-//     */
-//    public String pattern();
-//
-//    /**
-//     * @see java.util.regex.Pattern#toString()
-//     */
-//    public String toString();
-
-    /**
-     * @see java.util.regex.Pattern#matcher(CharSequence)
-     */
-    public Matcher
-    matcher(final CharSequence subject) {
-
-        return new Matcher() {
-            
-            private int offset;
-            private int start = -1, end;
-
-            @Override public int
-            start() {
-                if (this.start == -1) throw new IllegalStateException("No match available");
-                return this.start;
-            }
-
-            @Override public int
-            end() {
-                if (this.start == -1) throw new IllegalStateException("No match available");
-                return this.end;
-            }
-
-            @Override public boolean
-            matches() {
-                if (!Pattern.this.matches(subject, 0)) return false;
-                this.start = 0;
-                this.end   = subject.length();
-                return true;
-            }
-
-            @Override public boolean
-            find() {
-                for (; this.offset < subject.length(); this.offset++) {
-                    Match m = Pattern.this.node.bestMatch(subject, this.offset);
-                    if (m != null) {
-                        this.start  = this.offset;
-                        this.offset = (this.end = m.end);
-                        return true;
-                    }
-                }
-                this.start = -1;
-                return false;
-            }
-
-            @Override public boolean
-            lookingAt() {
-                
-                Match m = Pattern.this.node.bestMatch(subject, 0);
-                if (m == null) return false;
-                
-                this.start = 0;
-                this.end   = m.end;
-                return true;
-            }
-        };
-    }
-
-//    /**
-//     * @see java.util.regex.Pattern#flags()
-//     */
-//  public int flags();
-
-    /**
-     * @see java.util.regex.Pattern#matches(String, CharSequence)
-     * @see java.util.regex.Pattern#split(CharSequence, int)
-     * @see java.util.regex.Pattern#split(CharSequence)
-     * @see java.util.regex.Pattern#quote(String)
-     */
-    public static boolean
-    matches(String regex, CharSequence input) { return Pattern.compile(regex).matches(input, 0); }
-
-//    /**
-//     * @see java.util.regex.Pattern#split(CharSequence, int)
-//     */
-//  public String[] split(CharSequence input, int limit);
-//
-//    /**
-//     * @see java.util.regex.Pattern#split(CharSequence)
-//     */
-//  public String[] split(CharSequence input);
-//
-//    /**
-//     * @see java.util.regex.Pattern#quote(String)
-//     */
-//  public static String quote(String s);
-
-    /**
-     * @return Whether the suffix starting at position <var>offset</var> matches this pattern
-     */
-    public boolean
-    matches(CharSequence subject, int offset) {
-        for (Match m = Pattern.this.node.bestMatch(subject, offset); m != null; m = m.next()) {
-            if (m.end == subject.length()) return true;
-        }
-        return false;
+        }.parse();
     }
 }
