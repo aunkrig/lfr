@@ -32,8 +32,10 @@ import static de.unkrig.lfr.core.Pattern.TokenType.CAPTURING_GROUP_BACK_REFERENC
 import static de.unkrig.lfr.core.Pattern.TokenType.CC_ANY;
 import static de.unkrig.lfr.core.Pattern.TokenType.CC_INTERSECTION;
 import static de.unkrig.lfr.core.Pattern.TokenType.CC_JAVA;
+import static de.unkrig.lfr.core.Pattern.TokenType.CC_NEGATION;
 import static de.unkrig.lfr.core.Pattern.TokenType.CC_POSIX;
 import static de.unkrig.lfr.core.Pattern.TokenType.CC_PREDEFINED;
+import static de.unkrig.lfr.core.Pattern.TokenType.CC_RANGE;
 import static de.unkrig.lfr.core.Pattern.TokenType.CC_UNICODE;
 import static de.unkrig.lfr.core.Pattern.TokenType.EITHER_OR;
 import static de.unkrig.lfr.core.Pattern.TokenType.END_GROUP;
@@ -63,6 +65,7 @@ import static de.unkrig.lfr.core.Pattern.TokenType.RIGHT_BRACKET;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.EnumSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.regex.PatternSyntaxException;
@@ -83,6 +86,7 @@ class Pattern {
 
     private final String pattern;
     private final Node   node;
+    private int          groupCount;
 
     static { AssertionUtil.enableAssertionsForThisClass(); }
 
@@ -173,26 +177,38 @@ class Pattern {
         boolean lookingAt();
     }
 
-    // SUPPRESS CHECKSTYLE JavadocVariable:51
+    // SUPPRESS CHECKSTYLE JavadocVariable:59
     enum TokenType {
 
         // Literals.
         LITERAL_CHARACTER,
+        /** {@code \0}<var>nnn</var> */
         LITERAL_OCTAL,
+        /** {@code \x}<var>hh</var> <code>&#92;u</code><var>hhhh</var> <code>&#92;u{</code><var>hhhh</var><code>}</code> */
         LITERAL_HEXADECIMAL,
+        /** {@code \t \n \r \f \a \e \c}<var>x</var> */
         LITERAL_CONTROL,
 
         // Character classes.
+        /** {@code [} */
         LEFT_BRACKET,
+        /** {@code ]} */
         RIGHT_BRACKET,
+        /** {@code ^} */
+        CC_NEGATION,
+        /** {@code -} */
+        CC_RANGE,
+        /** {@code &&} */
         CC_INTERSECTION,
         CC_ANY,
+        /** {@code \d \D \h \H \s \S \v \V \w \W} */
         CC_PREDEFINED,
         CC_POSIX,
         CC_JAVA,
         CC_UNICODE,
 
         // Matchers.
+        /** {@code ^ $ \b \B \A \G \Z \z} */
         BOUNDARY_MATCHER,
         LINEBREAK_MATCHER,
 
@@ -204,26 +220,38 @@ class Pattern {
         // Logical operators.
         EITHER_OR,
         CAPTURING_GROUP,
+        /** {@code )} */
         END_GROUP,
+        /** {@code \}<var>d</var> */
         CAPTURING_GROUP_BACK_REFERENCE,
+        /** {@code \<}<var>name</var>{@code >} */
         NAMED_CAPTURING_GROUP_BACK_REFERENCE,
         NAMED_CAPTURING_GROUP,
         NON_CAPTURING_GROUP,
         INDEPENDENT_NON_CAPTURING_GROUP,
 
         // Quotations.
+        /** {@code \\ \}<var>x</var> */
         QUOTED_CHARACTER,
+        /** {@code \Q} */
         QUOTATION_BEGIN,
+        /** {@code \E} */
         QUOTATION_END,
 
         // Setting flags.
+        /** {@code (?i}<var>dmsuxU</var>{@code -}<var>idmsuxU</var>{@code )} */
         MATCH_FLAGS,
+        /** {@code (?}<var>idmsux</var>{@code -}<var>idmsux</var>{@code :}<var>X</var>{@code )} */
         MATCH_FLAGS_CAPTURING_GROUP,
 
         // Lookahead / lookbehind.
+        /** {@code (?=} */
         POSITIVE_LOOKAHEAD,
+        /** {@code (?!} */
         NEGATIVE_LOOKAHEAD,
+        /** {@code (?<=} */
         POSITIVE_LOOKBEHIND,
+        /** {@code (?<!} */
         NEGATIVE_LOOKBEHIND,
     }
 
@@ -236,8 +264,14 @@ class Pattern {
          * The offset within the subject where this match ended.
          */
         int end;
+        
+        /**
+         * The indices of all matched capturing group, as start-end pairs. "-1" indicates a missing group.
+         */
+        @Nullable int[] groups;
 
-        Match(int end) { this.end = end; }
+        Match(int end)    { this.end = end;                                 }
+        Match(Match that) { this.end = that.end; this.groups = that.groups; }
 
         @Nullable Match next() { return null; }
     }
@@ -256,7 +290,7 @@ class Pattern {
     }
 
     private abstract static 
-    class CharacterClassNode implements Node, Predicate<Character> {
+    class CcNode implements Node, Predicate<Character> {
 
         @Override @Nullable public final Match
         bestMatch(CharSequence subject, int offset) {
@@ -264,6 +298,16 @@ class Pattern {
         }
     }
 
+    public static
+    class CcNegation extends CcNode {
+
+        private final Predicate<Character> delegate;
+        
+        public CcNegation(Predicate<Character> delegate) { this.delegate = delegate; }
+        
+        @Override public boolean evaluate(Character subject) { return !this.delegate.evaluate(subject); }
+    }
+    
     static
     class Sequence implements Node {
 
@@ -290,6 +334,25 @@ class Pattern {
             final Match prefixMatch2 = prefixMatch, suffixMatch2 = suffixMatch;
             return new Match(suffixMatch.end) {
 
+                {
+                    int[] pmg = prefixMatch2.groups;
+                    int[] smg = suffixMatch2.groups;
+                    if (pmg != null) {
+                        if (smg != null) {
+                            assert pmg.length == smg.length;
+                            for (int i = 0; i < pmg.length; i++) {
+                                if (smg[i] != -1) {
+                                    assert pmg[i] == -1;
+                                    pmg[i] = smg[i];
+                                }
+                            }
+                        }
+                        this.groups = pmg;
+                    } else
+                    if (smg != null) {
+                        this.groups = smg;
+                    }
+                }
                 Match pm = prefixMatch2, sm = suffixMatch2;
 
                 @Override @Nullable public Match
@@ -331,39 +394,136 @@ class Pattern {
         }
     }
 
+    public
+    class CapturingGroup implements Node {
+
+        private final int  groupIndex;
+        private final Node subnode;
+
+        /**
+         * @param groupIndex 0==group 1, ...
+         */
+        public
+        CapturingGroup(int groupIndex, Node subnode) { this.groupIndex = groupIndex; this.subnode = subnode; }
+
+        @Override @Nullable public Match
+        bestMatch(CharSequence subject, final int offset) {
+            
+            final Match bm = this.subnode.bestMatch(subject, offset);
+            if (bm == null) return null;
+            
+            int[] gs = bm.groups;
+            if (gs == null) {
+                bm.groups = (gs = new int[groupCount * 2]);
+                Arrays.fill(gs, -1);
+            }
+            gs[2 * groupIndex]     = offset;
+            gs[2 * groupIndex + 1] = bm.end;
+            
+            return new Match(bm) {
+
+                @Override @Nullable Match
+                next() {
+                    final Match nm = bm.next();
+                    if (nm == null) return null;
+                    
+                    int[] gs = nm.groups;
+                    if (gs == null) {
+                        nm.groups = (gs = new int[groupCount * 2]);
+                    }
+                    gs[2 * groupIndex]     = offset;
+                    gs[2 * groupIndex + 1] = nm.end;
+                    
+                    return this;
+                }
+            };
+        }
+    }
+    
     /**
      * Representation of literal characters like "a" or "\.".
      */
     public static
-    class LiteralCharacter extends CharacterClassNode {
+    class CcLiteralCharacter extends CcNode {
 
         private char c;
 
         public
-        LiteralCharacter(char c) { this.c = c; }
+        CcLiteralCharacter(char c) { this.c = c; }
 
         @Override public boolean
         evaluate(Character subject) throws RuntimeException { return subject.equals(this.c); }
     }
+    
+    /**
+     * Representation of a character class intersection like {@code "\w&&[^abc]"}.
+     */
+    public static
+    class CcIntersection extends CcNode {
+        
+        private Predicate<Character> lhs, rhs;
+
+        public CcIntersection(Predicate<Character> lhs, Predicate<Character> rhs) { this.lhs = lhs; this.rhs = rhs; }
+        
+        @Override public boolean
+        evaluate(Character subject) { return this.lhs.evaluate(subject) && this.rhs.evaluate(subject); }
+    }
+    
+    /**
+     * Representation of a character class union like {@code "ab"}.
+     */
+    public static
+    class CcUnion extends CcNode {
+        
+        private Predicate<Character> lhs, rhs;
+        
+        public CcUnion(Predicate<Character> lhs, Predicate<Character> rhs) { this.lhs = lhs; this.rhs = rhs; }
+        
+        @Override public boolean
+        evaluate(Character subject) { return this.lhs.evaluate(subject) || this.rhs.evaluate(subject); }
+    }
+    
+    /**
+     * Representation of a character class range like {@code "a-k"}.
+     */
+    public static
+    class CcRange extends CcNode {
+        
+        private char lhs, rhs;
+        
+        public CcRange(char lhs, char rhs) { this.lhs = lhs; this.rhs = rhs; }
+        
+        @Override public boolean
+        evaluate(Character subject) { return subject >= this.lhs && subject <= this.rhs; }
+    }
 
     private
-    Pattern(String pattern, Node node) {
-        this.pattern = pattern;
-        this.node    = node;
+    Pattern(String pattern, RegexScanner rs) throws ParseException {
+        this.pattern    = pattern;
+        this.node       = this.parse(rs);
+        this.groupCount = rs.groupCount;
     }
+
+    static
+    class RegexScanner extends StatefulScanner<TokenType, State> {
         
+        int groupCount;
+        
+        public RegexScanner()                  { super(State.class); }
+        public RegexScanner(RegexScanner that) { super(that);        }
+    }
+
     /**
-     * This scanner is intended to be cloned by {@link StatefulScanner#StatefulScanner(StatefulScanner)} when a
-     * regex scanner is needed.
+     * This scanner is intended to be cloned by {@link RegexScanner#RegexScanner(RegexScanner)} when a regex scanner is
+     * needed.
      */
-    static final StatefulScanner<TokenType, State>
-    REGEX_SCANNER = new StatefulScanner<TokenType, State>(State.class);
+    static final RegexScanner REGEX_SCANNER = new RegexScanner();
     static {
         StatefulScanner<TokenType, State> ss = REGEX_SCANNER;
 
         // Characters
         // x         The character x
-        ss.addRule(ss.ANY_STATE, "[^\\\\\\[.\\^\\$\\(\\{\\*]",            LITERAL_CHARACTER,   null);
+        // See below: +++
         // \\        The backslash character
         ss.addRule(ss.ANY_STATE, "\\\\\\\\",                              QUOTED_CHARACTER,    null);
         // \0n       The character with octal value 0n (0 <= n <= 7)
@@ -376,34 +536,34 @@ class Pattern {
         ss.addRule(ss.ANY_STATE, "\\\\x[0-9a-fA-F]{2}",                   LITERAL_HEXADECIMAL, null);
         // \x{h...h} The character with hexadecimal value 0xh...h
         //                                    (Character.MIN_CODE_POINT  <= 0xh...h <=  Character.MAX_CODE_POINT)
-        // \cx The control character corresponding to x
         ss.addRule(ss.ANY_STATE, "\\\\x\\{[0-9a-fA-F]+}",                 LITERAL_HEXADECIMAL, null);
         // \t        The tab character ('/u0009')
         // \n        The newline (line feed) character ('/u000A')
         // \r        The carriage-return character ('/u000D')
         // \f        The form-feed character ('/u000C')
         // \a        The alert (bell) character ('/u0007')
-        ss.addRule(ss.ANY_STATE, "\\\\[tnrfae]",                          LITERAL_CONTROL,     null);
         // \e        The escape character ('/u001B')
+        ss.addRule(ss.ANY_STATE, "\\\\[tnrfae]",                          LITERAL_CONTROL,     null);
+        // \cx The control character corresponding to x
         ss.addRule(ss.ANY_STATE, "\\\\c[A-Za-z]",                         LITERAL_CONTROL,     null);
 
         // Character classes
         // [abc]       a, b, or c (simple class)
-        // [^abc]      Any character except a, b, or c (negation)
-        // [a-zA-Z]    a through z or A through Z, inclusive (range)
-        // [a-d[m-p]]  a through d, or m through p: [a-dm-p] (union)
         ss.addRule("\\[",                    LEFT_BRACKET,  State.CHAR_CLASS1);
         ss.addRule(State.CHAR_CLASS1, "\\[", LEFT_BRACKET,  State.CHAR_CLASS2);
         ss.addRule(State.CHAR_CLASS2, "\\[", LEFT_BRACKET,  State.CHAR_CLASS3);
         ss.addRule(State.CHAR_CLASS3, "]",   RIGHT_BRACKET, State.CHAR_CLASS2);
         ss.addRule(State.CHAR_CLASS2, "]",   RIGHT_BRACKET, State.CHAR_CLASS1);
         ss.addRule(State.CHAR_CLASS1, "]",   RIGHT_BRACKET);
+        // [^abc]      Any character except a, b, or c (negation)
+        ss.addRule(ss.ANY_STATE, "\\^", CC_NEGATION, null);
+        // [a-zA-Z]    a through z or A through Z, inclusive (range)
+        ss.addRule(EnumSet.allOf(State.class), "-", CC_RANGE, null);
+        // [a-d[m-p]]  a through d, or m through p: [a-dm-p] (union)
         // [a-z&&[def]]    d, e, or f (intersection)
         // [a-z&&[^bc]]    a through z, except for b and c: [ad-z] (subtraction)
         // [a-z&&[^m-p]]   a through z, and not m through p: [a-lq-z] (subtraction)
-        ss.addRule(State.CHAR_CLASS1, "&&", CC_INTERSECTION, State.CHAR_CLASS1);
-        ss.addRule(State.CHAR_CLASS2, "&&", CC_INTERSECTION, State.CHAR_CLASS2);
-        ss.addRule(State.CHAR_CLASS3, "&&", CC_INTERSECTION, State.CHAR_CLASS3);
+        ss.addRule(EnumSet.allOf(State.class), "&&", CC_INTERSECTION, null);
 
         // Predefined character classes
         // .   Any character (may or may not match line terminators)
@@ -517,10 +677,10 @@ class Pattern {
         // \   Nothing, but quotes the following character
         // \Q  Nothing, but quotes all characters until \E
         // \E  Nothing, but ends quoting started by \Q
-        ss.addRule(ss.ANY_STATE, "\\\\[^0-9A-Za-z]",    QUOTED_CHARACTER,  null);
-        ss.addRule("\\\\Q",                     QUOTATION_BEGIN,   State.IN_QUOTATION);
-        ss.addRule(State.IN_QUOTATION, "\\\\E", QUOTATION_END,     State.IN_QUOTATION);
-        ss.addRule(State.IN_QUOTATION, ".",     LITERAL_CHARACTER, State.IN_QUOTATION);
+        ss.addRule(ss.ANY_STATE,       "\\\\[^0-9A-Za-z]", QUOTED_CHARACTER,  null);
+        ss.addRule("\\\\Q",                                QUOTATION_BEGIN,   State.IN_QUOTATION);
+        ss.addRule(State.IN_QUOTATION, "\\\\E",            QUOTATION_END,     State.IN_QUOTATION);
+        ss.addRule(State.IN_QUOTATION, ".",                LITERAL_CHARACTER, State.IN_QUOTATION);
 
         // "Special constructs (named-capturing and non-capturing)"
         // Special constructs (named-capturing and non-capturing)
@@ -536,15 +696,85 @@ class Pattern {
         ss.addRule("\\(\\?<\\w+>",                         NAMED_CAPTURING_GROUP);
         ss.addRule("\\(\\?:",                              NON_CAPTURING_GROUP);
         ss.addRule("\\(\\?[idmsuxU]*(?:-[idmsuxU]*)(?!:)", MATCH_FLAGS);
-        ss.addRule("\\(\\?[idmsuxU]*(?:-[idmsuxU]*):",     MATCH_FLAGS_CAPTURING_GROUP);
+        ss.addRule("\\(\\?[idmsux]*(?:-[idmsux]*):",       MATCH_FLAGS_CAPTURING_GROUP);
         ss.addRule("\\(\\?=",                              POSITIVE_LOOKAHEAD);
         ss.addRule("\\(\\?!",                              NEGATIVE_LOOKAHEAD);
         ss.addRule("\\(\\?<=",                             POSITIVE_LOOKBEHIND);
         ss.addRule("\\(\\?<!",                             NEGATIVE_LOOKBEHIND);
         ss.addRule("\\(\\?",                               INDEPENDENT_NON_CAPTURING_GROUP);
 
-        ss.addRule(ss.ANY_STATE, ".", LITERAL_CHARACTER, null);
+        ss.addRule(ss.ANY_STATE, ".", LITERAL_CHARACTER, null); // +++
     }
+
+    // ============================== CC NODES FOR "PREDEFINED CHARACTER CLASSES" ==============================
+    
+    /**  A digit: [0-9] */
+    static final CcNode
+    CC_NODE_IS_DIGIT = new CcNode() {
+        @Override public boolean evaluate(Character subject) { return Character.isDigit(subject); }
+    };
+    
+    /**  A non-digit: [^0-9] */
+    static final CcNode
+    CC_NODE_IS_NON_DIGIT = new CcNegation(CC_NODE_IS_DIGIT);
+    
+    /**  A horizontal whitespace character: <code>[ \t\xA0&#92;u1680&#92;u180e&#92;u2000-&#92;u200a&#92;u202f&#92;u205f&#92;u3000]</code> */
+    static final CcNode
+    CC_NODE_IS_HORIZONTAL_WHITESPACE = new CcNode() {
+        @Override public boolean
+        evaluate(Character subject) {
+            return (
+                "\t\u00A0\u1680\u180e\u202f\u205f\u3000".indexOf(subject) != -1
+                || (subject >= '\u2000' && subject <= '\u200a')
+            );
+        }
+    };
+    
+    /**  A non-horizontal whitespace character: [^\h] */
+    static final CcNode
+    CC_NODE_IS_NON_HORIZONTAL_WHITESPACE  = new CcNegation(CC_NODE_IS_HORIZONTAL_WHITESPACE);
+    
+    /**  A whitespace character: [ \t\n\x0B\f\r] */
+    static final CcNode
+    CC_NODE_IS_WHITESPACE = new CcNode() {
+        @Override public boolean evaluate(Character subject) { return " \t\n\u000B\f\r".indexOf(subject) != -1; }
+    };
+    
+    /**  A non-whitespace character: [^\s] */
+    static final CcNode
+    CC_NODE_IS_NON_WHITESPACE = new CcNegation(CC_NODE_IS_WHITESPACE);
+    
+    /**  A vertical whitespace character: [\n\x0B\f\r\x85/u2028/u2029] */
+    static final CcNode
+    CC_NODE_IS_VERTICAL_WHITESPACE = new CcNode() {
+        @Override public boolean
+        evaluate(Character subject) { return "\n\u000B\f\r\u0085\u2028\u2029".indexOf(subject) != -1; }
+    };
+    
+    /**  A non-vertical whitespace character: [^\v] */
+    static final CcNode
+    CC_NODE_IS_NON_VERTICAL_WHITESPACE = new CcNegation(CC_NODE_IS_VERTICAL_WHITESPACE);
+    
+    /**  A word character: [a-zA-Z_0-9] */
+    static final CcNode
+    CC_NODE_IS_WORD = new CcNode() {
+        @Override public boolean
+        evaluate(Character subject) {
+            return (
+                (subject >= '0' && subject <= '9')
+                || (subject >= 'A' && subject <= 'Z')
+                || (subject >= 'a' && subject <= 'z')
+            );
+        }
+    };
+    
+    /**  A non-word character: [^\w] */
+    static final CcNode
+    CC_NODE_IS_NON_WORD = new CcNegation(CC_NODE_IS_WORD);
+
+    public static final Node EMPTY_SEQUENCE = new Node() {
+        @Override public Match bestMatch(CharSequence subject, int offset) { return new Match(offset); }
+    };
 
     /**
      * @see java.util.regex.Pattern#compile(String)
@@ -552,14 +782,13 @@ class Pattern {
     public static Pattern
     compile(String regex) throws PatternSyntaxException {
 
-
-        StatefulScanner<TokenType, State> ss = new StatefulScanner<TokenType, State>(REGEX_SCANNER);
+        RegexScanner rs = new RegexScanner(REGEX_SCANNER);
 
         try {
-            ss.setInput(regex);
-            return new Pattern(regex, Pattern.parse(ss));
+            rs.setInput(regex);
+            return new Pattern(regex, rs);
         } catch (ParseException pe) {
-            PatternSyntaxException pse = new PatternSyntaxException(pe.getMessage(), regex, ss.getOffset());
+            PatternSyntaxException pse = new PatternSyntaxException(pe.getMessage(), regex, rs.getOffset());
             pse.initCause(pe);
             throw pse;
         }
@@ -646,11 +875,12 @@ class Pattern {
 
             @Override public boolean
             find() {
-                for (; this.offset < this.subject2.length(); this.offset++) {
+                for (; this.offset <= this.subject2.length(); this.offset++) {
                     Match m = this.pattern.node.bestMatch(this.subject2, this.offset);
                     if (m != null) {
                         this.start  = this.offset;
                         this.offset = (this.end = m.end);
+                        if (this.start == this.end) this.offset++;
                         return true;
                     }
                 }
@@ -720,10 +950,10 @@ class Pattern {
     /**
      * Parses a regular expression into a tree of nodes.
      */
-    private static Node
-    parse(StatefulScanner<TokenType, State> ss) throws ParseException {
+    private Node
+    parse(final RegexScanner rs) throws ParseException {
 
-        return new AbstractParser<TokenType>(ss) {
+        return new AbstractParser<TokenType>(rs) {
 
             public Node
             parse() throws ParseException { return this.parseAlternatives(); }
@@ -744,11 +974,11 @@ class Pattern {
             private Node
             parseSequence() throws ParseException {
 
-                if (this.peek() == null || this.peekRead("|")) return new Node() {
-                    @Override public Match bestMatch(CharSequence subject, int offset) { return new Match(offset); }
-                };
+                if (this.peek() == null || this.peekRead("|")) return EMPTY_SEQUENCE;
 
-                return new Sequence(this.parseQuantified(), this.parseSequence());
+                Node result = this.parseQuantified();
+                while (this.peek(null, "|", ")") == -1) result = new Sequence(result, this.parseQuantified());
+                return result;
             }
             
             private Node
@@ -789,8 +1019,8 @@ class Pattern {
                         if (idx1 == -1) {
                             min = (max = Integer.parseInt(t.text.substring(1, idx2)));
                         } else {
-                            min = Integer.parseInt(t.text.substring(1, idx1));
-                            max = Integer.parseInt(t.text.substring(idx1 + 1, idx2));
+                            min = Integer.parseInt(t.text.substring(1, idx1++));
+                            max = idx1 == idx2 ? Integer.MAX_VALUE : Integer.parseInt(t.text.substring(idx1, idx2));
                         }
                         break;
                     default:
@@ -812,6 +1042,7 @@ class Pattern {
 
                                     @Override @Nullable public Match
                                     next() {
+                                        if (this.i < 0) return null;
                                         for (;;) {
                                             this.state[this.i] = (
                                                 this.state[this.i] == null
@@ -822,7 +1053,7 @@ class Pattern {
                                                 : this.state[this.i].next()
                                             );
                                             if (this.state[this.i] != null) {
-                                                if (this.i == max) {
+                                                if (this.i + 1 >= max) {
                                                     this.end = this.state[this.i].end;
                                                     return this;
                                                 }
@@ -831,11 +1062,10 @@ class Pattern {
                                                     this.state = Arrays.copyOf(this.state, 2 * this.i);
                                                 }
                                             } else {
-                                                if (this.i == 0) return null;
-                                                if (this.i >= min) {
-                                                    this.end = this.state[--this.i].end;
-                                                    return this;
-                                                }
+                                                if (this.i < min) return null;
+                                                this.end = this.i == 0 ? offset : this.state[this.i - 1].end;
+                                                i--;
+                                                return this;
                                             }
                                         }
                                     }
@@ -915,7 +1145,14 @@ class Pattern {
             private Node
             parsePrimary() throws ParseException {
                 Node result = this.parseOptionalPrimary();
-                if (result == null) throw new ParseException("Primary expected");
+                if (result == null) {
+                    Token<TokenType> t = this.peek();
+                    throw new ParseException((
+                        t == null
+                        ? "Primary expected instead of end-of-input"
+                        : "Primary expected instead of \"" + t + "\" (" + t.type + ")"
+                    ));
+                }
                 return result;
             }
 
@@ -928,33 +1165,16 @@ class Pattern {
                 switch (t.type) {
 
                 case LITERAL_CHARACTER:
-                    this.read();
-                    return new LiteralCharacter(t.text.charAt(0));
-
                 case LITERAL_CONTROL:
-                    this.read();
-                    {
-                        int idx = "ctnrfae".indexOf(t.text.charAt(1));
-                        assert idx != -1;
-                        if (idx == 0) return new LiteralCharacter((char) (t.text.charAt(2) & 0x1f));
-                        return new LiteralCharacter("c\t\n\r\f\u0007\u001b".charAt(idx));
-                    }
-
                 case LITERAL_HEXADECIMAL:
-                    this.read();
-                    return new LiteralCharacter((char) Integer.parseInt(
-                        t.text.charAt(2) == '{'
-                        ? t.text.substring(3, t.text.length() - 1)
-                        : t.text.substring(2)
-                    ));
-
                 case LITERAL_OCTAL:
-                    this.read();
-                    return new LiteralCharacter((char) Integer.parseInt(t.text.substring(2, 8)));
+                case LEFT_BRACKET:
+                case CC_PREDEFINED:
+                    return this.parseCharacterClass();
 
                 case CC_ANY:
                     this.read();
-                    return new CharacterClassNode() {
+                    return new CcNode() {
                         @Override public boolean evaluate(Character subject) throws RuntimeException { return true; }
                     };
 
@@ -969,38 +1189,127 @@ class Pattern {
 
                 case QUOTED_CHARACTER:
                     this.read();
-                    return new LiteralCharacter(t.text.charAt(1));
+                    return new CcLiteralCharacter(t.text.charAt(1));
 
                 case QUOTATION_BEGIN:
-                    this.read();
-                    Node result = this.parseSequence();
-                    if (this.peek() != null) this.read(TokenType.QUOTATION_END);
-                    return result;
+                    {
+                        this.read();
+                        Node result = this.parseSequence();
+                        if (this.peek() != null) this.read(TokenType.QUOTATION_END);
+                        return result;
+                    }
+                    
+                case CAPTURING_GROUP:
+                    {
+                        this.read();
+                        Node result = new CapturingGroup(rs.groupCount++, parseAlternatives());
+                        this.read(")");
+                        return result;
+                    }
                     
                 case BOUNDARY_MATCHER:
-                case CAPTURING_GROUP:
-                case CAPTURING_GROUP_BACK_REFERENCE:
                 case CC_INTERSECTION:
                 case CC_JAVA:
                 case CC_POSIX:
-                case CC_PREDEFINED:
                 case CC_UNICODE:
                 case INDEPENDENT_NON_CAPTURING_GROUP:
-                case LEFT_BRACKET:
                 case LINEBREAK_MATCHER:
                 case MATCH_FLAGS:
                 case MATCH_FLAGS_CAPTURING_GROUP:
                 case NAMED_CAPTURING_GROUP:
+                case CAPTURING_GROUP_BACK_REFERENCE:
                 case NAMED_CAPTURING_GROUP_BACK_REFERENCE:
                 case NEGATIVE_LOOKAHEAD:
                 case NEGATIVE_LOOKBEHIND:
                 case NON_CAPTURING_GROUP:
                 case POSITIVE_LOOKAHEAD:
                 case POSITIVE_LOOKBEHIND:
-                    throw new ParseException("\"" + t.text + "\" is not yet implemented");
+                    throw new ParseException("\"" + t + "\" (" + t.type + ") is not yet implemented");
+                    
+                case CC_NEGATION:
+                case CC_RANGE:
+                    throw new AssertionError(t);
+                    
+                default:
+                    break;
                 }
 
                 throw new AssertionError(t);
+            }
+            
+            CcNode
+            parseCharacterClass() throws ParseException {
+                Token<TokenType> t = read();
+                switch (t.type) {
+                    
+                case LITERAL_CHARACTER:
+                    return new CcLiteralCharacter(t.text.charAt(0));
+    
+                case LITERAL_CONTROL:
+                    {
+                        int idx = "ctnrfae".indexOf(t.text.charAt(1));
+                        assert idx != -1;
+                        if (idx == 0) return new CcLiteralCharacter((char) (t.text.charAt(2) & 0x1f));
+                        return new CcLiteralCharacter("c\t\n\r\f\u0007\u001b".charAt(idx));
+                    }
+    
+                case LITERAL_HEXADECIMAL:
+                    return new CcLiteralCharacter((char) Integer.parseInt(
+                        t.text.charAt(2) == '{'
+                        ? t.text.substring(3, t.text.length() - 1)
+                        : t.text.substring(2)
+                    ));
+    
+                case LITERAL_OCTAL:
+                    return new CcLiteralCharacter((char) Integer.parseInt(t.text.substring(2, 8)));
+                    
+                case LEFT_BRACKET:
+                    boolean negate = peekRead("^");
+                    CcNode  op     = parseCcIntersection();
+                    read("]");
+                    return negate ? new CcNegation(op) : op;
+                    
+                case CC_PREDEFINED:
+                    switch (t.text.charAt(1)) {
+                    case 'd': return CC_NODE_IS_DIGIT;
+                    case 'D': return CC_NODE_IS_NON_DIGIT;
+                    case 'h': return CC_NODE_IS_HORIZONTAL_WHITESPACE;
+                    case 'H': return CC_NODE_IS_NON_HORIZONTAL_WHITESPACE;
+                    case 's': return CC_NODE_IS_WHITESPACE;
+                    case 'S': return CC_NODE_IS_NON_WHITESPACE;
+                    case 'v': return CC_NODE_IS_VERTICAL_WHITESPACE;
+                    case 'V': return CC_NODE_IS_NON_VERTICAL_WHITESPACE;
+                    case 'w': return CC_NODE_IS_WORD;
+                    case 'W': return CC_NODE_IS_NON_WORD;
+                    default:  throw new AssertionError(t);
+                    }
+    
+                default:
+                    throw new ParseException("Character class expected instead of \"" + t + "\" (" + t.type + ")");
+                }
+            }
+
+            private CcNode
+            parseCcIntersection() throws ParseException {
+                CcNode result = parseCcUnion();
+                while (peekRead("&&")) result = new CcIntersection(result, parseCcUnion());
+                return result;
+            }
+
+            private CcNode
+            parseCcUnion() throws ParseException {
+                CcNode result = parseCcRange();
+                while (peek("]", "&&") == -1) result = new CcUnion(result, parseCcRange());
+                return result;
+            }
+
+            private CcNode
+            parseCcRange() throws ParseException {
+                String lhs = peekRead(LITERAL_CHARACTER);
+                if (lhs == null) return parseCharacterClass();
+                if (!peekRead("-")) return new CcLiteralCharacter(lhs.charAt(0));
+                String rhs = read(LITERAL_CHARACTER);
+                return new CcRange(lhs.charAt(0), rhs.charAt(0));
             }
         }.parse();
     }
