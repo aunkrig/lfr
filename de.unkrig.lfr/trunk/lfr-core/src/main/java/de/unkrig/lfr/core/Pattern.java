@@ -184,7 +184,7 @@ class Pattern {
         LITERAL_CHARACTER,
         /** {@code \0}<var>nnn</var> */
         LITERAL_OCTAL,
-        /** {@code \x}<var>hh</var> <code>&#92;u</code><var>hhhh</var> <code>&#92;u{</code><var>hhhh</var><code>}</code> */
+        /** {@code \x}<var>hh</var> <code>&#92;u</code><var>hhhh</var> <code>&#92;u{</code><var>hhhh</var><code>}</code> */ // SUPPRESS CHECKSTYLE LineLength
         LITERAL_HEXADECIMAL,
         /** {@code \t \n \r \f \a \e \c}<var>x</var> */
         LITERAL_CONTROL,
@@ -272,9 +272,9 @@ class Pattern {
 
         Match(int groupCount, CharSequence subject, int offset) {
             this.subject = subject;
-            this.offset = offset;
-            this.groups  = new int[groupCount * 2 + 1];
-            Arrays.fill(this.groups, 0, groupCount * 2, -1);
+            this.offset  = offset;
+            this.groups  = new int[groupCount * 2 + 3];
+            Arrays.fill(this.groups, 0, groupCount * 2 + 2, -1);
         }
 
         Match(Match that) {
@@ -292,6 +292,9 @@ class Pattern {
 
         boolean
         atEnd() { return this.offset >= this.subject.length(); }
+
+        public int
+        remaining() { return this.subject.length() - this.offset; }
 
         Match
         setFrom(Match that) {
@@ -311,23 +314,29 @@ class Pattern {
             }
         }
 
+        /**
+         * @param groupNumber 0...<var>groupCount</var>
+         */
         public Match
-        setGroupStart(int groupIndex) {
+        setGroupStart(int groupNumber) {
             if (this.isGroupsShared()) {
                 this.groups = Arrays.copyOf(this.groups, this.groups.length);
                 this.setGroupsShared(false);
             }
-            this.groups[2 * groupIndex] = this.offset;
+            this.groups[2 * groupNumber] = this.offset;
             return this;
         }
 
+        /**
+         * @param groupNumber 0...<var>groupCount</var>
+         */
         public Match
-        setGroupEnd(int groupIndex) {
+        setGroupEnd(int groupNumber) {
             if (this.isGroupsShared()) {
                 this.groups = Arrays.copyOf(this.groups, this.groups.length);
                 this.setGroupsShared(false);
             }
-            this.groups[2 * groupIndex + 1] = this.offset;
+            this.groups[2 * groupNumber + 1] = this.offset;
             return this;
         }
 
@@ -382,14 +391,14 @@ class Pattern {
         @Override @Nullable public Match
         bestMatch(Match match) {
 
-            Match prefixMatch = this.prefix.bestMatch(match.clone());
+            Match prefixMatch = this.prefix.bestMatch(match);
             if (prefixMatch == null) return null;
 
-            Match suffixMatch = this.suffix.bestMatch(prefixMatch.clone());
+            Match suffixMatch = this.suffix.bestMatch(prefixMatch);
             while (suffixMatch == null) {
                 prefixMatch = prefixMatch.next();
                 if (prefixMatch == null) return null;
-                suffixMatch = this.suffix.bestMatch(prefixMatch.clone());
+                suffixMatch = this.suffix.bestMatch(prefixMatch);
             }
 
             final Match prefixMatch2 = prefixMatch, suffixMatch2 = suffixMatch;
@@ -430,7 +439,7 @@ class Pattern {
         bestMatch(Match match) {
             Iterator<Node> it = this.alternatives.iterator();
             while (it.hasNext()) {
-                Match m = it.next().bestMatch(match.clone());
+                Match m = it.next().bestMatch(new Match(match));
                 if (m != null) return m;
             }
             return null;
@@ -440,19 +449,19 @@ class Pattern {
     public
     class CapturingGroup implements Node {
 
-        private final int  groupIndex;
+        private final int  groupNumber;
         private final Node subnode;
 
         /**
-         * @param groupIndex 0==group 1, ...
+         * @param groupNumber 0...<var>groupCount</var>
          */
         public
-        CapturingGroup(int groupIndex, Node subnode) { this.groupIndex = groupIndex; this.subnode = subnode; }
+        CapturingGroup(int groupNumber, Node subnode) { this.groupNumber = groupNumber; this.subnode = subnode; }
 
         @Override @Nullable public Match
         bestMatch(Match match) {
 
-            match.setGroupStart(this.groupIndex);
+            match.setGroupStart(this.groupNumber);
 
             final Match bm = this.subnode.bestMatch(match);
             if (bm == null) return null;
@@ -466,7 +475,7 @@ class Pattern {
                     if (nm == null) return null;
 
                     this.setFrom(nm);
-                    this.setGroupEnd(CapturingGroup.this.groupIndex);
+                    this.setGroupEnd(CapturingGroup.this.groupNumber);
 
                     return this;
                 }
@@ -543,8 +552,8 @@ class Pattern {
 
         int groupCount;
 
-        public RegexScanner()                  { super(State.class); }
-        public RegexScanner(RegexScanner that) { super(that);        }
+        RegexScanner()                  { super(State.class); }
+        RegexScanner(RegexScanner that) { super(that);        }
     }
 
     /**
@@ -666,12 +675,12 @@ class Pattern {
         ss.addRule("\r\n|[\n\u000B\u000C\r\u0085\u2028\u2029]", LINEBREAK_MATCHER);
 
         // Greedy quantifiers
-        // X?      X, once or not at all
-        // X*      X, zero or more times
-        // X+      X, one or more times
-        // X{n}    X, exactly n times
-        // X{n,}   X, at least n times
-        // X{n,m}  X, at least n but not more than m times
+        // X?         X, once or not at all
+        // X*         X, zero or more times
+        // X+         X, one or more times
+        // X{n}       X, exactly n times
+        // X{min,}    X, at least n times
+        // X{min,max} X, at least n but not more than m times
         ss.addRule("(?:\\?|\\*|\\+|\\{\\d+(?:,(?:\\d+)?)?})(?![?+])", GREEDY_QUANTIFIER);
 
         // Reluctant quantifiers
@@ -752,7 +761,7 @@ class Pattern {
     static final CcNode
     CC_NODE_IS_NON_DIGIT = new CcNegation(CC_NODE_IS_DIGIT);
 
-    /**  A horizontal whitespace character: <code>[ \t\xA0&#92;u1680&#92;u180e&#92;u2000-&#92;u200a&#92;u202f&#92;u205f&#92;u3000]</code> */
+    /**  A horizontal whitespace character: <code>[ \t\xA0&#92;u1680&#92;u180e&#92;u2000-&#92;u200a&#92;u202f&#92;u205f&#92;u3000]</code> */ // SUPPRESS CHECKSTYLE LineLength
     static final CcNode
     CC_NODE_IS_HORIZONTAL_WHITESPACE = new CcNode() {
         @Override public boolean
@@ -856,6 +865,7 @@ class Pattern {
             private Pattern      pattern = Pattern.this;
             private int          offset;
             private int          start = -1, end;
+            private boolean      atEndAfterZeroLengthMatch;
 
             @Override public Pattern
             pattern() { return Pattern.this; }
@@ -914,13 +924,22 @@ class Pattern {
             @Override public boolean
             find(int start) {
 
+                if (this.atEndAfterZeroLengthMatch) return false;
+                
                 for (Match m = new Match(Pattern.this.groupCount, subject, start);;) {
 
+                    this.start  = m.offset;
+                    
                     Match m2 = this.pattern.node.bestMatch(m);
                     if (m2 != null) {
-                        this.start  = start;
                         this.offset = (this.end = m2.offset);
-                        if (this.start == this.end) m.read();
+                        if (this.start == this.end) {
+                            if (m.atEnd()) {
+                                this.atEndAfterZeroLengthMatch = true;
+                            } else {
+                                this.offset++;
+                            }
+                        }
                         return true;
                     }
 
@@ -1077,37 +1096,30 @@ class Pattern {
                         return new Node() {
 
                             @Override @Nullable public Match
-                            bestMatch(Match match) {
+                            bestMatch(final Match match) {
 
                                 return new Match(match) {
 
-                                    Match[] state = new Match[Math.min(max, 10)];
-                                    int     i;
+                                    int remaining;
+                                    
+                                    /** The previous match, or {@code null} to indicate the initial state. */
+                                    @Nullable Match previous;
 
-                                    @Override @Nullable public Match
+                                    @Override @Nullable Match
                                     next() {
-                                        if (this.i < 0) return null;
-                                        for (;;) {
-                                            this.state[this.i] = (
-                                                this.state[this.i] == null
-                                                ? op.bestMatch(this.clone())
-                                                : this.state[this.i].next()
-                                            );
-                                            if (this.state[this.i] != null) {
-                                                if (this.i + 1 >= max) {
-                                                    return this.setFrom(this.state[this.i]);
-                                                }
-                                                this.i++;
-                                                if (this.i >= this.state.length) {
-                                                    this.state = Arrays.copyOf(this.state, 2 * this.i);
-                                                }
-                                            } else {
-                                                if (this.i < min) return null;
-                                                this.i--;
-                                                if (this.i >= 0) this.setFrom(this.state[this.i - 1]);
-                                                return this;
-                                            }
+                                        
+                                        Match m = this.previous;
+                                        m = (
+                                            m == null
+                                            ? matchOccurrences(new Match(match), op, min, max, this.remaining)
+                                            : m.next()
+                                        );
+                                        
+                                        while (m == null) {
+                                            if (this.remaining >= match.remaining()) return null;
+                                            m = matchOccurrences(new Match(match), op, min, max, ++this.remaining);
                                         }
+                                        return this.setFrom((this.previous = m));
                                     }
                                 }.next();
                             }
@@ -1117,35 +1129,26 @@ class Pattern {
                         return new Node() {
 
                             @Override @Nullable public Match
-                            bestMatch(Match match) {
+                            bestMatch(final Match match) {
 
                                 return new Match(match) {
 
-                                    int     curr  = min;
-                                    Match[] state = new Match[this.curr];
-                                    int     i;
+                                    int remaining = match.remaining();
+                                    @Nullable Match previous;
 
-                                    @Override @Nullable public Match
+                                    @Override @Nullable Match
                                     next() {
-                                        for (;;) {
-                                            if (this.i == this.curr) {
-                                                if (this.curr == max) return null;
-                                                if (this.i > 0) this.setFrom(this.state[this.i - 1]);
-                                                this.state = new Match[++this.curr];
-                                                this.i     = 0;
-                                                return this;
-                                            }
-                                            if (this.state[this.i] == null) {
-                                                this.state[this.i] = (
-                                                    op.bestMatch(this.i == 0 ? this : this.state[this.i - 1])
-                                                );
-                                                if (this.state[this.i] != null) {
-                                                    this.i++;
-                                                } else {
-                                                    if (--this.i < 0) return null;
-                                                }
-                                            }
+                                        
+                                        Match m = this.previous;
+                                        if (m != null) m = m.next();
+                                        
+                                        while (m == null) {
+                                            if (this.remaining < 0) return null;
+                                            this.setFrom(match);
+                                            m = matchOccurrences(new Match(match), op, min, max, this.remaining--);
                                         }
+                                        this.setFrom((this.previous = m));
+                                        return this;
                                     }
                                 }.next();
                             }
@@ -1157,7 +1160,7 @@ class Pattern {
                             @Override @Nullable public Match
                             bestMatch(Match match) {
 
-                                Match m = match.clone();
+                                Match m = match;
 
                                 int i = 0;
                                 for (; i < min; i++) {
@@ -1165,8 +1168,9 @@ class Pattern {
                                     if (m == null) return null;
                                 }
                                 for (; i < max; i++) {
-                                    m = op.bestMatch(m);
-                                    if (m == null) return match;
+                                    Match m2 = op.bestMatch(new Match(m));
+                                    if (m2 == null) return m;
+                                    m = m2;
                                 }
 
                                 return m;
@@ -1180,6 +1184,102 @@ class Pattern {
                 default:
                     return op;
                 }
+            }
+
+            /**
+             * @return All matches of <var>min</var>...<var>max</var> occurrences of <var>op</var> that leave exactly
+             *         <var>remaining</var> characters
+             */
+            @Nullable private Match
+            matchOccurrences(
+                final Match originalState,
+                final Node  op,
+                final int   min,
+                final int   max,
+                final int   remaining
+            ) {
+                
+                return new Match(originalState) {
+
+                    /**
+                     * {@code state[x]} is the previous match of x occurrences, or {@code null} to indicate that the
+                     * xth occurrence has not been matched yet.
+                     */
+                    Match[] state = new Match[Math.min(max, 10)];
+                    
+                    int occurrences;
+    
+                    @Override @Nullable public Match
+                    next() {
+                        for (;;) {
+                            if (this.occurrences >= this.state.length) {
+                                this.state = Arrays.copyOf(this.state, this.occurrences + 5);
+                            }
+                            
+                            if (this.state[this.occurrences] == null) {
+                                
+                                // <occurrences> occurrences have not been tried yet.
+                                this.state[this.occurrences] = (
+                                    this.occurrences == 0
+                                    ? originalState
+                                    : op.bestMatch(this.state[this.occurrences - 1])
+                                );
+                                if (this.state[this.occurrences] == null) {
+                                    this.occurrences--;
+                                    if (this.occurrences < 0) return null;
+                                } else {
+                                    if (this.state[this.occurrences].remaining() < remaining) {
+                                        ;
+                                    } else
+                                    if (this.occurrences >= max) {
+                                        if (this.state[this.occurrences].remaining() == remaining) {
+                                            this.setFrom(this.state[this.occurrences]);
+                                            return this;
+                                        }
+                                    } else
+                                    {
+                                        if (
+                                            this.occurrences >= min
+                                            && this.state[this.occurrences].remaining() == remaining
+                                        ) {
+                                            this.setFrom(this.state[this.occurrences]);
+                                            return this;
+                                        }
+                                        this.occurrences++;
+                                    }
+                                }
+                            } else {
+                                
+                                // Examine next match of <occurrences> occurrences.
+                                this.state[this.occurrences] = this.state[this.occurrences].next();
+                                if (this.state[this.occurrences] == null) {
+                                    this.occurrences--;
+                                    if (this.occurrences < 0) return null;
+                                } else {
+                                    if (this.state[this.occurrences].remaining() < remaining) {
+                                        ;
+                                    } else
+                                    if (this.occurrences >= max) {
+                                        if (this.state[this.occurrences].remaining() == remaining) {
+                                            this.setFrom(this.state[this.occurrences]);
+                                            return this;
+                                        }
+                                    } else
+                                    {
+                                        if (
+                                            this.occurrences >= min
+                                            && this.state[this.occurrences].remaining() == remaining
+                                        ) {
+                                            this.setFrom(this.state[this.occurrences]);
+                                            return this;
+                                        }
+                                        this.occurrences++;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }.next();
             }
 
             private Node
@@ -1242,7 +1342,7 @@ class Pattern {
                 case CAPTURING_GROUP:
                     {
                         this.read();
-                        Node result = new CapturingGroup(rs.groupCount++, this.parseAlternatives());
+                        Node result = new CapturingGroup(++rs.groupCount, this.parseAlternatives());
                         this.read(")");
                         return result;
                     }
