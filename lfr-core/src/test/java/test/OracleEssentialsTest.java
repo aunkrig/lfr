@@ -45,12 +45,12 @@ class OracleEssentialsTest {
         harness("foo", "foofoofoo");
         harness("cat.", "cats");
     }
-    
+
     @Test public void
     testSimpleClasses() {
         harness("[bcr]at", "bat");
     }
-    
+
     @Test public void
     testNegation() {
         harness("[^bcr]at", "bat");
@@ -58,7 +58,7 @@ class OracleEssentialsTest {
         harness("[^bcr]at", "rat");
         harness("[^bcr]at", "hat");
     }
-    
+
     @Test public void
     testRanges() {
         harness("[a-c]", "a");
@@ -71,7 +71,7 @@ class OracleEssentialsTest {
         harness("foo[^1-5]", "foo1");
         harness("foo[^1-5]", "foo6");
     }
-    
+
     @Test public void
     testUnions() {
         harness("[0-4[6-8]]", "0");
@@ -80,7 +80,7 @@ class OracleEssentialsTest {
         harness("[0-4[6-8]]", "8");
         harness("[0-4[6-8]]", "9");
     }
-    
+
     @Test public void
     testIntersections() {
         harness("[2-8&&[4-6]]", "3");
@@ -89,7 +89,7 @@ class OracleEssentialsTest {
         harness("[2-8&&[4-6]]", "6");
         harness("[2-8&&[4-6]]", "7");
     }
-    
+
     @Test public void
     testSubtractions() {
         harness("[0-9&&[^345]]", "2");
@@ -99,7 +99,7 @@ class OracleEssentialsTest {
         harness("[0-9&&[^345]]", "6");
         harness("[0-9&&[^345]]", "9");
     }
-    
+
     /**
      * @see <a href="https://docs.oracle.com/javase/tutorial/essential/regex/pre_char_classes.html">Essential Classes:
      * Lesson: Regular Expressions: Predefined Character Classes</a>
@@ -122,7 +122,7 @@ class OracleEssentialsTest {
         harness("\\W", "a");
         harness("\\W", "!");
     }
-    
+
     /**
      * @see <a href="https://docs.oracle.com/javase/tutorial/essential/regex/quant.html">Essential Classes:
      * Lesson: Regular Expressions: Quantifiers</a>
@@ -152,27 +152,33 @@ class OracleEssentialsTest {
         harness("a{3,}",  "aaaaaaaaa");
         harness("a{3,6}", "aaaaaaaaa");
     }
-    
+
     @Test public void
     testCapturingGroupsAndCharacterClassesWithQuantifiers() {
         harness("(dog){3}", "dogdogdogdogdogdog");
         harness("dog{3}",   "dogdogdogdogdogdog");
         harness("[abc]{3}", "abccabaaaccbbbc");
     }
-    
+
     @Test public void
     testDifferencesAmongGreedyReluctantAndPossessiveQuantifiers() {
         harness(".*foo",  "xfooxxxxxxfoo");
         harness(".*?foo", "xfooxxxxxxfoo");
         harness(".*+foo", "xfooxxxxxxfoo");
     }
-    
-//    @Test public void
-//    testBackreferences() {
-//        harness("(\\d\\d)\\1", "1212");
-//        harness("(\\d\\d)\\1", "1234");
-//    }
-    
+
+    /**
+     * @see <a href="https://docs.oracle.com/javase/tutorial/essential/regex/groups.html">Essential Classes:
+     * Lesson: Regular Expressions: Capturing groups</a>
+     */
+    @Test public void
+    testBackreferences() {
+        harness("(\\d\\d)\\1", "1212");
+        harness("(\\d\\d)\\1", "1234");
+    }
+
+    // ==========================================================================================================
+
     private static void
     harness(String regex, String subject) {
 
@@ -186,7 +192,7 @@ class OracleEssentialsTest {
             boolean found2 = matcher2.find();
             assertEquals(message, found1, found2);
             if (!found1 || !found2) break;
-            
+
             assertEquals(message, matcher1.group(), matcher2.group());
             assertEquals(message, matcher1.start(), matcher2.start());
             assertEquals(message, matcher1.end(), matcher2.end());
