@@ -925,11 +925,11 @@ class Pattern {
             find(int start) {
 
                 if (this.atEndAfterZeroLengthMatch) return false;
-                
+
                 for (Match m = new Match(Pattern.this.groupCount, subject, start);;) {
 
                     this.start  = m.offset;
-                    
+
                     Match m2 = this.pattern.node.bestMatch(m);
                     if (m2 != null) {
                         this.offset = (this.end = m2.offset);
@@ -1101,20 +1101,20 @@ class Pattern {
                                 return new Match(match) {
 
                                     int remaining;
-                                    
+
                                     /** The previous match, or {@code null} to indicate the initial state. */
                                     @Nullable Match previous;
 
                                     @Override @Nullable Match
                                     next() {
-                                        
+
                                         Match m = this.previous;
                                         m = (
                                             m == null
                                             ? matchOccurrences(new Match(match), op, min, max, this.remaining)
                                             : m.next()
                                         );
-                                        
+
                                         while (m == null) {
                                             if (this.remaining >= match.remaining()) return null;
                                             m = matchOccurrences(new Match(match), op, min, max, ++this.remaining);
@@ -1138,10 +1138,10 @@ class Pattern {
 
                                     @Override @Nullable Match
                                     next() {
-                                        
+
                                         Match m = this.previous;
                                         if (m != null) m = m.next();
-                                        
+
                                         while (m == null) {
                                             if (this.remaining < 0) return null;
                                             this.setFrom(match);
@@ -1198,7 +1198,7 @@ class Pattern {
                 final int   max,
                 final int   remaining
             ) {
-                
+
                 return new Match(originalState) {
 
                     /**
@@ -1206,76 +1206,52 @@ class Pattern {
                      * xth occurrence has not been matched yet.
                      */
                     Match[] state = new Match[Math.min(max, 10)];
-                    
+
                     int occurrences;
-    
+
                     @Override @Nullable public Match
                     next() {
                         for (;;) {
                             if (this.occurrences >= this.state.length) {
                                 this.state = Arrays.copyOf(this.state, this.occurrences + 5);
                             }
-                            
+
                             if (this.state[this.occurrences] == null) {
-                                
+
                                 // <occurrences> occurrences have not been tried yet.
                                 this.state[this.occurrences] = (
                                     this.occurrences == 0
                                     ? originalState
                                     : op.bestMatch(this.state[this.occurrences - 1])
                                 );
-                                if (this.state[this.occurrences] == null) {
-                                    this.occurrences--;
-                                    if (this.occurrences < 0) return null;
-                                } else {
-                                    if (this.state[this.occurrences].remaining() < remaining) {
-                                        ;
-                                    } else
-                                    if (this.occurrences >= max) {
-                                        if (this.state[this.occurrences].remaining() == remaining) {
-                                            this.setFrom(this.state[this.occurrences]);
-                                            return this;
-                                        }
-                                    } else
-                                    {
-                                        if (
-                                            this.occurrences >= min
-                                            && this.state[this.occurrences].remaining() == remaining
-                                        ) {
-                                            this.setFrom(this.state[this.occurrences]);
-                                            return this;
-                                        }
-                                        this.occurrences++;
-                                    }
-                                }
                             } else {
-                                
+
                                 // Examine next match of <occurrences> occurrences.
                                 this.state[this.occurrences] = this.state[this.occurrences].next();
-                                if (this.state[this.occurrences] == null) {
-                                    this.occurrences--;
-                                    if (this.occurrences < 0) return null;
-                                } else {
-                                    if (this.state[this.occurrences].remaining() < remaining) {
-                                        ;
-                                    } else
-                                    if (this.occurrences >= max) {
-                                        if (this.state[this.occurrences].remaining() == remaining) {
-                                            this.setFrom(this.state[this.occurrences]);
-                                            return this;
-                                        }
-                                    } else
-                                    {
-                                        if (
-                                            this.occurrences >= min
-                                            && this.state[this.occurrences].remaining() == remaining
-                                        ) {
-                                            this.setFrom(this.state[this.occurrences]);
-                                            return this;
-                                        }
-                                        this.occurrences++;
-                                    }
+                            }
+
+                            if (this.state[this.occurrences] == null) {
+                                this.occurrences--;
+                                if (this.occurrences < 0) return null;
+                            } else
+                            if (this.state[this.occurrences].remaining() < remaining) {
+                                ;
+                            } else
+                            if (this.occurrences >= max) {
+                                if (this.state[this.occurrences].remaining() == remaining) {
+                                    this.setFrom(this.state[this.occurrences]);
+                                    return this;
                                 }
+                            } else
+                            if (
+                                this.occurrences >= min
+                                && this.state[this.occurrences].remaining() == remaining
+                            ) {
+                                this.setFrom(this.state[this.occurrences]);
+                                return this;
+                            } else
+                            {
+                                this.occurrences++;
                             }
                         }
                     }
