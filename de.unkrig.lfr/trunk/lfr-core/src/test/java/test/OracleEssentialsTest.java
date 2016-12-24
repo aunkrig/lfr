@@ -177,6 +177,18 @@ class OracleEssentialsTest {
         harness("(\\d\\d)\\1", "1234");
     }
 
+    /**
+     * @see <a href="https://docs.oracle.com/javase/tutorial/essential/regex/bounds.html">Essential Classes:
+     * Lesson: Regular Expressions: Boundary Matchers</a>
+     */
+    @Test public void
+    testBoundaryMatchers() {
+        harness("^dog$",    "dog");
+        harness("^dog$",    "   dog");
+        harness("\\s*dog$", "   dog");
+        harness("^dog\\w*", "dogblahblah");
+    }
+
     // ==========================================================================================================
 
     private static void

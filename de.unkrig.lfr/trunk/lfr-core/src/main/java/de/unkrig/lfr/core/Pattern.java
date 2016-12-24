@@ -84,6 +84,9 @@ import de.unkrig.commons.text.scanner.StatefulScanner;
 public final
 class Pattern {
 
+    private static final EnumSet<State>
+    IN_CHAR_CLASS = EnumSet.of(State.CHAR_CLASS1, State.CHAR_CLASS2, State.CHAR_CLASS3);
+
     private final String pattern;
     private final Node   node;
     private int          groupCount;
@@ -287,8 +290,14 @@ class Pattern {
         char
         peek() { return this.subject.charAt(this.offset); }
 
+        public int
+        peek(int offset) { return this.subject.charAt(this.offset + offset); }
+
         char
         read() { return this.subject.charAt(this.offset++); }
+
+        public boolean
+        atStart() { return this.offset == 0; }
 
         boolean
         atEnd() { return this.offset >= this.subject.length(); }
@@ -539,6 +548,45 @@ class Pattern {
         }
     }
 
+    public static
+    class BoundaryMatcher implements Node {
+
+        private char kind;
+
+        /**
+         * @param kind One of {@code ^ $ b B A G Z z}
+         */
+        public
+        BoundaryMatcher(char kind) { this.kind = kind; }
+
+        @Override @Nullable public Match
+        bestMatch(Match match) {
+
+            int c1 = match.atStart() ? -1 : match.peek(-1);
+            int c2 = match.atEnd()   ? -1 : match.peek();
+
+            switch (this.kind) {
+            case '^': // ^  The beginning of a line
+                return c1 == -1 ? match : null;
+            case '$': // $  The end of a line
+                return c2 == -1 ? match : null;
+            case 'b': // \b  A word boundary
+                return c1 == -1 || c2 == -1 || (Pattern.isWordCharacter((char) c1) ^ Pattern.isWordCharacter((char) c2)) ? match : null;
+            case 'B': // \B  A non-word boundary
+                return c1 == -1 || c2 == -1 || (Pattern.isWordCharacter((char) c1) ^ Pattern.isWordCharacter((char) c2)) ? null : match;
+            case 'A': // \A  The beginning of the input
+                return match.atStart() ? match : null;
+            case 'z': // \z  The end of the input
+                return match.atEnd() ? match : null;
+            case 'G': // \G  The end of the previous match
+            case 'Z': // \Z  The end of the input but for the final terminator, if any
+                throw new AssertionError("'" + this.kind + "' NYI");
+            default:
+                throw new AssertionError(this.kind);
+            }
+        }
+    }
+
     /**
      * Representation of literal characters like "a" or "\.".
      */
@@ -618,7 +666,7 @@ class Pattern {
      */
     static final RegexScanner REGEX_SCANNER = new RegexScanner();
     static {
-        StatefulScanner<TokenType, State> ss = REGEX_SCANNER;
+        StatefulScanner<TokenType, State> ss = Pattern.REGEX_SCANNER;
 
         // Characters
         // x         The character x
@@ -655,14 +703,14 @@ class Pattern {
         ss.addRule(State.CHAR_CLASS2, "]",   RIGHT_BRACKET, State.CHAR_CLASS1);
         ss.addRule(State.CHAR_CLASS1, "]",   RIGHT_BRACKET);
         // [^abc]      Any character except a, b, or c (negation)
-        ss.addRule(ss.ANY_STATE, "\\^", CC_NEGATION, null);
+        ss.addRule(Pattern.IN_CHAR_CLASS, "\\^", CC_NEGATION, null);
         // [a-zA-Z]    a through z or A through Z, inclusive (range)
-        ss.addRule(EnumSet.allOf(State.class), "-", CC_RANGE, null);
+        ss.addRule(Pattern.IN_CHAR_CLASS, "-", CC_RANGE, null);
         // [a-d[m-p]]  a through d, or m through p: [a-dm-p] (union)
         // [a-z&&[def]]    d, e, or f (intersection)
         // [a-z&&[^bc]]    a through z, except for b and c: [ad-z] (subtraction)
         // [a-z&&[^m-p]]   a through z, and not m through p: [a-lq-z] (subtraction)
-        ss.addRule(EnumSet.allOf(State.class), "&&", CC_INTERSECTION, null);
+        ss.addRule(Pattern.IN_CHAR_CLASS, "&&", CC_INTERSECTION, null);
 
         // Predefined character classes
         // .   Any character (may or may not match line terminators)
@@ -815,7 +863,7 @@ class Pattern {
 
     /**  A non-digit: [^0-9] */
     static final CcNode
-    CC_NODE_IS_NON_DIGIT = new CcNegation(CC_NODE_IS_DIGIT);
+    CC_NODE_IS_NON_DIGIT = new CcNegation(Pattern.CC_NODE_IS_DIGIT);
 
     /**  A horizontal whitespace character: <code>[ \t\xA0&#92;u1680&#92;u180e&#92;u2000-&#92;u200a&#92;u202f&#92;u205f&#92;u3000]</code> */ // SUPPRESS CHECKSTYLE LineLength
     static final CcNode
@@ -831,7 +879,7 @@ class Pattern {
 
     /**  A non-horizontal whitespace character: [^\h] */
     static final CcNode
-    CC_NODE_IS_NON_HORIZONTAL_WHITESPACE  = new CcNegation(CC_NODE_IS_HORIZONTAL_WHITESPACE);
+    CC_NODE_IS_NON_HORIZONTAL_WHITESPACE  = new CcNegation(Pattern.CC_NODE_IS_HORIZONTAL_WHITESPACE);
 
     /**  A whitespace character: [ \t\n\x0B\f\r] */
     static final CcNode
@@ -841,7 +889,7 @@ class Pattern {
 
     /**  A non-whitespace character: [^\s] */
     static final CcNode
-    CC_NODE_IS_NON_WHITESPACE = new CcNegation(CC_NODE_IS_WHITESPACE);
+    CC_NODE_IS_NON_WHITESPACE = new CcNegation(Pattern.CC_NODE_IS_WHITESPACE);
 
     /**  A vertical whitespace character: [\n\x0B\f\r\x85/u2028/u2029] */
     static final CcNode
@@ -852,24 +900,28 @@ class Pattern {
 
     /**  A non-vertical whitespace character: [^\v] */
     static final CcNode
-    CC_NODE_IS_NON_VERTICAL_WHITESPACE = new CcNegation(CC_NODE_IS_VERTICAL_WHITESPACE);
+    CC_NODE_IS_NON_VERTICAL_WHITESPACE = new CcNegation(Pattern.CC_NODE_IS_VERTICAL_WHITESPACE);
 
     /**  A word character: [a-zA-Z_0-9] */
     static final CcNode
     CC_NODE_IS_WORD = new CcNode() {
+
         @Override public boolean
-        evaluate(Character subject) {
-            return (
-                (subject >= '0' && subject <= '9')
-                || (subject >= 'A' && subject <= 'Z')
-                || (subject >= 'a' && subject <= 'z')
-            );
-        }
+        evaluate(Character subject) { return Pattern.isWordCharacter(subject); }
     };
+
+    public static boolean
+    isWordCharacter(char subject) {
+        return (
+            (subject >= '0' && subject <= '9')
+            || (subject >= 'A' && subject <= 'Z')
+            || (subject >= 'a' && subject <= 'z')
+        );
+    }
 
     /**  A non-word character: [^\w] */
     static final CcNode
-    CC_NODE_IS_NON_WORD = new CcNegation(CC_NODE_IS_WORD);
+    CC_NODE_IS_NON_WORD = new CcNegation(Pattern.CC_NODE_IS_WORD);
 
     public static final Node EMPTY_SEQUENCE = new Node() {
 
@@ -882,7 +934,7 @@ class Pattern {
     public static Pattern
     compile(String regex) throws PatternSyntaxException {
 
-        RegexScanner rs = new RegexScanner(REGEX_SCANNER);
+        RegexScanner rs = new RegexScanner(Pattern.REGEX_SCANNER);
 
         try {
             rs.setInput(regex);
@@ -1093,7 +1145,7 @@ class Pattern {
             private Node
             parseSequence() throws ParseException {
 
-                if (this.peek() == null || this.peekRead("|")) return EMPTY_SEQUENCE;
+                if (this.peek() == null || this.peekRead("|")) return Pattern.EMPTY_SEQUENCE;
 
                 Node result = this.parseQuantified();
                 while (this.peek(null, "|", ")") == -1) result = new Sequence(result, this.parseQuantified());
@@ -1385,6 +1437,9 @@ class Pattern {
                     return new CapturingGroupBackReference(groupNumber);
 
                 case BOUNDARY_MATCHER:
+                    this.read();
+                    return new BoundaryMatcher(t.text.charAt(t.text.length() - 1));
+
                 case CC_INTERSECTION:
                 case CC_JAVA:
                 case CC_POSIX:
@@ -1447,16 +1502,16 @@ class Pattern {
 
                 case CC_PREDEFINED:
                     switch (t.text.charAt(1)) {
-                    case 'd': return CC_NODE_IS_DIGIT;
-                    case 'D': return CC_NODE_IS_NON_DIGIT;
-                    case 'h': return CC_NODE_IS_HORIZONTAL_WHITESPACE;
-                    case 'H': return CC_NODE_IS_NON_HORIZONTAL_WHITESPACE;
-                    case 's': return CC_NODE_IS_WHITESPACE;
-                    case 'S': return CC_NODE_IS_NON_WHITESPACE;
-                    case 'v': return CC_NODE_IS_VERTICAL_WHITESPACE;
-                    case 'V': return CC_NODE_IS_NON_VERTICAL_WHITESPACE;
-                    case 'w': return CC_NODE_IS_WORD;
-                    case 'W': return CC_NODE_IS_NON_WORD;
+                    case 'd': return Pattern.CC_NODE_IS_DIGIT;
+                    case 'D': return Pattern.CC_NODE_IS_NON_DIGIT;
+                    case 'h': return Pattern.CC_NODE_IS_HORIZONTAL_WHITESPACE;
+                    case 'H': return Pattern.CC_NODE_IS_NON_HORIZONTAL_WHITESPACE;
+                    case 's': return Pattern.CC_NODE_IS_WHITESPACE;
+                    case 'S': return Pattern.CC_NODE_IS_NON_WHITESPACE;
+                    case 'v': return Pattern.CC_NODE_IS_VERTICAL_WHITESPACE;
+                    case 'V': return Pattern.CC_NODE_IS_NON_VERTICAL_WHITESPACE;
+                    case 'w': return Pattern.CC_NODE_IS_WORD;
+                    case 'W': return Pattern.CC_NODE_IS_NON_WORD;
                     default:  throw new AssertionError(t);
                     }
 
