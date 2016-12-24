@@ -347,6 +347,34 @@ class Pattern {
 
         private boolean
         isGroupsShared() { return this.groups[this.groups.length - 1] != 0; }
+
+        /**
+         * @param groupNumber Group zero denotes the entire match
+         * @return            The offset after the last character captured by the group, or -1 if the match was
+         *                    successful but the group itself did not match anything
+         */
+        public int
+        start(int groupNumber) { return this.groups[2 * groupNumber]; }
+
+        /**
+         * @param groupNumber Group zero denotes the entire match
+         * @return            The index of the first character captured by the group, or -1 if the match was successful
+         *                    but the group itself did not match anything
+         */
+        public int
+        end(int groupNumber) { return this.groups[2 * groupNumber + 1]; }
+
+        /**
+         * @return {@code null} iff the match was successful but the group failed to match any part of the input
+         *         sequence
+         */
+        @Nullable public String
+        group(int groupNumber) {
+            int start = this.start(groupNumber);
+            int end   = this.groups[2 * groupNumber + 1];
+            if (start == -1 || end == -1) return null;
+            return this.subject.subSequence(start, end).toString();
+        }
     }
 
     private
@@ -466,6 +494,8 @@ class Pattern {
             final Match bm = this.subnode.bestMatch(match);
             if (bm == null) return null;
 
+            bm.setGroupEnd(this.groupNumber);
+
             return new Match(bm) {
 
                 @Override @Nullable Match
@@ -480,6 +510,32 @@ class Pattern {
                     return this;
                 }
             };
+        }
+    }
+
+    public
+    class CapturingGroupBackReference implements Node {
+
+        private final int groupNumber;
+
+        /**
+         * @param groupNumber 0...<var>groupCount</var>
+         */
+        public
+        CapturingGroupBackReference(int groupNumber) { this.groupNumber = groupNumber; }
+
+        @Override @Nullable public Match
+        bestMatch(Match match) {
+
+            String s = match.group(this.groupNumber);
+            if (s == null) s = "";
+
+            if (match.remaining() < s.length()) return null;
+
+            for (int i = 0; i < s.length(); i++) {
+                if (match.read() != s.charAt(i)) return null;
+            }
+            return match;
         }
     }
 
@@ -1323,6 +1379,11 @@ class Pattern {
                         return result;
                     }
 
+                case CAPTURING_GROUP_BACK_REFERENCE:
+                    this.read();
+                    int groupNumber = Integer.parseInt(t.text.substring(1));
+                    return new CapturingGroupBackReference(groupNumber);
+
                 case BOUNDARY_MATCHER:
                 case CC_INTERSECTION:
                 case CC_JAVA:
@@ -1333,7 +1394,6 @@ class Pattern {
                 case MATCH_FLAGS:
                 case MATCH_FLAGS_CAPTURING_GROUP:
                 case NAMED_CAPTURING_GROUP:
-                case CAPTURING_GROUP_BACK_REFERENCE:
                 case NAMED_CAPTURING_GROUP_BACK_REFERENCE:
                 case NEGATIVE_LOOKAHEAD:
                 case NEGATIVE_LOOKBEHIND:
