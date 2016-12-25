@@ -84,6 +84,50 @@ import de.unkrig.commons.text.scanner.StatefulScanner;
 public final
 class Pattern {
 
+    /** @see java.util.regex.Pattern#CANON_EQ */
+    public static final int CANON_EQ = java.util.regex.Pattern.CANON_EQ;
+    /** @see java.util.regex.Pattern#CASE_INSENSITIVE */
+    public static final int CASE_INSENSITIVE = java.util.regex.Pattern.CASE_INSENSITIVE;
+    /** @see java.util.regex.Pattern#COMMENTS */
+    public static final int COMMENTS = java.util.regex.Pattern.COMMENTS;
+    /** @see java.util.regex.Pattern#DOTALL */
+    public static final int DOTALL = java.util.regex.Pattern.DOTALL;
+    /** @see java.util.regex.Pattern#LITERAL */
+    public static final int LITERAL = java.util.regex.Pattern.LITERAL;
+    /** @see java.util.regex.Pattern#MULTILINE */
+    public static final int MULTILINE = java.util.regex.Pattern.MULTILINE;
+    /** @see java.util.regex.Pattern#UNICODE_CASE */
+    public static final int UNICODE_CASE = java.util.regex.Pattern.UNICODE_CASE;
+    /** @see java.util.regex.Pattern#UNIX_LINES */
+    public static final int UNIX_LINES = java.util.regex.Pattern.UNIX_LINES;
+    /** @see java.util.regex.Pattern#UNIX_LINES */
+    public static final int UNICODE_CHARACTER_CLASS = 256; // Since Java 7
+
+    private static final int ALL_FLAGS = (
+        Pattern.CANON_EQ
+        | Pattern.CASE_INSENSITIVE
+        | Pattern.COMMENTS
+        | Pattern.DOTALL
+        | Pattern.LITERAL
+        | Pattern.MULTILINE
+        | Pattern.UNICODE_CASE
+        | Pattern.UNIX_LINES
+        | Pattern.UNICODE_CHARACTER_CLASS
+    );
+
+    private static final int SUPPORTED_FLAGS = (
+        0
+//        | Pattern.CANON_EQ
+        | Pattern.CASE_INSENSITIVE
+//        | Pattern.COMMENTS
+//        | Pattern.DOTALL
+//        | Pattern.LITERAL
+//        | Pattern.MULTILINE
+//        | Pattern.UNICODE_CASE
+//        | Pattern.UNIX_LINES
+//        | Pattern.UNICODE_CHARACTER_CLASS
+    );
+
     private static final EnumSet<State>
     IN_CHAR_CLASS = EnumSet.of(State.CHAR_CLASS1, State.CHAR_CLASS2, State.CHAR_CLASS3);
 
@@ -231,6 +275,7 @@ class Pattern {
         NAMED_CAPTURING_GROUP_BACK_REFERENCE,
         NAMED_CAPTURING_GROUP,
         NON_CAPTURING_GROUP,
+        /** {@code (?>} */
         INDEPENDENT_NON_CAPTURING_GROUP,
 
         // Quotations.
@@ -397,6 +442,11 @@ class Pattern {
         @Nullable Match
         bestMatch(Match match);
     }
+
+    public static final Node
+    NOP = new Node() {
+        @Override public Match bestMatch(Match match) { return match; }
+    };
 
     private abstract static
     class CcNode implements Node, Predicate<Character> {
@@ -593,14 +643,26 @@ class Pattern {
     public static
     class CcLiteralCharacter extends CcNode {
 
-        private char c;
+        private char    c;
+        private boolean caseSensitive;
 
         public
-        CcLiteralCharacter(char c) { this.c = c; }
+        CcLiteralCharacter(char c) { this(c, true); }
+
+        public
+        CcLiteralCharacter(char c, boolean caseSensitive) {
+            this.c             = c;
+            this.caseSensitive = caseSensitive;
+        }
 
         @Override public boolean
-        evaluate(Character subject) throws RuntimeException { return subject.equals(this.c); }
+        evaluate(Character subject) {
+            return this.caseSensitive ? subject == this.c : Pattern.equalsIgnoreCase(subject, this.c);
+        }
     }
+
+    private static boolean
+    equalsIgnoreCase(char c1, char c2) { return Character.toUpperCase(c1) == Character.toUpperCase(c2); }
 
     /**
      * Representation of a character class intersection like {@code "\w&&[^abc]"}.
@@ -645,9 +707,11 @@ class Pattern {
     }
 
     private
-    Pattern(String pattern, RegexScanner rs) throws ParseException {
-        this.pattern    = pattern;
-        this.node       = this.parse(rs);
+    Pattern(String pattern, RegexScanner rs, int flags) throws ParseException {
+
+        this.pattern = pattern;
+        this.node    = this.parse(rs, flags);
+
         this.groupCount = rs.groupCount;
     }
 
@@ -840,17 +904,17 @@ class Pattern {
         // (?<=X)  X, via zero-width positive lookbehind
         // (?<!X)  X, via zero-width negative lookbehind
         // (?>X)   X, as an independent, non-capturing group
-        ss.addRule("\\(\\?<\\w+>",                         NAMED_CAPTURING_GROUP);
-        ss.addRule("\\(\\?:",                              NON_CAPTURING_GROUP);
-        ss.addRule("\\(\\?[idmsuxU]*(?:-[idmsuxU]*)(?!:)", MATCH_FLAGS);
-        ss.addRule("\\(\\?[idmsux]*(?:-[idmsux]*):",       MATCH_FLAGS_CAPTURING_GROUP);
-        ss.addRule("\\(\\?=",                              POSITIVE_LOOKAHEAD);
-        ss.addRule("\\(\\?!",                              NEGATIVE_LOOKAHEAD);
-        ss.addRule("\\(\\?<=",                             POSITIVE_LOOKBEHIND);
-        ss.addRule("\\(\\?<!",                             NEGATIVE_LOOKBEHIND);
-        ss.addRule("\\(\\?",                               INDEPENDENT_NON_CAPTURING_GROUP);
+        ss.addRule("\\(\\?<\\w+>",                        NAMED_CAPTURING_GROUP);
+        ss.addRule("\\(\\?:",                             NON_CAPTURING_GROUP);
+        ss.addRule("\\(\\?[idmsuxU]*(?:-[idmsuxU]+)?\\)", MATCH_FLAGS);
+        ss.addRule("\\(\\?[idmsux]*(?:-[idmsux]*)?:",     MATCH_FLAGS_CAPTURING_GROUP);
+        ss.addRule("\\(\\?=",                             POSITIVE_LOOKAHEAD);
+        ss.addRule("\\(\\?!",                             NEGATIVE_LOOKAHEAD);
+        ss.addRule("\\(\\?<=",                            POSITIVE_LOOKBEHIND);
+        ss.addRule("\\(\\?<!",                            NEGATIVE_LOOKBEHIND);
+        ss.addRule("\\(\\?>",                             INDEPENDENT_NON_CAPTURING_GROUP);
 
-        ss.addRule(ss.ANY_STATE, ".", LITERAL_CHARACTER, null); // +++
+        ss.addRule(ss.ANY_STATE, "[^\\\\]", LITERAL_CHARACTER, null); // +++
     }
 
     // ============================== CC NODES FOR "PREDEFINED CHARACTER CLASSES" ==============================
@@ -932,24 +996,32 @@ class Pattern {
      * @see java.util.regex.Pattern#compile(String)
      */
     public static Pattern
-    compile(String regex) throws PatternSyntaxException {
+    compile(String regex) throws PatternSyntaxException { return Pattern.compile(regex, 0); }
+
+    /**
+     * @see java.util.regex.Pattern#compile(String, int)
+     */
+    public static Pattern
+    compile(String regex, int flags) throws PatternSyntaxException {
+
+        if ((flags & ~Pattern.ALL_FLAGS) != 0) {
+            throw new IllegalArgumentException("Disallowed flag " + (flags & ~Pattern.ALL_FLAGS));
+        }
+        if ((flags & ~Pattern.SUPPORTED_FLAGS) != 0) {
+            throw new IllegalArgumentException("Unsupported flag " + (flags & ~Pattern.SUPPORTED_FLAGS));
+        }
 
         RegexScanner rs = new RegexScanner(Pattern.REGEX_SCANNER);
 
         try {
             rs.setInput(regex);
-            return new Pattern(regex, rs);
+            return new Pattern(regex, rs, flags);
         } catch (ParseException pe) {
             PatternSyntaxException pse = new PatternSyntaxException(pe.getMessage(), regex, rs.getOffset());
             pse.initCause(pe);
             throw pse;
         }
     }
-
-//    /**
-//     * @see java.util.regex.Pattern#compile(String, int)
-//     */
-//    public static Pattern compile(String regex, int flags) {}
 
     /**
      * @see java.util.regex.Pattern#pattern()
@@ -1034,13 +1106,13 @@ class Pattern {
 
                 if (this.atEndAfterZeroLengthMatch) return false;
 
-                for (Match m = new Match(Pattern.this.groupCount, subject, start);;) {
+                for (;; start++) {
 
-                    this.start  = m.offset;
+                    Match m = new Match(Pattern.this.groupCount, subject, (this.start = start));
 
-                    Match m2 = this.pattern.node.bestMatch(m);
-                    if (m2 != null) {
-                        this.offset = (this.end = m2.offset);
+                    Match bm = this.pattern.node.bestMatch(m);
+                    if (bm != null) {
+                        this.offset = (this.end = bm.offset);
                         if (this.start == this.end) {
                             if (m.atEnd()) {
                                 this.atEndAfterZeroLengthMatch = true;
@@ -1075,13 +1147,10 @@ class Pattern {
 //    /**
 //     * @see java.util.regex.Pattern#flags()
 //     */
-//  public int flags();
+//    public int flags();
 
     /**
      * @see java.util.regex.Pattern#matches(String, CharSequence)
-     * @see java.util.regex.Pattern#split(CharSequence, int)
-     * @see java.util.regex.Pattern#split(CharSequence)
-     * @see java.util.regex.Pattern#quote(String)
      */
     public static boolean
     matches(String regex, CharSequence input) { return Pattern.compile(regex).matches(input, 0); }
@@ -1089,17 +1158,34 @@ class Pattern {
 //    /**
 //     * @see java.util.regex.Pattern#split(CharSequence, int)
 //     */
-//  public String[] split(CharSequence input, int limit);
-//
-//    /**
-//     * @see java.util.regex.Pattern#split(CharSequence)
-//     */
-//  public String[] split(CharSequence input);
-//
-//    /**
-//     * @see java.util.regex.Pattern#quote(String)
-//     */
-//  public static String quote(String s);
+//    public String[] split(CharSequence input, int limit);
+
+    /**
+     * @see java.util.regex.Pattern#split(CharSequence)
+     */
+    public String[]
+    split(CharSequence input) {
+
+        Matcher m = this.matcher(input);
+        if (!m.find()) return new String[] { input.toString() };
+
+        List<String> result = new ArrayList<String>();
+        result.add(input.subSequence(0, m.start()).toString());
+        for (;;) {
+            int eopm = m.end(); // "End of previous match"
+            if (!m.find()) {
+                result.add(input.subSequence(eopm, input.length()).toString());
+                return result.toArray(new String[result.size()]);
+            }
+            result.add(input.subSequence(eopm, m.start()).toString());
+        }
+    }
+
+    /**
+     * @see java.util.regex.Pattern#quote(String)
+     */
+    public static String
+    quote(String s) { return java.util.regex.Pattern.quote(s); }
 
     /**
      * @return Whether the suffix starting at position <var>offset</var> matches this pattern
@@ -1122,9 +1208,11 @@ class Pattern {
      * Parses a regular expression into a tree of nodes.
      */
     private Node
-    parse(final RegexScanner rs) throws ParseException {
+    parse(final RegexScanner rs, final int flags) throws ParseException {
 
         return new AbstractParser<TokenType>(rs) {
+
+            int currentFlags = flags;
 
             public Node
             parse() throws ParseException { return this.parseAlternatives(); }
@@ -1219,13 +1307,13 @@ class Pattern {
                                         Match m = this.previous;
                                         m = (
                                             m == null
-                                            ? matchOccurrences(new Match(match), op, min, max, this.remaining)
+                                            ? Pattern.this.matchOccurrences(new Match(match), op, min, max, this.remaining)
                                             : m.next()
                                         );
 
                                         while (m == null) {
                                             if (this.remaining >= match.remaining()) return null;
-                                            m = matchOccurrences(new Match(match), op, min, max, ++this.remaining);
+                                            m = Pattern.this.matchOccurrences(new Match(match), op, min, max, ++this.remaining);
                                         }
                                         return this.setFrom((this.previous = m));
                                     }
@@ -1253,7 +1341,7 @@ class Pattern {
                                         while (m == null) {
                                             if (this.remaining < 0) return null;
                                             this.setFrom(match);
-                                            m = matchOccurrences(new Match(match), op, min, max, this.remaining--);
+                                            m = Pattern.this.matchOccurrences(new Match(match), op, min, max, this.remaining--);
                                         }
                                         this.setFrom((this.previous = m));
                                         return this;
@@ -1292,78 +1380,6 @@ class Pattern {
                 default:
                     return op;
                 }
-            }
-
-            /**
-             * @return All matches of <var>min</var>...<var>max</var> occurrences of <var>op</var> that leave exactly
-             *         <var>remaining</var> characters
-             */
-            @Nullable private Match
-            matchOccurrences(
-                final Match originalState,
-                final Node  op,
-                final int   min,
-                final int   max,
-                final int   remaining
-            ) {
-
-                return new Match(originalState) {
-
-                    /**
-                     * {@code state[x]} is the previous match of x occurrences, or {@code null} to indicate that the
-                     * xth occurrence has not been matched yet.
-                     */
-                    Match[] state = new Match[Math.min(max, 10)];
-
-                    int occurrences;
-
-                    @Override @Nullable public Match
-                    next() {
-                        for (;;) {
-                            if (this.occurrences >= this.state.length) {
-                                this.state = Arrays.copyOf(this.state, this.occurrences + 5);
-                            }
-
-                            if (this.state[this.occurrences] == null) {
-
-                                // <occurrences> occurrences have not been tried yet.
-                                this.state[this.occurrences] = (
-                                    this.occurrences == 0
-                                    ? originalState
-                                    : op.bestMatch(this.state[this.occurrences - 1])
-                                );
-                            } else {
-
-                                // Examine next match of <occurrences> occurrences.
-                                this.state[this.occurrences] = this.state[this.occurrences].next();
-                            }
-
-                            if (this.state[this.occurrences] == null) {
-                                this.occurrences--;
-                                if (this.occurrences < 0) return null;
-                            } else
-                            if (this.state[this.occurrences].remaining() < remaining) {
-                                ;
-                            } else
-                            if (this.occurrences >= max) {
-                                if (this.state[this.occurrences].remaining() == remaining) {
-                                    this.setFrom(this.state[this.occurrences]);
-                                    return this;
-                                }
-                            } else
-                            if (
-                                this.occurrences >= min
-                                && this.state[this.occurrences].remaining() == remaining
-                            ) {
-                                this.setFrom(this.state[this.occurrences]);
-                                return this;
-                            } else
-                            {
-                                this.occurrences++;
-                            }
-                        }
-                    }
-                }.next();
             }
 
             private Node
@@ -1440,13 +1456,17 @@ class Pattern {
                     this.read();
                     return new BoundaryMatcher(t.text.charAt(t.text.length() - 1));
 
+                case MATCH_FLAGS:
+                    this.read();
+                    this.currentFlags = this.parseFlags(this.currentFlags, t.text.substring(2, t.text.length() - 1));
+                    return Pattern.NOP;
+
                 case CC_INTERSECTION:
                 case CC_JAVA:
                 case CC_POSIX:
                 case CC_UNICODE:
                 case INDEPENDENT_NON_CAPTURING_GROUP:
                 case LINEBREAK_MATCHER:
-                case MATCH_FLAGS:
                 case MATCH_FLAGS_CAPTURING_GROUP:
                 case NAMED_CAPTURING_GROUP:
                 case NAMED_CAPTURING_GROUP_BACK_REFERENCE:
@@ -1468,13 +1488,52 @@ class Pattern {
                 throw new AssertionError(t);
             }
 
+            /**
+             * @param spec {@code idmsuxU-idmsuxU}
+             */
+            public int
+            parseFlags(int oldFlags, String spec) throws ParseException {
+
+                int idx = spec.indexOf('-');
+
+                if (idx == -1) return oldFlags | this.parseFlags(spec);
+
+                return (oldFlags | this.parseFlags(spec.substring(0, idx))) & ~this.parseFlags(spec.substring(idx + 1));
+            }
+
+            /**
+             * @param spec {@code idmsuxU}
+             */
+            private int
+            parseFlags(String spec) throws ParseException {
+                int result = 0;
+                for (int i = 0; i < spec.length(); i++) {
+                    char c = spec.charAt(i);
+
+                    int f;
+                    switch (c) {
+                    case 'i': f = Pattern.CASE_INSENSITIVE;        break;
+                    case 'd': f = Pattern.UNIX_LINES;              break;
+                    case 'm': f = Pattern.MULTILINE;               break;
+                    case 's': f = Pattern.DOTALL;                  break;
+                    case 'u': f = Pattern.UNICODE_CASE;            break;
+                    case 'x': f = Pattern.COMMENTS;                break;
+                    case 'U': f = Pattern.UNICODE_CHARACTER_CLASS; break;
+                    default:  throw new ParseException("Invalid flag '" + c);
+                    }
+                    if ((result & f) != 0) throw new ParseException("Duplicate flag '" + c);
+                    result |= f;
+                }
+                return result;
+            }
+
             CcNode
             parseCharacterClass() throws ParseException {
                 Token<TokenType> t = this.read();
                 switch (t.type) {
 
                 case LITERAL_CHARACTER:
-                    return new CcLiteralCharacter(t.text.charAt(0));
+                    return new CcLiteralCharacter(t.text.charAt(0), (this.currentFlags & Pattern.CASE_INSENSITIVE) == 0);
 
                 case LITERAL_CONTROL:
                     {
@@ -1543,5 +1602,77 @@ class Pattern {
                 return new CcRange(lhs.charAt(0), rhs.charAt(0));
             }
         }.parse();
+    }
+
+    /**
+     * @return All matches of <var>min</var>...<var>max</var> occurrences of <var>op</var> that leave exactly
+     *         <var>remaining</var> characters
+     */
+    @Nullable private Match
+    matchOccurrences(
+        final Match originalState,
+        final Node  op,
+        final int   min,
+        final int   max,
+        final int   remaining
+    ) {
+
+        return new Match(originalState) {
+
+            /**
+             * {@code state[x]} is the previous match of x occurrences, or {@code null} to indicate that the
+             * xth occurrence has not been matched yet.
+             */
+            Match[] state = new Match[Math.min(max, 10)];
+
+            int occurrences;
+
+            @Override @Nullable public Match
+            next() {
+                for (;;) {
+                    if (this.occurrences >= this.state.length) {
+                        this.state = Arrays.copyOf(this.state, this.occurrences + 5);
+                    }
+
+                    if (this.state[this.occurrences] == null) {
+
+                        // <occurrences> occurrences have not been tried yet.
+                        this.state[this.occurrences] = (
+                            this.occurrences == 0
+                            ? originalState
+                            : op.bestMatch(this.state[this.occurrences - 1])
+                        );
+                    } else {
+
+                        // Examine next match of <occurrences> occurrences.
+                        this.state[this.occurrences] = this.state[this.occurrences].next();
+                    }
+
+                    if (this.state[this.occurrences] == null) {
+                        this.occurrences--;
+                        if (this.occurrences < 0) return null;
+                    } else
+                    if (this.state[this.occurrences].remaining() < remaining) {
+                        ;
+                    } else
+                    if (this.occurrences >= max) {
+                        if (this.state[this.occurrences].remaining() == remaining) {
+                            this.setFrom(this.state[this.occurrences]);
+                            return this;
+                        }
+                    } else
+                    if (
+                        this.occurrences >= min
+                        && this.state[this.occurrences].remaining() == remaining
+                    ) {
+                        this.setFrom(this.state[this.occurrences]);
+                        return this;
+                    } else
+                    {
+                        this.occurrences++;
+                    }
+                }
+            }
+        }.next();
     }
 }
