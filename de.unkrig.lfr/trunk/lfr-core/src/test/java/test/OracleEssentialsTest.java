@@ -206,7 +206,7 @@ class OracleEssentialsTest {
     @Test public void
     testEmbeddedFlagExpressions() {
         OracleEssentialsTest.harness("(?i)foo", "FOOfooFoOfoO");
-        OracleEssentialsTest.harness("foo", "FOOfooFoOfoO");
+        OracleEssentialsTest.harness("foo",     "FOOfooFoOfoO");
     }
 
     /**
@@ -244,20 +244,59 @@ class OracleEssentialsTest {
     private static void
     harness(String regex, String subject, int flags) {
 
-        java.util.regex.Matcher            matcher1 = java.util.regex.Pattern.compile(regex, flags).matcher(subject);
-        de.unkrig.lfr.core.Pattern.Matcher matcher2 = de.unkrig.lfr.core.Pattern.compile(regex, flags).matcher(subject);
+        java.util.regex.Pattern    pattern1 = java.util.regex.Pattern.compile(regex, flags);
+        de.unkrig.lfr.core.Pattern pattern2 = de.unkrig.lfr.core.Pattern.compile(regex, flags);
 
-        for (int matchCount = 0;; matchCount++) {
-            String message = "Match #" + (matchCount + 1);
+        {
+            java.util.regex.Matcher            matcher1 = pattern1.matcher(subject);
+            de.unkrig.lfr.core.Pattern.Matcher matcher2 = pattern2.matcher(subject);
 
-            boolean found1 = matcher1.find();
-            boolean found2 = matcher2.find();
-            Assert.assertEquals(message, found1, found2);
-            if (!found1 || !found2) break;
+            for (int matchCount = 0;; matchCount++) {
+                String message = "Match #" + (matchCount + 1);
 
-            Assert.assertEquals(message, matcher1.group(), matcher2.group());
-            Assert.assertEquals(message, matcher1.start(), matcher2.start());
-            Assert.assertEquals(message, matcher1.end(), matcher2.end());
+                boolean found1 = matcher1.find();
+                boolean found2 = matcher2.find();
+                Assert.assertEquals(message, found1, found2);
+                if (!found1 || !found2) break;
+
+                Assert.assertEquals(message, matcher1.group(), matcher2.group());
+                Assert.assertEquals(message, matcher1.start(), matcher2.start());
+                Assert.assertEquals(message, matcher1.end(), matcher2.end());
+            }
         }
+
+        long ms1 = 0, ms2 = 0;
+        int N2 = 100000;
+        int N1 = 30000;
+        {
+            long start = 0;
+            for (int i = 0; i < N2; i++) {
+
+                if (i == N1) start = System.currentTimeMillis();
+
+                for (java.util.regex.Matcher m = pattern1.matcher(subject); m.find();) {
+                    m.group();
+                    m.start();
+                    m.end();
+                }
+            }
+            ms1 = System.currentTimeMillis() - start;
+        }
+        {
+            long start = 0;
+            for (int i = 0; i < N2; i++) {
+
+                if (i == N1) start = System.currentTimeMillis();
+
+                for (de.unkrig.lfr.core.Pattern.Matcher m = pattern2.matcher(subject); m.find();) {
+                    m.group();
+                    m.start();
+                    m.end();
+                }
+            }
+            ms2 = System.currentTimeMillis() - start;
+        }
+
+        System.err.printf("%-15s %-15s %6d %6d %6.0f%%%n", regex, subject, ms1, ms2, (100. * ms1) / ms2);
     }
 }
