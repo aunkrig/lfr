@@ -555,7 +555,7 @@ class Pattern {
         toString() { return Pattern.join(this.alternatives, '|'); }
     }
 
-    public
+    public static
     class CapturingGroup implements Node {
 
         private final int  groupNumber;
@@ -597,7 +597,7 @@ class Pattern {
         toString() { return "(" + this.subnode + ")"; }
     }
 
-    public
+    public static
     class CapturingGroupBackReference implements Node {
 
         private final int groupNumber;
@@ -781,12 +781,10 @@ class Pattern {
     }
 
     private
-    Pattern(String pattern, RegexScanner rs, int flags) throws ParseException {
-
-        this.pattern = pattern;
-        this.node    = this.parse(rs, flags);
-
-        this.groupCount = rs.groupCount;
+    Pattern(String pattern, Node node, int groupCount, int flags) {
+        this.pattern    = pattern;
+        this.node       = node;
+        this.groupCount = groupCount;
     }
 
     /**
@@ -1173,15 +1171,18 @@ class Pattern {
         }
 
         RegexScanner rs = new RegexScanner(Pattern.REGEX_SCANNER);
+        rs.setInput(regex);
 
+        Node node;
         try {
-            rs.setInput(regex);
-            return new Pattern(regex, rs, flags);
+            node = Pattern.parse(rs, flags);
         } catch (ParseException pe) {
             PatternSyntaxException pse = new PatternSyntaxException(pe.getMessage(), regex, rs.getOffset());
             pse.initCause(pe);
             throw pse;
         }
+
+        return new Pattern(regex, node, rs.groupCount, flags);
     }
 
     /**
@@ -1202,7 +1203,7 @@ class Pattern {
 
         return new Matcher() {
 
-            private Pattern pattern = Pattern.this;
+            private Pattern pattern = Pattern.this; // <== necessary because of "Matcher.usePattern()"
             private int     start = -1, end;
             private boolean atEndAfterZeroLengthMatch;
             private Match   initialMatch = new Match(Pattern.this.groupCount, subject, 0);
@@ -1264,6 +1265,34 @@ class Pattern {
             find(int start) {
 
                 if (this.atEndAfterZeroLengthMatch) return false;
+
+                // Optimization for the "literal string" special case.
+                if (this.pattern.node instanceof LiteralString) {
+                    String s = ((LiteralString) this.pattern.node).s;
+
+                    if (s.isEmpty()) {
+                        this.start = (this.end = start);
+                        if (start == subject.length()) {
+                            this.atEndAfterZeroLengthMatch = true;
+                        } else {
+                            this.initialMatch.offset++;
+                        }
+                        return true;
+                    }
+
+                    int limit = subject.length() - s.length();
+                    NEXT_OFFSET: for (; start <= limit; start++) {
+                        for (int i = 0; i < s.length(); i++) {
+                            if (subject.charAt(start + i) != s.charAt(i)) continue NEXT_OFFSET;
+                        }
+                        this.start               = start;
+                        this.initialMatch.offset = (this.end = start + s.length());
+                        return true;
+                    }
+                    this.initialMatch.offset = subject.length();
+                    this.start               = -1;
+                    return false;
+                }
 
                 for (;; start++) {
 
@@ -1356,6 +1385,12 @@ class Pattern {
     public boolean
     matches(CharSequence subject, int offset) {
 
+        // Optimization for the "literal string" special case.
+        if (this.node instanceof LiteralString) {
+            if (offset != 0) subject = subject.subSequence(offset, subject.length());
+            return subject.equals(((LiteralString) this.node).s);
+        }
+
         for (
             Match m = Pattern.this.node.bestMatch(new Match(Pattern.this.groupCount, subject, offset));
             m != null;
@@ -1370,7 +1405,7 @@ class Pattern {
     /**
      * Parses a regular expression into a tree of nodes.
      */
-    private Node
+    private static Node
     parse(final RegexScanner rs, final int flags) throws ParseException {
 
         return new AbstractParser<TokenType>(rs) {
@@ -1493,12 +1528,12 @@ class Pattern {
                             @Override @Nullable public Match
                             bestMatch(final Match match) {
 
-                                Match m = Pattern.this.matchOccurrences(new Match(match), op, min, max, 0);
+                                Match m = Pattern.matchOccurrences(new Match(match), op, min, max, 0);
 
                                 int remaining = 0;
                                 while (m == null) {
                                     if (remaining >= match.remaining()) return null;
-                                    m = Pattern.this.matchOccurrences(new Match(match), op, min, max, ++remaining);
+                                    m = Pattern.matchOccurrences(new Match(match), op, min, max, ++remaining);
                                 }
 
                                 final int   remaining2 = remaining;
@@ -1517,7 +1552,7 @@ class Pattern {
 
                                         while (m == null) {
                                             if (this.remaining >= match.remaining()) return null;
-                                            m = Pattern.this.matchOccurrences(new Match(match), op, min, max, ++this.remaining);
+                                            m = Pattern.matchOccurrences(new Match(match), op, min, max, ++this.remaining);
                                         }
 
                                         return this.setFrom((this.previous = m));
@@ -1538,7 +1573,7 @@ class Pattern {
 
                                 while (m == null) {
                                     if (remaining < 0) return null;
-                                    m = Pattern.this.matchOccurrences(new Match(match), op, min, max, remaining--);
+                                    m = Pattern.matchOccurrences(new Match(match), op, min, max, remaining--);
                                 }
 
                                 final Match m2 = m;
@@ -1556,7 +1591,7 @@ class Pattern {
                                         while (m == null) {
                                             if (this.remaining < 0) return null;
                                             this.setFrom(match);
-                                            m = Pattern.this.matchOccurrences(new Match(match), op, min, max, this.remaining--);
+                                            m = Pattern.matchOccurrences(new Match(match), op, min, max, this.remaining--);
                                         }
 
                                         return this.setFrom((this.previous = m));
@@ -1849,7 +1884,7 @@ class Pattern {
      * @return All matches of <var>min</var>...<var>max</var> occurrences of <var>op</var> that leave exactly
      *         <var>remaining</var> characters
      */
-    @Nullable private Match
+    @Nullable private static Match
     matchOccurrences(
         final Match originalState,
         final Node  op,
