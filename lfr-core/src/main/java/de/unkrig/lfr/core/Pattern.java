@@ -120,10 +120,10 @@ class Pattern {
 //        | Pattern.CANON_EQ
         | Pattern.CASE_INSENSITIVE
 //        | Pattern.COMMENTS
-//        | Pattern.DOTALL
+        | Pattern.DOTALL
 //        | Pattern.LITERAL
 //        | Pattern.MULTILINE
-//        | Pattern.UNICODE_CASE
+        | Pattern.UNICODE_CASE
 //        | Pattern.UNIX_LINES
 //        | Pattern.UNICODE_CHARACTER_CLASS
     );
@@ -443,11 +443,6 @@ class Pattern {
         bestMatch(Match match);
     }
 
-    public static final Node
-    NOP = new Node() {
-        @Override public Match bestMatch(Match match) { return match; }
-    };
-
     private abstract static
     class CcNode implements Node, Predicate<Character> {
 
@@ -643,26 +638,51 @@ class Pattern {
     public static
     class CcLiteralCharacter extends CcNode {
 
-        private char    c;
-        private boolean caseSensitive;
+        private char c;
 
         public
-        CcLiteralCharacter(char c) { this(c, true); }
+        CcLiteralCharacter(char c) { this.c = c; }
+
+        @Override public boolean
+        evaluate(Character subject) { return subject == this.c; }
+    }
+
+    /**
+     * Representation of an (ASCII-)case-insensitive literal character.
+     */
+    public static
+    class CaseInsensitiveLiteralCharacter extends CcNode {
+
+        private char c;
 
         public
-        CcLiteralCharacter(char c, boolean caseSensitive) {
-            this.c             = c;
-            this.caseSensitive = caseSensitive;
-        }
+        CaseInsensitiveLiteralCharacter(char c) { this.c = c; }
 
         @Override public boolean
         evaluate(Character subject) {
-            return this.caseSensitive ? subject == this.c : Pattern.equalsIgnoreCase(subject, this.c);
+            char c1 = this.c, c2 = subject;
+            if (c1 == c2) return true;
+            int diff = c1 - c2;
+            if (diff == 32  && c1 >= 'a' && c1 <= 'z') return true;
+            if (diff == -32 && c1 >= 'A' && c1 <= 'Z') return true;
+            return false;
         }
     }
 
-    private static boolean
-    equalsIgnoreCase(char c1, char c2) { return Character.toUpperCase(c1) == Character.toUpperCase(c2); }
+    /**
+     * Representation of a (UNICODE-)case-insensitive literal character.
+     */
+    public static
+    class UnicodeCaseInsensitiveLiteralCharacter extends CcNode {
+
+        private char c;
+
+        public
+        UnicodeCaseInsensitiveLiteralCharacter(char c) { this.c = c; }
+
+        @Override public boolean
+        evaluate(Character subject) { return Character.toUpperCase(this.c) == Character.toUpperCase(subject); }
+    }
 
     /**
      * Representation of a character class intersection like {@code "\w&&[^abc]"}.
@@ -987,8 +1007,55 @@ class Pattern {
     static final CcNode
     CC_NODE_IS_NON_WORD = new CcNegation(Pattern.CC_NODE_IS_WORD);
 
+    static final CcNode
+    CC_NODE_ANY = new CcNode() { @Override public boolean evaluate(Character subject) { return true; } };
+
+    static final CcNode
+    CC_NODE_LINEBREAK = new CcNode() {
+
+        @Override public boolean
+        evaluate(Character subject) {
+            return (
+                subject == '\r'
+                || subject == '\n'
+                || subject == 0x0b
+                || subject == 0x0c
+                || subject == 0x85
+                || subject == 0x2028
+                || subject == 0x2029
+            );
+        }
+    };
+
     public static final Node EMPTY_SEQUENCE = new Node() {
 
+        @Override public Match bestMatch(Match match) { return match; }
+    };
+
+    public static final Node
+    NODE_LINEBREAK = new Node() {
+
+        @Override @Nullable public Match
+        bestMatch(Match match) {
+
+            if (match.atEnd()) return null;
+
+            char c = match.peek();
+            if (c == '\n' || c == '\u000B' || c == '\u000C' || c == '\u0085' || c == '\u2028' || c == '\u2029') {
+                match.read();
+                return match;
+            }
+            if (c == '\r') {
+                match.read();
+                if (!match.atEnd() && match.peek() == '\n') match.read();
+                return match;
+            }
+            return null;
+        }
+    };
+
+    public static final Node
+    NODE_NOP = new Node() {
         @Override public Match bestMatch(Match match) { return match; }
     };
 
@@ -1294,30 +1361,36 @@ class Pattern {
                             @Override @Nullable public Match
                             bestMatch(final Match match) {
 
-                                return new Match(match) {
+                                Match m = Pattern.this.matchOccurrences(new Match(match), op, min, max, 0);
 
-                                    int remaining;
+                                int remaining = 0;
+                                while (m == null) {
+                                    if (remaining >= match.remaining()) return null;
+                                    m = Pattern.this.matchOccurrences(new Match(match), op, min, max, ++remaining);
+                                }
+
+                                final int   remaining2 = remaining;
+                                final Match m2         = m;
+                                return new Match(m) {
+
+                                    int remaining = remaining2;
 
                                     /** The previous match, or {@code null} to indicate the initial state. */
-                                    @Nullable Match previous;
+                                    Match previous = m2;
 
                                     @Override @Nullable Match
                                     next() {
 
-                                        Match m = this.previous;
-                                        m = (
-                                            m == null
-                                            ? Pattern.this.matchOccurrences(new Match(match), op, min, max, this.remaining)
-                                            : m.next()
-                                        );
+                                        Match m = this.previous.next();
 
                                         while (m == null) {
                                             if (this.remaining >= match.remaining()) return null;
                                             m = Pattern.this.matchOccurrences(new Match(match), op, min, max, ++this.remaining);
                                         }
+
                                         return this.setFrom((this.previous = m));
                                     }
-                                }.next();
+                                };
                             }
                         };
 
@@ -1327,26 +1400,36 @@ class Pattern {
                             @Override @Nullable public Match
                             bestMatch(final Match match) {
 
-                                return new Match(match) {
+                                int remaining = match.remaining();
+
+                                Match m = null;
+
+                                while (m == null) {
+                                    if (remaining < 0) return null;
+                                    m = Pattern.this.matchOccurrences(new Match(match), op, min, max, remaining--);
+                                }
+
+                                final Match m2 = m;
+
+                                return new Match(m) {
 
                                     int remaining = match.remaining();
-                                    @Nullable Match previous;
+                                    Match previous = m2;
 
                                     @Override @Nullable Match
                                     next() {
 
-                                        Match m = this.previous;
-                                        if (m != null) m = m.next();
+                                        Match m = this.previous.next();
 
                                         while (m == null) {
                                             if (this.remaining < 0) return null;
                                             this.setFrom(match);
                                             m = Pattern.this.matchOccurrences(new Match(match), op, min, max, this.remaining--);
                                         }
-                                        this.setFrom((this.previous = m));
-                                        return this;
+
+                                        return this.setFrom((this.previous = m));
                                     }
-                                }.next();
+                                };
                             }
                         };
 
@@ -1414,9 +1497,11 @@ class Pattern {
 
                 case CC_ANY:
                     this.read();
-                    return new CcNode() {
-                        @Override public boolean evaluate(Character subject) throws RuntimeException { return true; }
-                    };
+                    return (
+                        (this.currentFlags & Pattern.DOTALL) != 0
+                        ? Pattern.CC_NODE_ANY
+                        : new CcNegation(Pattern.CC_NODE_LINEBREAK)
+                    );
 
                 case EITHER_OR:
                 case END_GROUP:
@@ -1459,14 +1544,17 @@ class Pattern {
                 case MATCH_FLAGS:
                     this.read();
                     this.currentFlags = this.parseFlags(this.currentFlags, t.text.substring(2, t.text.length() - 1));
-                    return Pattern.NOP;
+                    return Pattern.NODE_NOP;
+
+                case LINEBREAK_MATCHER:
+                    this.read();
+                    return Pattern.NODE_LINEBREAK;
 
                 case CC_INTERSECTION:
                 case CC_JAVA:
                 case CC_POSIX:
                 case CC_UNICODE:
                 case INDEPENDENT_NON_CAPTURING_GROUP:
-                case LINEBREAK_MATCHER:
                 case MATCH_FLAGS_CAPTURING_GROUP:
                 case NAMED_CAPTURING_GROUP:
                 case NAMED_CAPTURING_GROUP_BACK_REFERENCE:
@@ -1498,7 +1586,13 @@ class Pattern {
 
                 if (idx == -1) return oldFlags | this.parseFlags(spec);
 
-                return (oldFlags | this.parseFlags(spec.substring(0, idx))) & ~this.parseFlags(spec.substring(idx + 1));
+                int positiveFlags = this.parseFlags(spec.substring(0, idx));
+                int negativeFlags = this.parseFlags(spec.substring(idx + 1));
+                if ((positiveFlags & negativeFlags) != 0) {
+                    throw new ParseException("Contradictory embedded flags \"" + spec + "\"");
+                }
+
+                return (oldFlags | positiveFlags) & ~negativeFlags;
             }
 
             /**
@@ -1519,9 +1613,12 @@ class Pattern {
                     case 'u': f = Pattern.UNICODE_CASE;            break;
                     case 'x': f = Pattern.COMMENTS;                break;
                     case 'U': f = Pattern.UNICODE_CHARACTER_CLASS; break;
-                    default:  throw new ParseException("Invalid flag '" + c);
+                    default:  throw new ParseException("Invalid embedded flag '" + c + "'");
                     }
-                    if ((result & f) != 0) throw new ParseException("Duplicate flag '" + c);
+                    if ((Pattern.SUPPORTED_FLAGS & f) == 0) {
+                        throw new ParseException("Unsupported embedded flag '" + c + "'");
+                    }
+                    if ((result & f) != 0) throw new ParseException("Duplicate embedded flag '" + c + "'");
                     result |= f;
                 }
                 return result;
@@ -1530,14 +1627,20 @@ class Pattern {
             CcNode
             parseCharacterClass() throws ParseException {
                 Token<TokenType> t = this.read();
+                char c0 = t.text.length() > 0 ? t.text.charAt(0) : '\0';
+                char c1 = t.text.length() > 1 ? t.text.charAt(1) : '\0';
                 switch (t.type) {
 
                 case LITERAL_CHARACTER:
-                    return new CcLiteralCharacter(t.text.charAt(0), (this.currentFlags & Pattern.CASE_INSENSITIVE) == 0);
+                    return (
+                        (this.currentFlags & Pattern.CASE_INSENSITIVE) == 0 ? new CcLiteralCharacter(c0) :
+                        (this.currentFlags & Pattern.UNICODE_CASE)     == 0 ? new CaseInsensitiveLiteralCharacter(c0) :
+                        new UnicodeCaseInsensitiveLiteralCharacter(c0)
+                    );
 
                 case LITERAL_CONTROL:
                     {
-                        int idx = "ctnrfae".indexOf(t.text.charAt(1));
+                        int idx = "ctnrfae".indexOf(c1);
                         assert idx != -1;
                         if (idx == 0) return new CcLiteralCharacter((char) (t.text.charAt(2) & 0x1f));
                         return new CcLiteralCharacter("c\t\n\r\f\u0007\u001b".charAt(idx));
@@ -1560,7 +1663,7 @@ class Pattern {
                     return negate ? new CcNegation(op) : op;
 
                 case CC_PREDEFINED:
-                    switch (t.text.charAt(1)) {
+                    switch (c1) {
                     case 'd': return Pattern.CC_NODE_IS_DIGIT;
                     case 'D': return Pattern.CC_NODE_IS_NON_DIGIT;
                     case 'h': return Pattern.CC_NODE_IS_HORIZONTAL_WHITESPACE;
@@ -1617,62 +1720,98 @@ class Pattern {
         final int   remaining
     ) {
 
-        return new Match(originalState) {
+        if (originalState.remaining() < remaining) return null;
+
+        if (max == 0) return originalState.remaining() == remaining ? originalState : null;
+
+        if (min == 0 && originalState.remaining() == remaining) return originalState;
+
+        // Find the FIRST match.
+        Match[] state = new Match[1 + Math.min(max, 10)];
+        int occurrences = 1;
+        state[0] = originalState;
+
+        Match fm;
+        for (;;) {
+
+            fm = state[occurrences];
+            if (fm == null) {
+
+                // <occurrences> occurrences have not been tried yet.
+                fm = (state[occurrences] = op.bestMatch(state[occurrences - 1]));
+            } else {
+
+                // Examine next match of <occurrences> occurrences.
+                fm = (state[occurrences] = fm.next());
+            }
+
+            if (fm == null) {
+                if (--occurrences < 0) return null;
+            } else
+            if (fm.remaining() < remaining) {
+                ; // Too few characters left.
+            } else
+            if (occurrences >= max) {
+                if (fm.remaining() == remaining) break;
+            } else
+            if (occurrences >= min && fm.remaining() == remaining) {
+                break;
+            } else
+            if (++occurrences >= state.length) {
+                state = Arrays.copyOf(state, occurrences + 5);
+            }
+        }
+        assert fm != null;
+
+        // Return the first match.
+        final int occurrences2 = occurrences;
+        final Match[] state2 = state;
+        return new Match(fm) {
 
             /**
              * {@code state[x]} is the previous match of x occurrences, or {@code null} to indicate that the
              * xth occurrence has not been matched yet.
              */
-            Match[] state = new Match[Math.min(max, 10)];
+            Match[] state = state2;
 
-            int occurrences;
+            int occurrences = occurrences2;
 
             @Override @Nullable public Match
             next() {
                 for (;;) {
-                    if (this.occurrences >= this.state.length) {
-                        this.state = Arrays.copyOf(this.state, this.occurrences + 5);
-                    }
 
-                    if (this.state[this.occurrences] == null) {
+                    Match m = this.state[this.occurrences];
+                    if (m == null) {
 
                         // <occurrences> occurrences have not been tried yet.
-                        this.state[this.occurrences] = (
-                            this.occurrences == 0
-                            ? originalState
-                            : op.bestMatch(this.state[this.occurrences - 1])
-                        );
+                        m = (this.state[this.occurrences] = op.bestMatch(this.state[this.occurrences - 1]));
                     } else {
 
                         // Examine next match of <occurrences> occurrences.
-                        this.state[this.occurrences] = this.state[this.occurrences].next();
+                        m = (this.state[this.occurrences] = m.next());
                     }
 
-                    if (this.state[this.occurrences] == null) {
-                        this.occurrences--;
-                        if (this.occurrences < 0) return null;
+                    if (m == null) {
+                        if (--this.occurrences < 0) return null;
                     } else
-                    if (this.state[this.occurrences].remaining() < remaining) {
-                        ;
+                    if (m.remaining() < remaining) {
+                        ; // Too few characters left.
                     } else
                     if (this.occurrences >= max) {
-                        if (this.state[this.occurrences].remaining() == remaining) {
-                            this.setFrom(this.state[this.occurrences]);
+                        if (m.remaining() == remaining) {
+                            this.setFrom(m);
                             return this;
                         }
                     } else
-                    if (
-                        this.occurrences >= min
-                        && this.state[this.occurrences].remaining() == remaining
-                    ) {
-                        this.setFrom(this.state[this.occurrences]);
+                    if (this.occurrences >= min && m.remaining() == remaining) {
+                        this.setFrom(m);
                         return this;
                     } else
-                    {
-                        this.occurrences++;
+                    if (++this.occurrences >= this.state.length) {
+                        this.state = Arrays.copyOf(this.state, this.occurrences + 5);
                     }
                 }
             }
-        }.next();
+        };
     }
 }
