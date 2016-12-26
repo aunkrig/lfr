@@ -205,6 +205,7 @@ class OracleEssentialsTest {
      */
     @Test public void
     testEmbeddedFlagExpressions() {
+        OracleEssentialsTest.harness("foo",     "FOOfooFoOfoO", de.unkrig.lfr.core.Pattern.CASE_INSENSITIVE);
         OracleEssentialsTest.harness("(?i)foo", "FOOfooFoOfoO");
         OracleEssentialsTest.harness("foo",     "FOOfooFoOfoO");
     }
@@ -265,38 +266,41 @@ class OracleEssentialsTest {
             }
         }
 
-        long ms1 = 0, ms2 = 0;
-        int N2 = 100000;
-        int N1 = 30000;
-        {
-            long start = 0;
-            for (int i = 0; i < N2; i++) {
+        if (true) {
 
-                if (i == N1) start = System.currentTimeMillis();
+            long ms1 = 0, ms2 = 0;
+            int N2 = 100000;
+            int N1 = 30000;
+            {
+                long start = 0;
+                for (int i = 0; i < N2; i++) {
 
-                for (java.util.regex.Matcher m = pattern1.matcher(subject); m.find();) {
-                    m.group();
-                    m.start();
-                    m.end();
+                    if (i == N1) start = System.currentTimeMillis();
+
+                    for (java.util.regex.Matcher m = pattern1.matcher(subject); m.find();) {
+                        m.group();
+                        m.start();
+                        m.end();
+                    }
                 }
+                ms1 = System.currentTimeMillis() - start;
             }
-            ms1 = System.currentTimeMillis() - start;
-        }
-        {
-            long start = 0;
-            for (int i = 0; i < N2; i++) {
+            {
+                long start = 0;
+                for (int i = 0; i < N2; i++) {
 
-                if (i == N1) start = System.currentTimeMillis();
+                    if (i == N1) start = System.currentTimeMillis();
 
-                for (de.unkrig.lfr.core.Pattern.Matcher m = pattern2.matcher(subject); m.find();) {
-                    m.group();
-                    m.start();
-                    m.end();
+                    for (de.unkrig.lfr.core.Pattern.Matcher m = pattern2.matcher(subject); m.find();) {
+                        m.group();
+                        m.start();
+                        m.end();
+                    }
                 }
+                ms2 = System.currentTimeMillis() - start;
             }
-            ms2 = System.currentTimeMillis() - start;
-        }
 
-        System.err.printf("%-15s %-15s %6d %6d %6.0f%%%n", regex, subject, ms1, ms2, (100. * ms1) / ms2);
+            System.err.printf("%-15s %-15s %6d %6d %6.0f%%%n", regex, subject, ms1, ms2, (100. * ms1) / ms2);
+        }
     }
 }
