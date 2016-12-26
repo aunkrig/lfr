@@ -28,71 +28,100 @@
 
 package test;
 
-import static org.junit.Assert.*;
-
+import org.junit.Assert;
 import org.junit.Test;
 
 public
 class PatternTest {
-    
+
     @Test public void
     testMatches() {
-        verifyMatches("abc", "abc");
-        verifyMatches("abc", "abcxx");
-        verifyMatches("abc", "xxabc");
-        verifyMatches("a.c", "aBc");
-        verifyMatches("a.c", "aBcxx");
-        verifyMatches("a.*c", "axxxc");
-        verifyMatches("a.*c", "axxxcxxxc");
-        verifyMatches("a.*c", "axxx");
+        this.verifyMatches("abc", "abc");
+        this.verifyMatches("abc", "abcxx");
+        this.verifyMatches("abc", "xxabc");
+        this.verifyMatches("a.c", "aBc");
+        this.verifyMatches("a.c", "aBcxx");
+        this.verifyMatches("a.*c", "axxxc");
+        this.verifyMatches("a.*c", "axxxcxxxc");
+        this.verifyMatches("a.*c", "axxx");
     }
-    
+
     private void
     verifyMatches(String regex, String subject) {
         java.util.regex.Matcher            m1 = java.util.regex.Pattern.compile(regex).matcher(subject);
         de.unkrig.lfr.core.Pattern.Matcher m2 = de.unkrig.lfr.core.Pattern.compile(regex).matcher(subject);
-        assertEquals(m1.matches(), m2.matches());
-        assertEqualState(m1, m2);
+        Assert.assertEquals(m1.matches(), m2.matches());
+        PatternTest.assertEqualState(m1, m2);
     }
 
     @Test public void
     testFind() {
-        verifyFind("abc", "abc");
-        verifyFind("abc", "xxabcxx");
-        verifyFind("abc", "xxaBcxx");
-        verifyFind("a.c", "xxabcxx");
-        verifyFind("a.*b", "xxaxxbxxbxxbxx");
-        verifyFind("a.*?b", "xxaxxbxxbxxbxx");
-        verifyFind("a.*+b", "xxaxxbxxbxxbxx");
+        this.verifyFind("abc", "abc");
+        this.verifyFind("abc", "xxabcxx");
+        this.verifyFind("abc", "xxaBcxx");
+        this.verifyFind("a.c", "xxabcxx");
+        this.verifyFind("a.*b", "xxaxxbxxbxxbxx");
+        this.verifyFind("a.*?b", "xxaxxbxxbxxbxx");
+        this.verifyFind("a.*+b", "xxaxxbxxbxxbxx");
     }
-    
+
     private void
     verifyFind(String regex, String subject) {
-        java.util.regex.Matcher            m1 = java.util.regex.Pattern.compile(regex).matcher(subject);
-        de.unkrig.lfr.core.Pattern.Matcher m2 = de.unkrig.lfr.core.Pattern.compile(regex).matcher(subject);
-        
+        this.verifyFind(regex, subject, 0);
+    }
+
+    private void
+    verifyFind(String regex, String subject, int flags) {
+        java.util.regex.Matcher            m1 = java.util.regex.Pattern.compile(regex, flags).matcher(subject);
+        de.unkrig.lfr.core.Pattern.Matcher m2 = de.unkrig.lfr.core.Pattern.compile(regex, flags).matcher(subject);
+
         for (int i = 0;; i++) {
             boolean found1 = m1.find();
             boolean found2 = m2.find();
-            assertEquals("Match #" + (i + 1) + ": " + subject + " => " + regex, found1, found2);
-            assertEqualState(m1, m2);
+            Assert.assertEquals("Match #" + (i + 1) + ": " + subject + " => " + regex, found1, found2);
+            PatternTest.assertEqualState(m1, m2);
             if (!found1) return;
         }
     }
 
     @Test public void
     testLookingAt() {
-        verifyLookingAt("abc", "abcdef");
-        verifyLookingAt("aBc", "abcdef");
-        verifyLookingAt("a.c", "abcdef");
+        this.verifyLookingAt("abc", "abcdef");
+        this.verifyLookingAt("aBc", "abcdef");
+        this.verifyLookingAt("a.c", "abcdef");
     }
-    
+
+    @Test public void
+    testCaseInsensitive() {
+        this.verifyFind("(?i)A", "xxxAxxx");
+        this.verifyFind("(?i)A", "xxxaxxx");
+        this.verifyFind("(?i)Ä", "xxxäxxx");
+        Assert.assertTrue(de.unkrig.lfr.core.Pattern.matches("(?i)Ä", "Ä"));
+        Assert.assertFalse(de.unkrig.lfr.core.Pattern.matches("(?i)Ä", "ä"));
+    }
+
+    @Test public void
+    testUnicodeCaseInsensitive() {
+        this.verifyFind("(?ui)A", "xxxAxxx");
+        this.verifyFind("(?ui)A", "xxxaxxx");
+        this.verifyFind("(?ui)Ä", "xxxäxxx");
+        Assert.assertTrue(de.unkrig.lfr.core.Pattern.matches("(?ui)Ä", "Ä"));
+        Assert.assertTrue(de.unkrig.lfr.core.Pattern.matches("(?ui)Ä", "ä"));
+    }
+
+    @Test public void
+    testDotall() {
+        this.verifyFind(" \r  ", ".");
+        this.verifyFind(" \r  ", ".", de.unkrig.lfr.core.Pattern.DOTALL);
+        this.verifyFind(" \r  ", "(?s).");
+    }
+
     private void
     verifyLookingAt(String regex, String subject) {
         java.util.regex.Matcher            m1 = java.util.regex.Pattern.compile(regex).matcher(subject);
         de.unkrig.lfr.core.Pattern.Matcher m2 = de.unkrig.lfr.core.Pattern.compile(regex).matcher(subject);
-        assertEquals(m1.lookingAt(), m2.lookingAt());
-        assertEqualState(m1, m2);
+        Assert.assertEquals(m1.lookingAt(), m2.lookingAt());
+        PatternTest.assertEqualState(m1, m2);
     }
 
     private static void
@@ -102,13 +131,13 @@ class PatternTest {
         try {
             m1s = m1.start();
         } catch (IllegalStateException ise) {
-            try { m1.end();   fail(); } catch (IllegalStateException ise2) {}
-            try { m2.start(); fail(); } catch (IllegalStateException ise2) {}
-            try { m2.end();   fail(); } catch (IllegalStateException ise2) {}
+            try { m1.end();   Assert.fail(); } catch (IllegalStateException ise2) {}
+            try { m2.start(); Assert.fail(); } catch (IllegalStateException ise2) {}
+            try { m2.end();   Assert.fail(); } catch (IllegalStateException ise2) {}
             return;
         }
 
-        assertEquals(m1s,      m2.start());
-        assertEquals(m1.end(), m2.end());
+        Assert.assertEquals(m1s,      m2.start());
+        Assert.assertEquals(m1.end(), m2.end());
     }
 }
