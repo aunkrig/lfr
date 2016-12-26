@@ -67,6 +67,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.regex.Matcher;
 import java.util.regex.PatternSyntaxException;
 
 import de.unkrig.commons.lang.AssertionUtil;
@@ -173,6 +174,11 @@ class Pattern {
         int start();
 
 //        /**
+//         * @see java.util.regex.Matcher#start(String)
+//         */
+//        int start(String name);
+//
+//        /**
 //         * @see java.util.regex.Matcher#start(int)
 //         */
 //        int start(int group);
@@ -186,6 +192,11 @@ class Pattern {
 //         * @see java.util.regex.Matcher#end(int)
 //         */
 //        int end(int group);
+//
+//        /**
+//         * @see java.util.regex.Matcher#end(String)
+//         */
+//        int end(String name);
 
         /**
          * @see java.util.regex.Matcher#group()
@@ -196,6 +207,11 @@ class Pattern {
 //         * @see java.util.regex.Matcher#group(int)
 //         */
 //        String group(int group);
+//
+//        /**
+//         * @see java.util.regex.Matcher#group(String)
+//         */
+//        String group(String name);
 //
 //        /**
 //         * @see java.util.regex.Matcher#groupCount()
@@ -221,6 +237,81 @@ class Pattern {
          * @see java.util.regex.Matcher#lookingAt()
          */
         boolean lookingAt();
+
+//        /**
+//         * @see java.util.regex.Matcher#quoteReplacement(String)
+//         */
+//        public static String quoteReplacement(String s);
+//
+//        /**
+//         * @see java.util.regex.Matcher#appendReplacement(StrigBuffer, String)
+//         */
+//        public Matcher appendReplacement(StringBuffer sb, String replacement);
+//
+//        /**
+//         * @see java.util.regex.Matcher#appendTail(StringBuffer)
+//         */
+//        public StringBuffer appendTail(StringBuffer sb);
+//
+//        /**
+//         * @see java.util.regex.Matcher#replaceAll(String)
+//         */
+//        public String replaceAll(String replacement);
+//
+//        /**
+//         * @see java.util.regex.Matcher#replaceFirst(String)
+//         */
+//        public String replaceFirst(String replacement);
+//
+//        /**
+//         * @see java.util.regex.Matcher#region(int, int)
+//         */
+//        public Matcher region(int start, int end);
+//
+//        /**
+//         * @see java.util.regex.Matcher#regionStart()
+//         */
+//        public int regionStart();
+//
+//        /**
+//         * @see java.util.regex.Matcher#regionEnd()
+//         */
+//        public int regionEnd();
+//
+//        /**
+//         * @see java.util.regex.Matcher#hasTransparentBounds()
+//         */
+//        public boolean hasTransparentBounds();
+//
+//        /**
+//         * @see java.util.regex.Matcher#useTransparentBounds(boolean)
+//         */
+//        public Matcher useTransparentBounds(boolean b);
+//
+//        /**
+//         * @see java.util.regex.Matcher#hasAnchoringBounds()
+//         */
+//        public boolean hasAnchoringBounds();
+//
+//        /**
+//         * @see java.util.regex.Matcher#useAnchoringBounds(boolean)
+//         */
+//        public Matcher useAnchoringBounds(boolean b);
+//
+//        /**
+//         * @see java.util.regex.Matcher#toString()
+//         */
+//        public String toString();
+
+        /**
+         * @see java.util.regex.Matcher#hitEnd()
+         */
+        public boolean hitEnd();
+
+//        /**
+//         * @see java.util.regex.Matcher#requireEnd()
+//         */
+//        public boolean requireEnd();
     }
 
     // SUPPRESS CHECKSTYLE JavadocVariable:59
@@ -317,6 +408,8 @@ class Pattern {
 
         private int offset;
 
+        protected boolean hitEnd;
+
         Match(int groupCount, CharSequence subject, int offset) {
             this.subject = subject;
             this.offset  = offset;
@@ -328,6 +421,7 @@ class Pattern {
             this.groups  = that.groups;
             this.subject = that.subject;
             this.offset  = that.offset;
+            this.hitEnd  = that.hitEnd;
             this.setGroupsShared(true);
         }
 
@@ -347,7 +441,12 @@ class Pattern {
         boolean
         peekRead(CharSequence ref) {
             int len = ref.length();
-            if (this.offset + len > this.subject.length()) return false; // Not enough chars left.
+            if (this.offset + len > this.subject.length()) {
+
+                // Not enough chars left.
+                this.hitEnd = true;
+                return false;
+            }
             if (!ref.equals(this.subject.subSequence(this.offset, this.offset + len))) return false;
             this.offset += len;
             return true;
@@ -363,27 +462,28 @@ class Pattern {
         atStart() { return this.offset == 0; }
 
         boolean
-        atEnd() { return this.offset >= this.subject.length(); }
+        atEnd() {
+            if (this.offset >= this.subject.length()) {
+                this.hitEnd = true;
+                return true;
+            }
+            return false;
+        }
 
         public int
-        remaining() { return this.subject.length() - this.offset; }
+        remaining() {
+            this.hitEnd = true;
+            return this.subject.length() - this.offset;
+        }
 
         Match
         setFrom(Match that) {
             assert this.subject == that.subject;
             this.groups  = that.groups;
             this.offset  = that.offset;
+            this.hitEnd  = that.hitEnd;
             this.setGroupsShared(true);
             return this;
-        }
-
-        @Override public Match
-        clone() {
-            try {
-                return ((Match) super.clone()).setGroupsShared(true);
-            } catch (CloneNotSupportedException cnse) {
-                throw new AssertionError(cnse);
-            }
         }
 
         /**
@@ -1215,28 +1315,33 @@ class Pattern {
             private int     start = -1, end;
             private boolean atEndAfterZeroLengthMatch;
             private Match   initialMatch = new Match(Pattern.this.groupCount, subject, 0);
+            private boolean hitEnd;
 
             @Override public Pattern
             pattern() { return Pattern.this; }
 
             @Override public Matcher
             usePattern(Pattern newPattern) {
-                this.start   = -1;
-                this.pattern = newPattern;
+                this.pattern                   = newPattern;
+                this.start                     = -1;
+                this.atEndAfterZeroLengthMatch = false;
+                this.initialMatch              = new Match(newPattern.groupCount, subject, 0);
                 return this;
             }
 
             @Override public Matcher
             reset() {
-                this.initialMatch.offset = 0;
-                this.start               = -1;
+                this.start                     = -1;
+                this.atEndAfterZeroLengthMatch = false;
+                this.initialMatch.offset       = 0;
                 return this;
             }
 
             @Override public Matcher
             reset(CharSequence input) {
-                this.initialMatch = new Match(this.pattern.groupCount, input, 0);
-                this.start    = -1;
+                this.start                     = -1;
+                this.atEndAfterZeroLengthMatch = false;
+                this.initialMatch              = new Match(this.pattern.groupCount, input, 0);
                 return this;
             }
 
@@ -1282,10 +1387,17 @@ class Pattern {
                         this.start = (this.end = start);
                         if (start == subject.length()) {
                             this.atEndAfterZeroLengthMatch = true;
+                            this.hitEnd                    = true;
                         } else {
                             this.initialMatch.offset++;
                         }
                         return true;
+                    }
+
+                    if (start + s.length() > subject.length()) {
+                        this.hitEnd = true;
+                        this.start = -1;
+                        return false;
                     }
 
                     int limit = subject.length() - s.length();
@@ -1298,6 +1410,7 @@ class Pattern {
                         return true;
                     }
                     this.initialMatch.offset = subject.length();
+                    this.hitEnd              = true;
                     this.start               = -1;
                     return false;
                 }
@@ -1318,10 +1431,14 @@ class Pattern {
                                 this.initialMatch.offset++;
                             }
                         }
+                        this.hitEnd = bm.hitEnd;
                         return true;
                     }
 
-                    if (m.atEnd()) break;
+                    if (m.atEnd()) {
+                        this.hitEnd = m.hitEnd;
+                        break;
+                    }
 
                     m.read();
                 }
@@ -1341,6 +1458,9 @@ class Pattern {
                 this.end   = m.offset;
                 return true;
             }
+
+            @Override public boolean
+            hitEnd() { return this.hitEnd; }
         };
     }
 
