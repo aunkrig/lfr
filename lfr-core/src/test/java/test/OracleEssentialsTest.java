@@ -257,7 +257,12 @@ class OracleEssentialsTest {
 
                 boolean found1 = matcher1.find();
                 boolean found2 = matcher2.find();
-                Assert.assertEquals(message, found1, found2);
+                Assert.assertEquals(message + ":find()", found1, found2);
+
+                boolean hitEnd1 = matcher1.hitEnd();
+                boolean hitEnd2 = matcher2.hitEnd();
+                Assert.assertEquals(message + ":hitEnd()", hitEnd1, hitEnd2);
+
                 if (!found1 || !found2) break;
 
                 Assert.assertEquals(message, matcher1.group(), matcher2.group());
@@ -266,7 +271,7 @@ class OracleEssentialsTest {
             }
         }
 
-        if (true) {
+        if (false) {
 
             long ms1 = 0, ms2 = 0;
             int N2 = 100000;
