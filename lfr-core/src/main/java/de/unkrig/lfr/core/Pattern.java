@@ -66,7 +66,6 @@ import static de.unkrig.lfr.core.Pattern.TokenType.RIGHT_BRACKET;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.EnumSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.regex.PatternSyntaxException;
 
@@ -458,35 +457,58 @@ class Pattern {
         public CcNegation(Predicate<Character> delegate) { this.delegate = delegate; }
 
         @Override public boolean evaluate(Character subject) { return !this.delegate.evaluate(subject); }
+
+        @Override public String
+        toString() { return "^" + this.delegate; }
+    }
+
+    static
+    class LiteralString implements Node {
+
+        private String s;
+
+        LiteralString(String s) { this.s = s; }
+
+        @Override @Nullable public Match
+        bestMatch(Match match) {
+            if (match.remaining() < this.s.length()) return null;
+            for (int i = 0; i < this.s.length(); i++) {
+                if (match.read() != this.s.charAt(i)) return null;
+            }
+            return match;
+        }
+
+        @Override public String
+        toString() { return this.s; }
     }
 
     static
     class Sequence implements Node {
 
-        private final Node prefix, suffix;
+        private final Node lhs, rhs;
 
-        Sequence(Node prefix, Node suffix) {
-            this.prefix = prefix;
-            this.suffix = suffix;
+        Sequence(Node lhs, Node rhs) {
+            this.lhs = lhs;
+            this.rhs = rhs;
         }
 
         @Override @Nullable public Match
         bestMatch(Match match) {
 
-            Match prefixMatch = this.prefix.bestMatch(match);
-            if (prefixMatch == null) return null;
+            Match lhsMatch = this.lhs.bestMatch(match);
+            if (lhsMatch == null) return null;
 
-            Match suffixMatch = this.suffix.bestMatch(prefixMatch);
-            while (suffixMatch == null) {
-                prefixMatch = prefixMatch.next();
-                if (prefixMatch == null) return null;
-                suffixMatch = this.suffix.bestMatch(prefixMatch);
+            Match rhsMatch = this.rhs.bestMatch(lhsMatch);
+            while (rhsMatch == null) {
+                lhsMatch = lhsMatch.next();
+                if (lhsMatch == null) return null;
+                rhsMatch = this.rhs.bestMatch(lhsMatch);
             }
 
-            final Match prefixMatch2 = prefixMatch, suffixMatch2 = suffixMatch;
-            return new Match(suffixMatch) {
+            final Match lhsMatch2 = lhsMatch, rhsMatch2 = rhsMatch;
+            return new Match(rhsMatch) {
 
-                Match pm = prefixMatch2, sm = suffixMatch2;
+                Match pm = lhsMatch2, sm = rhsMatch2;
 
                 @Override @Nullable public Match
                 next() {
@@ -498,12 +520,15 @@ class Pattern {
                         if (tmp == null) return null;
                         this.pm = tmp;
 
-                        tmp = Sequence.this.suffix.bestMatch(tmp);
+                        tmp = Sequence.this.rhs.bestMatch(tmp);
                         if (tmp != null) return this.setFrom(this.sm);
                     }
                 }
             };
         }
+
+        @Override public String
+        toString() { return this.lhs.toString() + this.rhs; }
     }
 
     /**
@@ -512,20 +537,22 @@ class Pattern {
     public static
     class Alternatives implements Node {
 
-        private final List<Node> alternatives;
+        private final Node[] alternatives;
 
         public
-        Alternatives(List<Node> alternatives) { this.alternatives = alternatives; }
+        Alternatives(List<Node> alternatives) { this.alternatives = alternatives.toArray(new Node[alternatives.size()]); }
 
         @Override @Nullable public Match
         bestMatch(Match match) {
-            Iterator<Node> it = this.alternatives.iterator();
-            while (it.hasNext()) {
-                Match m = it.next().bestMatch(new Match(match));
+            for (int i = 0; i < this.alternatives.length; i++) {
+                Match m = this.alternatives[i].bestMatch(match);
                 if (m != null) return m;
             }
             return null;
         }
+
+        @Override public String
+        toString() { return Pattern.join(this.alternatives, '|'); }
     }
 
     public
@@ -565,6 +592,9 @@ class Pattern {
                 }
             };
         }
+
+        @Override public String
+        toString() { return "(" + this.subnode + ")"; }
     }
 
     public
@@ -591,6 +621,9 @@ class Pattern {
             }
             return match;
         }
+
+        @Override public String
+        toString() { return "\\" + this.groupNumber; }
     }
 
     public static
@@ -630,6 +663,9 @@ class Pattern {
                 throw new AssertionError(this.kind);
             }
         }
+
+        @Override public String
+        toString() { return Character.isLetter(this.kind) ? new String(new char[] { this.kind }) : "\\" + this.kind; }
     }
 
     /**
@@ -645,6 +681,9 @@ class Pattern {
 
         @Override public boolean
         evaluate(Character subject) { return subject == this.c; }
+
+        @Override public String
+        toString() { return new String(new char[] { this.c }); }
     }
 
     /**
@@ -667,6 +706,9 @@ class Pattern {
             if (diff == -32 && c1 >= 'A' && c1 <= 'Z') return true;
             return false;
         }
+
+        @Override public String
+        toString() { return "(?i)" + this.c + "(?-i)"; }
     }
 
     /**
@@ -682,6 +724,9 @@ class Pattern {
 
         @Override public boolean
         evaluate(Character subject) { return Character.toUpperCase(this.c) == Character.toUpperCase(subject); }
+
+        @Override public String
+        toString() { return "(?iu)" + this.c + "(?-iu)"; }
     }
 
     /**
@@ -696,6 +741,9 @@ class Pattern {
 
         @Override public boolean
         evaluate(Character subject) { return this.lhs.evaluate(subject) && this.rhs.evaluate(subject); }
+
+        @Override public String
+        toString() { return this.lhs + "&&" + this.rhs; }
     }
 
     /**
@@ -710,6 +758,9 @@ class Pattern {
 
         @Override public boolean
         evaluate(Character subject) { return this.lhs.evaluate(subject) || this.rhs.evaluate(subject); }
+
+        @Override public String
+        toString() { return this.lhs.toString() + this.rhs; }
     }
 
     /**
@@ -724,6 +775,9 @@ class Pattern {
 
         @Override public boolean
         evaluate(Character subject) { return subject >= this.lhs && subject <= this.rhs; }
+
+        @Override public String
+        toString() { return this.lhs + "-" + this.rhs; }
     }
 
     private
@@ -733,6 +787,23 @@ class Pattern {
         this.node    = this.parse(rs, flags);
 
         this.groupCount = rs.groupCount;
+    }
+
+    /**
+     * @param alternatives
+     * @param glue
+     * @return
+     */
+    private static String
+    join(@Nullable Object[] oa, char glue) {
+
+        if (oa == null || oa.length == 0) return "";
+
+        if (oa.length == 1) return String.valueOf(oa[0]);
+
+        StringBuilder sb = new StringBuilder().append(oa[0]).append(glue).append(oa[1]);
+        for (int i = 2; i < oa.length; i++) sb.append(glue).append(oa[i]);
+        return sb.toString();
     }
 
     static
@@ -943,6 +1014,8 @@ class Pattern {
     static final CcNode
     CC_NODE_IS_DIGIT = new CcNode() {
         @Override public boolean evaluate(Character subject) { return Character.isDigit(subject); }
+        @Override public String  toString()                  { return "\\d"; }
+
     };
 
     /**  A non-digit: [^0-9] */
@@ -959,6 +1032,9 @@ class Pattern {
                 || (subject >= '\u2000' && subject <= '\u200a')
             );
         }
+
+        @Override public String
+        toString() { return "\\h"; }
     };
 
     /**  A non-horizontal whitespace character: [^\h] */
@@ -969,6 +1045,8 @@ class Pattern {
     static final CcNode
     CC_NODE_IS_WHITESPACE = new CcNode() {
         @Override public boolean evaluate(Character subject) { return " \t\n\u000B\f\r".indexOf(subject) != -1; }
+        @Override public String  toString()                  { return "\\s"; }
+
     };
 
     /**  A non-whitespace character: [^\s] */
@@ -978,8 +1056,12 @@ class Pattern {
     /**  A vertical whitespace character: [\n\x0B\f\r\x85/u2028/u2029] */
     static final CcNode
     CC_NODE_IS_VERTICAL_WHITESPACE = new CcNode() {
+
         @Override public boolean
         evaluate(Character subject) { return "\n\u000B\f\r\u0085\u2028\u2029".indexOf(subject) != -1; }
+
+        @Override public String
+        toString() { return "\\v"; }
     };
 
     /**  A non-vertical whitespace character: [^\v] */
@@ -992,6 +1074,9 @@ class Pattern {
 
         @Override public boolean
         evaluate(Character subject) { return Pattern.isWordCharacter(subject); }
+
+        @Override public String
+        toString() { return "\\w"; }
     };
 
     public static boolean
@@ -1008,7 +1093,14 @@ class Pattern {
     CC_NODE_IS_NON_WORD = new CcNegation(Pattern.CC_NODE_IS_WORD);
 
     static final CcNode
-    CC_NODE_ANY = new CcNode() { @Override public boolean evaluate(Character subject) { return true; } };
+    CC_NODE_ANY = new CcNode() {
+
+        @Override public boolean
+        evaluate(Character subject) { return true; }
+
+        @Override public String
+        toString() { return "."; }
+    };
 
     static final CcNode
     CC_NODE_LINEBREAK = new CcNode() {
@@ -1025,11 +1117,9 @@ class Pattern {
                 || subject == 0x2029
             );
         }
-    };
 
-    public static final Node EMPTY_SEQUENCE = new Node() {
-
-        @Override public Match bestMatch(Match match) { return match; }
+        @Override public String
+        toString() { return "\\R"; }
     };
 
     public static final Node
@@ -1052,11 +1142,15 @@ class Pattern {
             }
             return null;
         }
+
+        @Override public String
+        toString() { return "\\R"; }
     };
 
     public static final Node
     NODE_NOP = new Node() {
         @Override public Match bestMatch(Match match) { return match; }
+        @Override public String toString() { return ""; }
     };
 
     /**
@@ -1108,11 +1202,10 @@ class Pattern {
 
         return new Matcher() {
 
-            private CharSequence subject2 = subject;
-            private Pattern      pattern = Pattern.this;
-            private int          offset;
-            private int          start = -1, end;
-            private boolean      atEndAfterZeroLengthMatch;
+            private Pattern pattern = Pattern.this;
+            private int     start = -1, end;
+            private boolean atEndAfterZeroLengthMatch;
+            private Match   initialMatch = new Match(Pattern.this.groupCount, subject, 0);
 
             @Override public Pattern
             pattern() { return Pattern.this; }
@@ -1126,15 +1219,14 @@ class Pattern {
 
             @Override public Matcher
             reset() {
-                this.offset = 0;
-                this.start  = -1;
+                this.initialMatch.offset = 0;
+                this.start               = -1;
                 return this;
             }
 
             @Override public Matcher
             reset(CharSequence input) {
-                this.subject2 = input;
-                this.offset   = 0;
+                this.initialMatch = new Match(this.pattern.groupCount, input, 0);
                 this.start    = -1;
                 return this;
             }
@@ -1154,19 +1246,19 @@ class Pattern {
             @Override public String
             group() {
                 if (this.start == -1) throw new IllegalStateException("No match available");
-                return this.subject2.subSequence(this.start, this.end).toString();
+                return subject.subSequence(this.start, this.end).toString();
             }
 
             @Override public boolean
             matches() {
-                if (!this.pattern.matches(this.subject2, 0)) return false;
+                if (!this.pattern.matches(subject, 0)) return false;
                 this.start = 0;
-                this.end   = this.subject2.length();
+                this.end   = subject.length();
                 return true;
             }
 
             @Override public boolean
-            find() { return this.find(this.offset); }
+            find() { return this.find(this.initialMatch.offset); }
 
             @Override public boolean
             find(int start) {
@@ -1175,16 +1267,18 @@ class Pattern {
 
                 for (;; start++) {
 
-                    Match m = new Match(Pattern.this.groupCount, subject, (this.start = start));
+                    this.start = start;
+                    Match m = new Match(this.initialMatch);
+                    m.offset = start;
 
                     Match bm = this.pattern.node.bestMatch(m);
                     if (bm != null) {
-                        this.offset = (this.end = bm.offset);
+                        this.initialMatch.offset = (this.end = bm.offset);
                         if (this.start == this.end) {
                             if (m.atEnd()) {
                                 this.atEndAfterZeroLengthMatch = true;
                             } else {
-                                this.offset++;
+                                this.initialMatch.offset++;
                             }
                         }
                         return true;
@@ -1201,7 +1295,9 @@ class Pattern {
             @Override public boolean
             lookingAt() {
 
-                Match m = this.pattern.node.bestMatch(new Match(Pattern.this.groupCount, subject, this.offset));
+                Match m = this.pattern.node.bestMatch(
+                    new Match(Pattern.this.groupCount, subject, this.initialMatch.offset)
+                );
                 if (m == null) return false;
 
                 this.start = 0;
@@ -1300,11 +1396,47 @@ class Pattern {
             private Node
             parseSequence() throws ParseException {
 
-                if (this.peek() == null || this.peekRead("|")) return Pattern.EMPTY_SEQUENCE;
+                if (this.peek() == null || this.peekRead("|")) return Pattern.NODE_NOP;
 
-                Node result = this.parseQuantified();
-                while (this.peek(null, "|", ")") == -1) result = new Sequence(result, this.parseQuantified());
-                return result;
+                Node lhs = this.parseQuantified();
+                while (this.peek(null, "|", ")") == -1) {
+
+                    Node rhs = this.parseQuantified();
+
+                    if (rhs == Pattern.NODE_NOP) {
+                        ;
+                    } else
+                    if (lhs == Pattern.NODE_NOP) {
+                        lhs = rhs;
+                    } else
+                    if (lhs instanceof CcLiteralCharacter && rhs instanceof CcLiteralCharacter) {
+
+                        // Optimization: Two literal characters pose a string literal.
+                        lhs = new LiteralString(new String(new char[] {
+                            ((CcLiteralCharacter) lhs).c,
+                            ((CcLiteralCharacter) rhs).c,
+                        }));
+                    } else
+                    if (lhs instanceof LiteralString && rhs instanceof CcLiteralCharacter) {
+
+                        // Optimization: One string literal and one literal character pose a string literal.
+                        lhs = new LiteralString(((LiteralString) lhs).s + ((CcLiteralCharacter) rhs).c);
+                    } else
+                    if (lhs instanceof CcLiteralCharacter && rhs instanceof LiteralString) {
+
+                        // Optimization: One literal character and one string literal pose a string literal.
+                        lhs = new LiteralString(((CcLiteralCharacter) lhs).c + ((LiteralString) rhs).s);
+                    } else
+                    if (lhs instanceof LiteralString && rhs instanceof LiteralString) {
+
+                        // Optimization: Two string literals pose another string literal.
+                        lhs = new LiteralString(((LiteralString) lhs).s + ((LiteralString) rhs).s);
+                    } else
+                    {
+                        lhs = new Sequence(lhs, rhs);
+                    }
+                }
+                return lhs;
             }
 
             private Node
@@ -1431,6 +1563,9 @@ class Pattern {
                                     }
                                 };
                             }
+
+                            @Override public String
+                            toString() { return "{" + min + "," + max + "}?"; }
                         };
 
                     case POSSESSIVE_QUANTIFIER:
@@ -1454,6 +1589,9 @@ class Pattern {
 
                                 return m;
                             }
+
+                            @Override public String
+                            toString() { return "{" + min + "," + max + "}+"; }
                         };
 
                     default:
