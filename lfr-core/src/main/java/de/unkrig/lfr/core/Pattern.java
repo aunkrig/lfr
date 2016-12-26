@@ -340,6 +340,25 @@ class Pattern {
         char
         read() { return this.subject.charAt(this.offset++); }
 
+        /**
+         * Iff the next characters equal the <var>ref</var>, then it consumes these characters and returns {@code
+         * true}.
+         */
+        boolean
+        peekRead(CharSequence ref) {
+            int len = ref.length();
+            if (this.offset + len > this.subject.length()) return false; // Not enough chars left.
+            if (!ref.equals(this.subject.subSequence(this.offset, this.offset + len))) return false;
+            this.offset += len;
+            return true;
+        }
+
+        /**
+         * @return Whether at least <var>n</var> characters are remaining
+         */
+        public boolean
+        available(int n) { return this.offset + n <= this.subject.length(); }
+
         public boolean
         atStart() { return this.offset == 0; }
 
@@ -470,13 +489,7 @@ class Pattern {
         LiteralString(String s) { this.s = s; }
 
         @Override @Nullable public Match
-        bestMatch(Match match) {
-            if (match.remaining() < this.s.length()) return null;
-            for (int i = 0; i < this.s.length(); i++) {
-                if (match.read() != this.s.charAt(i)) return null;
-            }
-            return match;
-        }
+        bestMatch(Match match) { return match.peekRead(this.s) ? match : null; }
 
         @Override public String
         toString() { return this.s; }
@@ -614,12 +627,7 @@ class Pattern {
             String s = match.group(this.groupNumber);
             if (s == null) s = "";
 
-            if (match.remaining() < s.length()) return null;
-
-            for (int i = 0; i < s.length(); i++) {
-                if (match.read() != s.charAt(i)) return null;
-            }
-            return match;
+            return match.peekRead(s) ? match : null;
         }
 
         @Override public String
@@ -1528,19 +1536,19 @@ class Pattern {
                             @Override @Nullable public Match
                             bestMatch(final Match match) {
 
-                                Match m = Pattern.matchOccurrences(new Match(match), op, min, max, 0);
+                                int n = match.remaining();
+                                Match m = Pattern.matchOccurrences(new Match(match), op, min, max, n);
 
-                                int remaining = 0;
                                 while (m == null) {
-                                    if (remaining >= match.remaining()) return null;
-                                    m = Pattern.matchOccurrences(new Match(match), op, min, max, ++remaining);
+                                    if (n <= 0) return null;
+                                    m = Pattern.matchOccurrences(new Match(match), op, min, max, --n);
                                 }
 
-                                final int   remaining2 = remaining;
-                                final Match m2         = m;
+                                final int   n2 = n;
+                                final Match m2 = m;
                                 return new Match(m) {
 
-                                    int remaining = remaining2;
+                                    int n = n2;
 
                                     /** The previous match, or {@code null} to indicate the initial state. */
                                     Match previous = m2;
@@ -1551,47 +1559,8 @@ class Pattern {
                                         Match m = this.previous.next();
 
                                         while (m == null) {
-                                            if (this.remaining >= match.remaining()) return null;
-                                            m = Pattern.matchOccurrences(new Match(match), op, min, max, ++this.remaining);
-                                        }
-
-                                        return this.setFrom((this.previous = m));
-                                    }
-                                };
-                            }
-                        };
-
-                    case RELUCTANT_QUANTIFIER:
-                        return new Node() {
-
-                            @Override @Nullable public Match
-                            bestMatch(final Match match) {
-
-                                int remaining = match.remaining();
-
-                                Match m = null;
-
-                                while (m == null) {
-                                    if (remaining < 0) return null;
-                                    m = Pattern.matchOccurrences(new Match(match), op, min, max, remaining--);
-                                }
-
-                                final Match m2 = m;
-
-                                return new Match(m) {
-
-                                    int remaining = match.remaining();
-                                    Match previous = m2;
-
-                                    @Override @Nullable Match
-                                    next() {
-
-                                        Match m = this.previous.next();
-
-                                        while (m == null) {
-                                            if (this.remaining < 0) return null;
-                                            this.setFrom(match);
-                                            m = Pattern.matchOccurrences(new Match(match), op, min, max, this.remaining--);
+                                            if (this.n <= 0) return null;
+                                            m = Pattern.matchOccurrences(new Match(match), op, min, max, --this.n);
                                         }
 
                                         return this.setFrom((this.previous = m));
@@ -1600,7 +1569,49 @@ class Pattern {
                             }
 
                             @Override public String
-                            toString() { return "{" + min + "," + max + "}?"; }
+                            toString() { return op + "{" + min + "," + max + "}"; }
+                        };
+
+                    case RELUCTANT_QUANTIFIER:
+                        return new Node() {
+
+                            @Override @Nullable public Match
+                            bestMatch(final Match match) {
+
+                                // Look for the first match.
+                                Match m = Pattern.matchOccurrences(new Match(match), op, min, max, 0);
+
+                                int n = 0;
+                                while (m == null) {
+                                    if (!match.available(n)) return null;
+                                    m = Pattern.matchOccurrences(new Match(match), op, min, max, ++n);
+                                }
+
+                                final Match m2 = m;
+                                final int   n2 = n;
+                                return new Match(m) {
+
+                                    int   n        = n2;
+                                    Match previous = m2;
+
+                                    @Override @Nullable Match
+                                    next() {
+
+                                        Match m = this.previous.next();
+
+                                        while (m == null) {
+                                            if (!match.available(++this.n)) return null;
+                                            this.setFrom(match);
+                                            m = Pattern.matchOccurrences(new Match(match), op, min, max, this.n);
+                                        }
+
+                                        return this.setFrom((this.previous = m));
+                                    }
+                                };
+                            }
+
+                            @Override public String
+                            toString() { return op + "{" + min + "," + max + "}?"; }
                         };
 
                     case POSSESSIVE_QUANTIFIER:
@@ -1626,7 +1637,7 @@ class Pattern {
                             }
 
                             @Override public String
-                            toString() { return "{" + min + "," + max + "}+"; }
+                            toString() { return op + "{" + min + "," + max + "}+"; }
                         };
 
                     default:
@@ -1881,8 +1892,8 @@ class Pattern {
     }
 
     /**
-     * @return All matches of <var>min</var>...<var>max</var> occurrences of <var>op</var> that leave exactly
-     *         <var>remaining</var> characters
+     * @return All matches of <var>min</var>...<var>max</var> occurrences of <var>op</var> that consume exactly
+     *         <var>n</var> characters
      */
     @Nullable private static Match
     matchOccurrences(
@@ -1890,19 +1901,18 @@ class Pattern {
         final Node  op,
         final int   min,
         final int   max,
-        final int   remaining
+        final int   n
     ) {
 
-        if (originalState.remaining() < remaining) return null;
+        if (max == 0) return originalState.atEnd() ? originalState : null;
 
-        if (max == 0) return originalState.remaining() == remaining ? originalState : null;
-
-        if (min == 0 && originalState.remaining() == remaining) return originalState;
+        if (min == 0 && n == 0) return originalState;
 
         // Find the FIRST match.
         Match[] state = new Match[1 + Math.min(max, 10)];
         int occurrences = 1;
         state[0] = originalState;
+        final int limit = originalState.offset + n;
 
         Match fm;
         for (;;) {
@@ -1921,13 +1931,13 @@ class Pattern {
             if (fm == null) {
                 if (--occurrences < 0) return null;
             } else
-            if (fm.remaining() < remaining) {
+            if (fm.offset > limit) {
                 ; // Too few characters left.
             } else
             if (occurrences >= max) {
-                if (fm.remaining() == remaining) break;
+                if (fm.offset == limit) break;
             } else
-            if (occurrences >= min && fm.remaining() == remaining) {
+            if (occurrences >= min && fm.offset == limit) {
                 break;
             } else
             if (++occurrences >= state.length) {
@@ -1967,16 +1977,16 @@ class Pattern {
                     if (m == null) {
                         if (--this.occurrences < 0) return null;
                     } else
-                    if (m.remaining() < remaining) {
+                    if (m.offset > limit) {
                         ; // Too few characters left.
                     } else
                     if (this.occurrences >= max) {
-                        if (m.remaining() == remaining) {
+                        if (m.offset == limit) {
                             this.setFrom(m);
                             return this;
                         }
                     } else
-                    if (this.occurrences >= min && m.remaining() == remaining) {
+                    if (this.occurrences >= min && m.offset == limit) {
                         this.setFrom(m);
                         return this;
                     } else
