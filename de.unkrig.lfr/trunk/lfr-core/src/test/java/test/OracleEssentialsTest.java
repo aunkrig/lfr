@@ -28,8 +28,6 @@
 
 package test;
 
-import static org.junit.Assert.*;
-
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -43,62 +41,62 @@ class OracleEssentialsTest {
 
     @Test public void
     testStringLiterals() {
-        OracleEssentialsTest.harness("foo", "foofoofoo");
-        OracleEssentialsTest.harness("cat.", "cats");
+        OracleEssentials.harness("foo", "foofoofoo");
+        OracleEssentials.harness("cat.", "cats");
     }
 
     @Test public void
     testSimpleClasses() {
-        OracleEssentialsTest.harness("[bcr]at", "bat");
+        OracleEssentials.harness("[bcr]at", "bat");
     }
 
     @Test public void
     testNegation() {
-        OracleEssentialsTest.harness("[^bcr]at", "bat");
-        OracleEssentialsTest.harness("[^bcr]at", "cat");
-        OracleEssentialsTest.harness("[^bcr]at", "rat");
-        OracleEssentialsTest.harness("[^bcr]at", "hat");
+        OracleEssentials.harness("[^bcr]at", "bat");
+        OracleEssentials.harness("[^bcr]at", "cat");
+        OracleEssentials.harness("[^bcr]at", "rat");
+        OracleEssentials.harness("[^bcr]at", "hat");
     }
 
     @Test public void
     testRanges() {
-        OracleEssentialsTest.harness("[a-c]", "a");
-        OracleEssentialsTest.harness("[a-c]", "b");
-        OracleEssentialsTest.harness("[a-c]", "c");
-        OracleEssentialsTest.harness("[a-c]", "d");
-        OracleEssentialsTest.harness("foo[1-5]", "foo1");
-        OracleEssentialsTest.harness("foo[1-5]", "foo5");
-        OracleEssentialsTest.harness("foo[1-5]", "foo6");
-        OracleEssentialsTest.harness("foo[^1-5]", "foo1");
-        OracleEssentialsTest.harness("foo[^1-5]", "foo6");
+        OracleEssentials.harness("[a-c]", "a");
+        OracleEssentials.harness("[a-c]", "b");
+        OracleEssentials.harness("[a-c]", "c");
+        OracleEssentials.harness("[a-c]", "d");
+        OracleEssentials.harness("foo[1-5]", "foo1");
+        OracleEssentials.harness("foo[1-5]", "foo5");
+        OracleEssentials.harness("foo[1-5]", "foo6");
+        OracleEssentials.harness("foo[^1-5]", "foo1");
+        OracleEssentials.harness("foo[^1-5]", "foo6");
     }
 
     @Test public void
     testUnions() {
-        OracleEssentialsTest.harness("[0-4[6-8]]", "0");
-        OracleEssentialsTest.harness("[0-4[6-8]]", "5");
-        OracleEssentialsTest.harness("[0-4[6-8]]", "6");
-        OracleEssentialsTest.harness("[0-4[6-8]]", "8");
-        OracleEssentialsTest.harness("[0-4[6-8]]", "9");
+        OracleEssentials.harness("[0-4[6-8]]", "0");
+        OracleEssentials.harness("[0-4[6-8]]", "5");
+        OracleEssentials.harness("[0-4[6-8]]", "6");
+        OracleEssentials.harness("[0-4[6-8]]", "8");
+        OracleEssentials.harness("[0-4[6-8]]", "9");
     }
 
     @Test public void
     testIntersections() {
-        OracleEssentialsTest.harness("[2-8&&[4-6]]", "3");
-        OracleEssentialsTest.harness("[2-8&&[4-6]]", "4");
-        OracleEssentialsTest.harness("[2-8&&[4-6]]", "5");
-        OracleEssentialsTest.harness("[2-8&&[4-6]]", "6");
-        OracleEssentialsTest.harness("[2-8&&[4-6]]", "7");
+        OracleEssentials.harness("[2-8&&[4-6]]", "3");
+        OracleEssentials.harness("[2-8&&[4-6]]", "4");
+        OracleEssentials.harness("[2-8&&[4-6]]", "5");
+        OracleEssentials.harness("[2-8&&[4-6]]", "6");
+        OracleEssentials.harness("[2-8&&[4-6]]", "7");
     }
 
     @Test public void
     testSubtractions() {
-        OracleEssentialsTest.harness("[0-9&&[^345]]", "2");
-        OracleEssentialsTest.harness("[0-9&&[^345]]", "3");
-        OracleEssentialsTest.harness("[0-9&&[^345]]", "4");
-        OracleEssentialsTest.harness("[0-9&&[^345]]", "5");
-        OracleEssentialsTest.harness("[0-9&&[^345]]", "6");
-        OracleEssentialsTest.harness("[0-9&&[^345]]", "9");
+        OracleEssentials.harness("[0-9&&[^345]]", "2");
+        OracleEssentials.harness("[0-9&&[^345]]", "3");
+        OracleEssentials.harness("[0-9&&[^345]]", "4");
+        OracleEssentials.harness("[0-9&&[^345]]", "5");
+        OracleEssentials.harness("[0-9&&[^345]]", "6");
+        OracleEssentials.harness("[0-9&&[^345]]", "9");
     }
 
     /**
@@ -107,21 +105,21 @@ class OracleEssentialsTest {
      */
     @Test public void
     testPredefinedCharacterClasses() {
-        OracleEssentialsTest.harness(".", "@");
-        OracleEssentialsTest.harness(".", "1");
-        OracleEssentialsTest.harness(".", "a");
-        OracleEssentialsTest.harness("\\d", "1");
-        OracleEssentialsTest.harness("\\d", "a");
-        OracleEssentialsTest.harness("\\D", "1");
-        OracleEssentialsTest.harness("\\D", "a");
-        OracleEssentialsTest.harness("\\s", " ");
-        OracleEssentialsTest.harness("\\s", "a");
-        OracleEssentialsTest.harness("\\S", " ");
-        OracleEssentialsTest.harness("\\S", "a");
-        OracleEssentialsTest.harness("\\w", "a");
-        OracleEssentialsTest.harness("\\w", "!");
-        OracleEssentialsTest.harness("\\W", "a");
-        OracleEssentialsTest.harness("\\W", "!");
+        OracleEssentials.harness(".", "@");
+        OracleEssentials.harness(".", "1");
+        OracleEssentials.harness(".", "a");
+        OracleEssentials.harness("\\d", "1");
+        OracleEssentials.harness("\\d", "a");
+        OracleEssentials.harness("\\D", "1");
+        OracleEssentials.harness("\\D", "a");
+        OracleEssentials.harness("\\s", " ");
+        OracleEssentials.harness("\\s", "a");
+        OracleEssentials.harness("\\S", " ");
+        OracleEssentials.harness("\\S", "a");
+        OracleEssentials.harness("\\w", "a");
+        OracleEssentials.harness("\\w", "!");
+        OracleEssentials.harness("\\W", "a");
+        OracleEssentials.harness("\\W", "!");
     }
 
     /**
@@ -130,42 +128,42 @@ class OracleEssentialsTest {
      */
     @Test public void
     testQuantifiers() {
-        OracleEssentialsTest.harness("a?", "");
-        OracleEssentialsTest.harness("a*", "");
-        OracleEssentialsTest.harness("a+", "");
+        OracleEssentials.harness("a?", "");
+        OracleEssentials.harness("a*", "");
+        OracleEssentials.harness("a+", "");
     }
 
     @Test public void
     testZeroLengthMatches() {
-        OracleEssentialsTest.harness("a?",     "a");
-        OracleEssentialsTest.harness("a*",     "a");
-        OracleEssentialsTest.harness("a+",     "a");
-        OracleEssentialsTest.harness("a?",     "aaaaa");
-        OracleEssentialsTest.harness("a*",     "aaaaa");
-        OracleEssentialsTest.harness("a+",     "aaaaa");
-        OracleEssentialsTest.harness("a?",     "ababaaaab");
-        OracleEssentialsTest.harness("a*",     "ababaaaab");
-        OracleEssentialsTest.harness("a+",     "ababaaaab");
-        OracleEssentialsTest.harness("a{3}",   "aa");
-        OracleEssentialsTest.harness("a{3}",   "aaa");
-        OracleEssentialsTest.harness("a{3}",   "aaaa");
-        OracleEssentialsTest.harness("a{3}",   "aaaaaaaaa");
-        OracleEssentialsTest.harness("a{3,}",  "aaaaaaaaa");
-        OracleEssentialsTest.harness("a{3,6}", "aaaaaaaaa");
+        OracleEssentials.harness("a?",     "a");
+        OracleEssentials.harness("a*",     "a");
+        OracleEssentials.harness("a+",     "a");
+        OracleEssentials.harness("a?",     "aaaaa");
+        OracleEssentials.harness("a*",     "aaaaa");
+        OracleEssentials.harness("a+",     "aaaaa");
+        OracleEssentials.harness("a?",     "ababaaaab");
+        OracleEssentials.harness("a*",     "ababaaaab");
+        OracleEssentials.harness("a+",     "ababaaaab");
+        OracleEssentials.harness("a{3}",   "aa");
+        OracleEssentials.harness("a{3}",   "aaa");
+        OracleEssentials.harness("a{3}",   "aaaa");
+        OracleEssentials.harness("a{3}",   "aaaaaaaaa");
+        OracleEssentials.harness("a{3,}",  "aaaaaaaaa");
+        OracleEssentials.harness("a{3,6}", "aaaaaaaaa");
     }
 
     @Test public void
     testCapturingGroupsAndCharacterClassesWithQuantifiers() {
-        OracleEssentialsTest.harness("(dog){3}", "dogdogdogdogdogdog");
-        OracleEssentialsTest.harness("dog{3}",   "dogdogdogdogdogdog");
-        OracleEssentialsTest.harness("[abc]{3}", "abccabaaaccbbbc");
+        OracleEssentials.harness("(dog){3}", "dogdogdogdogdogdog");
+        OracleEssentials.harness("dog{3}",   "dogdogdogdogdogdog");
+        OracleEssentials.harness("[abc]{3}", "abccabaaaccbbbc");
     }
 
     @Test public void
     testDifferencesAmongGreedyReluctantAndPossessiveQuantifiers() {
-        OracleEssentialsTest.harness(".*foo",  "xfooxxxxxxfoo");
-        OracleEssentialsTest.harness(".*?foo", "xfooxxxxxxfoo");
-        OracleEssentialsTest.harness(".*+foo", "xfooxxxxxxfoo");
+        OracleEssentials.harness(".*foo",  "xfooxxxxxxfoo");
+        OracleEssentials.harness(".*?foo", "xfooxxxxxxfoo");
+        OracleEssentials.harness(".*+foo", "xfooxxxxxxfoo");
     }
 
     /**
@@ -174,8 +172,8 @@ class OracleEssentialsTest {
      */
     @Test public void
     testBackreferences() {
-        OracleEssentialsTest.harness("(\\d\\d)\\1", "1212");
-        OracleEssentialsTest.harness("(\\d\\d)\\1", "1234");
+        OracleEssentials.harness("(\\d\\d)\\1", "1212");
+        OracleEssentials.harness("(\\d\\d)\\1", "1234");
     }
 
     /**
@@ -184,10 +182,10 @@ class OracleEssentialsTest {
      */
     @Test public void
     testBoundaryMatchers() {
-        OracleEssentialsTest.harness("^dog$",    "dog");
-        OracleEssentialsTest.harness("^dog$",    "   dog");
-        OracleEssentialsTest.harness("\\s*dog$", "   dog");
-        OracleEssentialsTest.harness("^dog\\w*", "dogblahblah");
+        OracleEssentials.harness("^dog$",    "dog");
+        OracleEssentials.harness("^dog$",    "   dog");
+        OracleEssentials.harness("\\s*dog$", "   dog");
+        OracleEssentials.harness("^dog\\w*", "dogblahblah");
     }
 
     /**
@@ -196,7 +194,7 @@ class OracleEssentialsTest {
      */
     @Test public void
     testCreatingAPatternWithFlags() {
-        OracleEssentialsTest.harness("dog", "DoGDOg", java.util.regex.Pattern.CASE_INSENSITIVE);
+        OracleEssentials.harness("dog", "DoGDOg", java.util.regex.Pattern.CASE_INSENSITIVE);
     }
 
     /**
@@ -205,9 +203,9 @@ class OracleEssentialsTest {
      */
     @Test public void
     testEmbeddedFlagExpressions() {
-        OracleEssentialsTest.harness("foo",     "FOOfooFoOfoO", de.unkrig.lfr.core.Pattern.CASE_INSENSITIVE);
-        OracleEssentialsTest.harness("(?i)foo", "FOOfooFoOfoO");
-        OracleEssentialsTest.harness("foo",     "FOOfooFoOfoO");
+        OracleEssentials.harness("foo",     "FOOfooFoOfoO", de.unkrig.lfr.core.Pattern.CASE_INSENSITIVE);
+        OracleEssentials.harness("(?i)foo", "FOOfooFoOfoO");
+        OracleEssentials.harness("foo",     "FOOfooFoOfoO");
     }
 
     /**
@@ -235,77 +233,5 @@ class OracleEssentialsTest {
             new Object[] { "one", "two", "three", "four", "five" },
             de.unkrig.lfr.core.Pattern.compile("\\d").split("one9two4three7four1five")
         );
-    }
-
-    // ==========================================================================================================
-
-    private static void
-    harness(String regex, String subject) { OracleEssentialsTest.harness(regex, subject, 0); }
-
-    private static void
-    harness(String regex, String subject, int flags) {
-
-        java.util.regex.Pattern    pattern1 = java.util.regex.Pattern.compile(regex, flags);
-        de.unkrig.lfr.core.Pattern pattern2 = de.unkrig.lfr.core.Pattern.compile(regex, flags);
-
-        {
-            java.util.regex.Matcher            matcher1 = pattern1.matcher(subject);
-            de.unkrig.lfr.core.Pattern.Matcher matcher2 = pattern2.matcher(subject);
-
-            for (int matchCount = 0;; matchCount++) {
-                String message = "Match #" + (matchCount + 1);
-
-                boolean found1 = matcher1.find();
-                boolean found2 = matcher2.find();
-                Assert.assertEquals(message + ":find()", found1, found2);
-
-                boolean hitEnd1 = matcher1.hitEnd();
-                boolean hitEnd2 = matcher2.hitEnd();
-                Assert.assertEquals(message + ":hitEnd()", hitEnd1, hitEnd2);
-
-                if (!found1 || !found2) break;
-
-                Assert.assertEquals(message, matcher1.group(), matcher2.group());
-                Assert.assertEquals(message, matcher1.start(), matcher2.start());
-                Assert.assertEquals(message, matcher1.end(), matcher2.end());
-            }
-        }
-
-        if (false) {
-
-            long ms1 = 0, ms2 = 0;
-            int N2 = 100000;
-            int N1 = 30000;
-            {
-                long start = 0;
-                for (int i = 0; i < N2; i++) {
-
-                    if (i == N1) start = System.currentTimeMillis();
-
-                    for (java.util.regex.Matcher m = pattern1.matcher(subject); m.find();) {
-                        m.group();
-                        m.start();
-                        m.end();
-                    }
-                }
-                ms1 = System.currentTimeMillis() - start;
-            }
-            {
-                long start = 0;
-                for (int i = 0; i < N2; i++) {
-
-                    if (i == N1) start = System.currentTimeMillis();
-
-                    for (de.unkrig.lfr.core.Pattern.Matcher m = pattern2.matcher(subject); m.find();) {
-                        m.group();
-                        m.start();
-                        m.end();
-                    }
-                }
-                ms2 = System.currentTimeMillis() - start;
-            }
-
-            System.err.printf("%-15s %-15s %6d %6d %6.0f%%%n", regex, subject, ms1, ms2, (100. * ms1) / ms2);
-        }
     }
 }
