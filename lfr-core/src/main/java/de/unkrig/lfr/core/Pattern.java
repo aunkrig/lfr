@@ -67,7 +67,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.List;
-import java.util.regex.Matcher;
 import java.util.regex.PatternSyntaxException;
 
 import de.unkrig.commons.lang.AssertionUtil;
@@ -177,22 +176,22 @@ class Pattern {
 //         * @see java.util.regex.Matcher#start(String)
 //         */
 //        int start(String name);
-//
-//        /**
-//         * @see java.util.regex.Matcher#start(int)
-//         */
-//        int start(int group);
+
+        /**
+         * @see java.util.regex.Matcher#start(int)
+         */
+        int start(int group);
 
         /**
          * @see java.util.regex.Matcher#end()
          */
         int end();
 
-//        /**
-//         * @see java.util.regex.Matcher#end(int)
-//         */
-//        int end(int group);
-//
+        /**
+         * @see java.util.regex.Matcher#end(int)
+         */
+        int end(int group);
+
 //        /**
 //         * @see java.util.regex.Matcher#end(String)
 //         */
@@ -203,20 +202,20 @@ class Pattern {
          */
         String group();
 
-//        /**
-//         * @see java.util.regex.Matcher#group(int)
-//         */
-//        String group(int group);
-//
+        /**
+         * @see java.util.regex.Matcher#group(int)
+         */
+        String group(int group);
+
 //        /**
 //         * @see java.util.regex.Matcher#group(String)
 //         */
 //        String group(String name);
-//
-//        /**
-//         * @see java.util.regex.Matcher#groupCount()
-//         */
-//        int groupCount();
+
+        /**
+         * @see java.util.regex.Matcher#groupCount()
+         */
+        int groupCount();
 
         /**
          * @see java.util.regex.Matcher#matches()
@@ -406,7 +405,7 @@ class Pattern {
 
         private final CharSequence subject;
 
-        private int offset;
+        int offset;
 
         protected boolean hitEnd;
 
@@ -514,10 +513,10 @@ class Pattern {
 
         @Nullable Match next() { return null; }
 
-        private Match
+        Match
         setGroupsShared(boolean value) { this.groups[this.groups.length - 1] = value ? 1 : 0; return this; }
 
-        private boolean
+        boolean
         isGroupsShared() { return this.groups[this.groups.length - 1] != 0; }
 
         /**
@@ -1311,11 +1310,11 @@ class Pattern {
 
         return new Matcher() {
 
-            private Pattern pattern = Pattern.this; // <== necessary because of "Matcher.usePattern()"
-            private int     start = -1, end;
-            private boolean atEndAfterZeroLengthMatch;
-            private Match   initialMatch = new Match(Pattern.this.groupCount, subject, 0);
-            private boolean hitEnd;
+            private Pattern         pattern = Pattern.this; // <== necessary because of "Matcher.usePattern()"
+            private boolean         atEndAfterZeroLengthMatch;
+            private Match           initialMatch = new Match(Pattern.this.groupCount, subject, 0);
+            private boolean         hitEnd;
+            @Nullable private int[] groups;
 
             @Override public Pattern
             pattern() { return Pattern.this; }
@@ -1323,7 +1322,7 @@ class Pattern {
             @Override public Matcher
             usePattern(Pattern newPattern) {
                 this.pattern                   = newPattern;
-                this.start                     = -1;
+                this.groups                    = null;
                 this.atEndAfterZeroLengthMatch = false;
                 this.initialMatch              = new Match(newPattern.groupCount, subject, 0);
                 return this;
@@ -1331,7 +1330,7 @@ class Pattern {
 
             @Override public Matcher
             reset() {
-                this.start                     = -1;
+                this.groups                    = null;
                 this.atEndAfterZeroLengthMatch = false;
                 this.initialMatch.offset       = 0;
                 return this;
@@ -1339,7 +1338,7 @@ class Pattern {
 
             @Override public Matcher
             reset(CharSequence input) {
-                this.start                     = -1;
+                this.groups                    = null;
                 this.atEndAfterZeroLengthMatch = false;
                 this.initialMatch              = new Match(this.pattern.groupCount, input, 0);
                 return this;
@@ -1347,28 +1346,94 @@ class Pattern {
 
             @Override public int
             start() {
-                if (this.start == -1) throw new IllegalStateException("No match available");
-                return this.start;
+                int[] groups = this.groups;
+                if (groups == null) throw new IllegalStateException("No match available");
+                return groups[0];
+            }
+
+            @Override public int
+            start(int groupNumber) {
+
+                int[] groups = this.groups;
+                if (groups == null) throw new IllegalStateException("No match available");
+
+                return groups[2 * groupNumber];
             }
 
             @Override public int
             end() {
-                if (this.start == -1) throw new IllegalStateException("No match available");
-                return this.end;
+
+                int[] groups = this.groups;
+                if (groups == null) throw new IllegalStateException("No match available");
+
+                return groups[1];
+            }
+
+            @Override public int
+            end(int groupNumber) {
+
+                int[] groups = this.groups;
+                if (groups == null) throw new IllegalStateException("No match available");
+
+                return groups[2 * groupNumber + 1];
             }
 
             @Override public String
             group() {
-                if (this.start == -1) throw new IllegalStateException("No match available");
-                return subject.subSequence(this.start, this.end).toString();
+
+                int[] groups = this.groups;
+                if (groups == null) throw new IllegalStateException("No match available");
+
+                return subject.subSequence(groups[0], groups[1]).toString();
             }
+
+            @Override public String
+            group(int groupNumber) {
+
+                int[] groups = this.groups;
+                if (groups == null) throw new IllegalStateException("No match available");
+
+                return subject.subSequence(groups[2 * groupNumber], groups[2 * groupNumber + 1]).toString();
+            }
+
+            @Override public int
+            groupCount() { return this.pattern.groupCount; }
 
             @Override public boolean
             matches() {
-                if (!this.pattern.matches(subject, 0)) return false;
-                this.start = 0;
-                this.end   = subject.length();
-                return true;
+
+                // Optimization for the "literal string" special case.
+                if (Pattern.this.node instanceof LiteralString) {
+                    String ls = ((LiteralString) Pattern.this.node).s;
+                    if (subject.equals(ls)) {
+                        this.groups = new int[] { 0, subject.length() };
+                        this.hitEnd = true;
+                        return true;
+                    } else {
+                        this.hitEnd = ls.length() > subject.length() && ls.startsWith(subject.toString());
+                        return false;
+                    }
+                }
+
+                for (
+                    Match m = Pattern.this.node.bestMatch(new Match(Pattern.this.groupCount, subject, 0));
+                    m != null;
+                    m = m.next()
+                ) {
+                    this.hitEnd = m.hitEnd;
+                    if (m.atEnd()) {
+
+                        int[] gs = m.groups;
+                        gs[0] = 0;
+                        gs[1] = subject.length();
+
+                        this.groups = gs;
+
+                        return true;
+                    }
+                }
+
+                return false;
             }
 
             @Override public boolean
@@ -1384,7 +1449,7 @@ class Pattern {
                     String s = ((LiteralString) this.pattern.node).s;
 
                     if (s.isEmpty()) {
-                        this.start = (this.end = start);
+                        this.groups = new int[] { start, start };
                         if (start == subject.length()) {
                             this.atEndAfterZeroLengthMatch = true;
                             this.hitEnd                    = true;
@@ -1396,7 +1461,7 @@ class Pattern {
 
                     if (start + s.length() > subject.length()) {
                         this.hitEnd = true;
-                        this.start = -1;
+                        this.groups = null;
                         return false;
                     }
 
@@ -1405,32 +1470,37 @@ class Pattern {
                         for (int i = 0; i < s.length(); i++) {
                             if (subject.charAt(start + i) != s.charAt(i)) continue NEXT_OFFSET;
                         }
-                        this.start               = start;
-                        this.initialMatch.offset = (this.end = start + s.length());
+                        this.groups              = new int[] { start, start + s.length() };
+                        this.initialMatch.offset = start + s.length();
                         return true;
                     }
                     this.initialMatch.offset = subject.length();
                     this.hitEnd              = true;
-                    this.start               = -1;
+                    this.groups              = null;
                     return false;
                 }
 
                 for (;; start++) {
 
-                    this.start = start;
                     Match m = new Match(this.initialMatch);
                     m.offset = start;
 
                     Match bm = this.pattern.node.bestMatch(m);
                     if (bm != null) {
-                        this.initialMatch.offset = (this.end = bm.offset);
-                        if (this.start == this.end) {
+                        this.initialMatch.offset = bm.offset;
+                        if (bm.offset == start) {
                             if (m.atEnd()) {
                                 this.atEndAfterZeroLengthMatch = true;
                             } else {
                                 this.initialMatch.offset++;
                             }
                         }
+
+                        int[] gs = bm.groups;
+                        gs[0] = start;
+                        gs[1] = bm.offset;
+
+                        this.groups = gs;
                         this.hitEnd = bm.hitEnd;
                         return true;
                     }
@@ -1442,7 +1512,7 @@ class Pattern {
 
                     m.read();
                 }
-                this.start = -1;
+                this.groups = null;
                 return false;
             }
 
@@ -1454,8 +1524,7 @@ class Pattern {
                 );
                 if (m == null) return false;
 
-                this.start = 0;
-                this.end   = m.offset;
+                this.groups = new int[] { 0, m.offset };
                 return true;
             }
 
@@ -1520,7 +1589,7 @@ class Pattern {
         }
 
         for (
-            Match m = Pattern.this.node.bestMatch(new Match(Pattern.this.groupCount, subject, offset));
+            Match m = this.node.bestMatch(new Match(Pattern.this.groupCount, subject, offset));
             m != null;
             m = m.next()
         ) {
