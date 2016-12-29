@@ -68,6 +68,7 @@ import static de.unkrig.lfr.core.Pattern.TokenType.RIGHT_BRACKET;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.EnumSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.regex.PatternSyntaxException;
 
@@ -84,8 +85,6 @@ import de.unkrig.commons.text.scanner.StatefulScanner;
  */
 public
 class Pattern {
-
-    static { AssertionUtil.enableAssertionsForThisClass(); }
 
     // Copy flag constants from java.util.regex.Pattern for convenience.
 
@@ -454,23 +453,28 @@ class Pattern {
         read() { return this.subject.charAt(this.offset++); }
 
         /**
-         * If the next characters in this matcher equal <var>s</var>, then the offset is advanced and {@code true} is
+         * If the next characters in this matcher equal <var>cs</var>, then the offset is advanced and {@code true} is
          * returned.
          */
         public boolean
-        peekRead(String s) {
+        peekRead(CharSequence cs) {
 
-            int len = s.length();
-            if (this.offset + len > this.subject.length()) {
+            int          sLength = cs.length();
+            CharSequence subject = this.subject;
+            int          offset  = this.offset;
+
+            if (offset + sLength > subject.length()) {
 
                 // Not enough chars left.
                 this.hitEnd = true;
                 return false;
             }
 
-            if (!s.equals(this.subject.subSequence(this.offset, this.offset + len).toString())) return false;
+            for (int i = 0; i < sLength; i++) {
+                if (subject.charAt(offset + i) != cs.charAt(i)) return false;
+            }
 
-            this.offset += len;
+            this.offset += sLength;
             return true;
         }
 
@@ -964,11 +968,11 @@ class Pattern {
         @Override public boolean
         matches(MatcherImpl matcher) {
 
-            int[]  gs    = matcher.groups;
-            String group = matcher.subject.subSequence(
+            int[]        gs    = matcher.groups;
+            CharSequence group = matcher.subject.subSequence(
                 gs[2 * this.groupNumber],
                 gs[2 * this.groupNumber + 1]
-            ).toString();
+            );
 
             return matcher.peekRead(group) && this.successorMatches(matcher);
         }
@@ -1659,56 +1663,63 @@ class Pattern {
                 if (this.peek() == null || this.peekRead("|")) return new EmptyStringSequence();
 
                 Sequence first = this.parseQuantified();
+                if (this.peek(null, "|", ")") != -1) return first;
 
-                for (Sequence previous = first; this.peek(null, "|", ")") == -1;) {
-                    Sequence last = this.parseQuantified();
+                // Parse all elements into a list.
+                List<Sequence> elements = new ArrayList<Sequence>();
+                elements.add(first);
+                do {
+                    elements.add(this.parseQuantified());
+                } while (this.peek(null, "|", ")") == -1);
 
-//                    if (last instanceof NopSequence) {
-//                        last = previous;
-//                    } else
-//                    if (previous instanceof NopSequence) {
-//                        if (first == previous) first = last;
-//                        previous = last;
-//                    } else
-//                    if (previous instanceof CcLiteralCharacter && last instanceof CcLiteralCharacter) {
-//
-//                        // Optimization: Two literal characters pose a string literal.
-//                        Sequence tmp = new LiteralString(new String(new char[] {
-//                            ((CcLiteralCharacter) previous).c,
-//                            ((CcLiteralCharacter) last).c,
-//                        }));
-//                        if (previous != )
-//                        if (result == lhs) result = tmp;
-//                        lhs = tmp;
-//                    } else
-//                    if (lhs instanceof LiteralString && last instanceof CcLiteralCharacter) {
-//
-//                        // Optimization: One string literal and one literal character pose a string literal.
-//                        Sequence tmp = new LiteralString(((LiteralString) lhs).s + ((CcLiteralCharacter) last).c);
-//                        if (result == lhs) result = tmp;
-//                        lhs = tmp;
-//                    } else
-//                    if (lhs instanceof CcLiteralCharacter && last instanceof LiteralString) {
-//
-//                        // Optimization: One literal character and one string literal pose a string literal.
-//                        Sequence tmp = new LiteralString(((CcLiteralCharacter) lhs).c + ((LiteralString) last).s);
-//                        if (result == lhs) result = tmp;
-//                        lhs = tmp;
-//                    } else
-//                    if (lhs instanceof LiteralString && last instanceof LiteralString) {
-//
-//                        // Optimization: Two string literals pose another string literal.
-//                        Sequence tmp = new LiteralString(((LiteralString) lhs).s + ((LiteralString) last).s);
-//                        if (result == lhs) result = tmp;
-//                        lhs = tmp;
-//                    } else
-                    {
-                        previous.linkTo(last);
-                        previous = last;
+                // Now do some optimization on the list:
+
+                // Remove EmptyStringSequences.
+                for (Iterator<Sequence> it = elements.iterator(); it.hasNext();) {
+                    if (it.next() instanceof EmptyStringSequence) it.remove();
+                }
+
+                // Merge consecutive literals into one string literal.
+                for (int i = 0; i < elements.size() - 1;) {
+
+                    LiteralString merged = this.merge(elements.get(i), elements.get(i + 1));
+                    if (merged != null) {
+                        elements.set(i, merged);
+                        elements.remove(i + 1);
+                    } else {
+                        i++;
                     }
                 }
 
-                return first;
+                // Now link all sequence elements one to another.
+                for (int i = 0; i < elements.size() - 1; i++) elements.get(i).linkTo(elements.get(i + 1));
+
+                return elements.get(0);
+            }
+
+            @Nullable private LiteralString
+            merge(Sequence s1, Sequence s2) {
+
+                if (s1 instanceof CcLiteralCharacter && s2 instanceof CcLiteralCharacter) {
+                    return new LiteralString(new String(new char[] {
+                        ((CcLiteralCharacter) s1).c,
+                        ((CcLiteralCharacter) s2).c,
+                    }));
+                }
+
+                if (s1 instanceof LiteralString && s2 instanceof CcLiteralCharacter) {
+                    return new LiteralString(((LiteralString) s1).s + ((CcLiteralCharacter) s2).c);
+                }
+
+                if (s1 instanceof CcLiteralCharacter && s2 instanceof LiteralString) {
+                    return new LiteralString(((CcLiteralCharacter) s1).c + ((LiteralString) s2).s);
+                }
+
+                if (s1 instanceof LiteralString && s2 instanceof LiteralString) {
+                    return new LiteralString(((LiteralString) s1).s + ((LiteralString) s2).s);
+                }
+
+                return null;
             }
 
             private Sequence
