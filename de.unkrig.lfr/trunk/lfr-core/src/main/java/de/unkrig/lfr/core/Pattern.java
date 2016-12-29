@@ -125,7 +125,7 @@ class Pattern {
         | Pattern.CASE_INSENSITIVE
 //        | Pattern.COMMENTS
         | Pattern.DOTALL
-//        | Pattern.LITERAL
+        | Pattern.LITERAL
 //        | Pattern.MULTILINE
         | Pattern.UNICODE_CASE
 //        | Pattern.UNIX_LINES
@@ -1380,6 +1380,15 @@ class Pattern {
         ss.addRule(ss.ANY_STATE, "[^\\\\]", LITERAL_CHARACTER, null); // +++
     }
 
+    /**
+     * This scanner is intended to be cloned by {@link RegexScanner#RegexScanner(RegexScanner)} when a literal scanner
+     * is needed.
+     */
+    static final RegexScanner LITERAL_SCANNER = new RegexScanner();
+    static {
+        Pattern.LITERAL_SCANNER.addRule(".", LITERAL_CHARACTER);
+    }
+
     // ============================== CC SEQUENCES FOR "PREDEFINED CHARACTER CLASSES" ==============================
 
     /**  A digit: [0-9] */
@@ -1543,7 +1552,11 @@ class Pattern {
             throw new IllegalArgumentException("Unsupported flag " + (flags & ~Pattern.SUPPORTED_FLAGS));
         }
 
-        RegexScanner rs = new RegexScanner(Pattern.REGEX_SCANNER);
+        RegexScanner rs = new RegexScanner(
+            (flags & Pattern.LITERAL) == 0
+            ? Pattern.REGEX_SCANNER
+            : Pattern.LITERAL_SCANNER
+        );
         rs.setInput(regex);
 
         Sequence sequence;
