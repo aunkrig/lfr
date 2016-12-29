@@ -26,8 +26,6 @@
 
 package test;
 
-import java.util.regex.Matcher;
-
 import org.junit.Assert;
 
 /**
@@ -36,7 +34,11 @@ import org.junit.Assert;
  */
 public class OracleEssentials {
 
-    private static final boolean COMPARE_PERFORMANCE = false;
+    private static final boolean ALSO_COMPARE_PERFORMANCE = true;
+
+    private static double gainSum;
+    private static double gainProduct;
+    private static int    totalCount = -1;
 
     static void
     harness(String regex, String subject) { OracleEssentials.harness(regex, subject, 0); }
@@ -78,7 +80,7 @@ public class OracleEssentials {
             OracleEssentials.assertEqualState(message, matcher1, matcher2);
         }
 
-        if (OracleEssentials.COMPARE_PERFORMANCE) {
+        if (OracleEssentials.ALSO_COMPARE_PERFORMANCE) {
 
             long ms1 = 0, ms2 = 0;
             int N2 = 100000;
@@ -112,8 +114,31 @@ public class OracleEssentials {
                 ms2 = System.currentTimeMillis() - start;
             }
 
-            System.err.printf("%-15s %-15s %6d %6d %6.0f%%%n", regex, subject, ms1, ms2, (100. * ms1) / ms2);
+            double gain = (double) ms1 / ms2;
+
+            OracleEssentials.gainSum     += gain;
+            OracleEssentials.gainProduct *= gain;
+            OracleEssentials.totalCount++;
+
+            System.out.printf("%-15s %-20s %6d %6d %6.0f%%%n", OracleEssentials.asJavaLiteral(regex), OracleEssentials.asJavaLiteral(subject), ms1, ms2, 100 * gain);
         }
+    }
+
+    private static String
+    asJavaLiteral(String s) {
+
+        StringBuilder sb = new StringBuilder().append('"');
+
+        for (char c : s.toCharArray()) {
+            int idx;
+            if ((idx = idx = "\r\n\b\t\\".indexOf(c)) != -1) {
+                sb.append('\\').append("rnbt\\".charAt(idx));
+            } else {
+                sb.append(c);
+            }
+        }
+
+        return sb.append('"').toString();
     }
 
     private static void
@@ -138,5 +163,32 @@ public class OracleEssentials {
             Assert.assertEquals(message + ", start(" + i + ")", matcher1.start(i), matcher2.start(i));
             Assert.assertEquals(message + ", end(" + i + ")",   matcher1.end(i),   matcher2.end(i));
         }
+    }
+
+    public static void
+    beginStatistics() {
+        Assert.assertEquals(-1, OracleEssentials.totalCount);
+        System.out.println("Regex           Subject           ms: jur.P dulc.P    Gain (>100% means dulc is faster)");
+        System.out.println("---------------------------------------------------------------------------------------");
+        OracleEssentials.gainSum     = 0;
+        OracleEssentials.gainProduct = 1;
+        OracleEssentials.totalCount  = 0;
+    }
+
+    public static void
+    endStatistics() {
+        Assert.assertNotEquals(-1, OracleEssentials.totalCount);
+        System.out.println("------------------------------------------------------------------------------");
+        System.out.printf(
+            "Average gain:           %6.0f%%%n",
+            100 * OracleEssentials.gainSum / OracleEssentials.totalCount
+        );
+        System.out.printf(
+            "Geometric average gain: %6.0f%%%n",
+            100 * Math.pow(OracleEssentials.gainProduct, 1. / OracleEssentials.totalCount)
+        );
+        System.out.println();
+
+        OracleEssentials.totalCount = -1;
     }
 }

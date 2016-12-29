@@ -28,7 +28,9 @@
 
 package test;
 
+import org.junit.AfterClass;
 import org.junit.Assert;
+import org.junit.BeforeClass;
 import org.junit.Test;
 
 /**
@@ -38,6 +40,16 @@ import org.junit.Test;
  */
 public
 class OracleEssentialsTest {
+
+    @BeforeClass public static void
+    setupBeforeClass() {
+        OracleEssentials.beginStatistics();
+    }
+
+    @AfterClass public static void
+    shutdownBeforeClass() {
+        OracleEssentials.endStatistics();
+    }
 
     @Test public void
     testStringLiterals() {
