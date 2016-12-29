@@ -28,7 +28,8 @@
 
 package de.unkrig.lfr.core;
 
-import static de.unkrig.lfr.core.Pattern.TokenType.BOUNDARY_MATCHER;
+import static de.unkrig.lfr.core.Pattern.TokenType.BEGINNING_OF_INPUT;
+import static de.unkrig.lfr.core.Pattern.TokenType.BEGINNING_OF_LINE;
 import static de.unkrig.lfr.core.Pattern.TokenType.CAPTURING_GROUP;
 import static de.unkrig.lfr.core.Pattern.TokenType.CAPTURING_GROUP_BACK_REFERENCE;
 import static de.unkrig.lfr.core.Pattern.TokenType.CC_ANY;
@@ -41,6 +42,10 @@ import static de.unkrig.lfr.core.Pattern.TokenType.CC_RANGE;
 import static de.unkrig.lfr.core.Pattern.TokenType.CC_UNICODE;
 import static de.unkrig.lfr.core.Pattern.TokenType.EITHER_OR;
 import static de.unkrig.lfr.core.Pattern.TokenType.END_GROUP;
+import static de.unkrig.lfr.core.Pattern.TokenType.END_OF_INPUT;
+import static de.unkrig.lfr.core.Pattern.TokenType.END_OF_INPUT_BUT_FINAL_TERMINATOR;
+import static de.unkrig.lfr.core.Pattern.TokenType.END_OF_LINE;
+import static de.unkrig.lfr.core.Pattern.TokenType.END_OF_PREVIOUS_MATCH;
 import static de.unkrig.lfr.core.Pattern.TokenType.GREEDY_QUANTIFIER;
 import static de.unkrig.lfr.core.Pattern.TokenType.INDEPENDENT_NON_CAPTURING_GROUP;
 import static de.unkrig.lfr.core.Pattern.TokenType.LEFT_BRACKET;
@@ -56,6 +61,7 @@ import static de.unkrig.lfr.core.Pattern.TokenType.NAMED_CAPTURING_GROUP_BACK_RE
 import static de.unkrig.lfr.core.Pattern.TokenType.NEGATIVE_LOOKAHEAD;
 import static de.unkrig.lfr.core.Pattern.TokenType.NEGATIVE_LOOKBEHIND;
 import static de.unkrig.lfr.core.Pattern.TokenType.NON_CAPTURING_GROUP;
+import static de.unkrig.lfr.core.Pattern.TokenType.NON_WORD_BOUNDARY;
 import static de.unkrig.lfr.core.Pattern.TokenType.POSITIVE_LOOKAHEAD;
 import static de.unkrig.lfr.core.Pattern.TokenType.POSITIVE_LOOKBEHIND;
 import static de.unkrig.lfr.core.Pattern.TokenType.POSSESSIVE_QUANTIFIER;
@@ -64,6 +70,7 @@ import static de.unkrig.lfr.core.Pattern.TokenType.QUOTATION_END;
 import static de.unkrig.lfr.core.Pattern.TokenType.QUOTED_CHARACTER;
 import static de.unkrig.lfr.core.Pattern.TokenType.RELUCTANT_QUANTIFIER;
 import static de.unkrig.lfr.core.Pattern.TokenType.RIGHT_BRACKET;
+import static de.unkrig.lfr.core.Pattern.TokenType.WORD_BOUNDARY;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -126,7 +133,7 @@ class Pattern {
 //        | Pattern.COMMENTS
         | Pattern.DOTALL
         | Pattern.LITERAL
-//        | Pattern.MULTILINE
+        | Pattern.MULTILINE
         | Pattern.UNICODE_CASE
 //        | Pattern.UNIX_LINES
 //        | Pattern.UNICODE_CHARACTER_CLASS
@@ -561,7 +568,14 @@ class Pattern {
 
         // Matchers.
         /** {@code ^ $ \b \B \A \G \Z \z} */
-        BOUNDARY_MATCHER,
+        BEGINNING_OF_LINE,
+        END_OF_LINE,
+        WORD_BOUNDARY,
+        NON_WORD_BOUNDARY,
+        BEGINNING_OF_INPUT,
+        END_OF_PREVIOUS_MATCH,
+        END_OF_INPUT_BUT_FINAL_TERMINATOR,
+        END_OF_INPUT,
         LINEBREAK_MATCHER,
 
         // Quantifiers.
@@ -833,6 +847,26 @@ class Pattern {
     }
 
     /**
+     * Representation of a negated sequence.
+     */
+    public static
+    class Negation extends AbstractSequence {
+
+        private final Sequence delegate;
+
+        public Negation(Sequence delegate) {
+            this.delegate = delegate;
+            delegate.linkTo(Pattern.TERMINAL);
+        }
+
+        @Override public boolean
+        matches(MatcherImpl matcher) { return !this.delegate.matches(matcher) && this.successorMatches(matcher); }
+
+        @Override public String
+        toString() { return "!(" + this.delegate + ")"; }
+    }
+
+    /**
      * Representation of a negated character class, e.g. {@code ^\d}.
      */
     public static
@@ -982,51 +1016,98 @@ class Pattern {
     }
 
     public static
-    class BoundaryMatcher extends AbstractSequence {
+    class BeginningOfInputMatcher extends AbstractSequence {
 
-        private char kind;
+        @Override public boolean
+        matches(MatcherImpl matcher) { return matcher.atStart() && this.successorMatches(matcher); }
 
-        /**
-         * @param kind One of {@code ^ $ b B A G Z z}
-         */
-        public
-        BoundaryMatcher(char kind) { this.kind = kind; }
+        @Override public String
+        toString() { return "^"; }
+    }
+
+    public static
+    class BeginningOfLineMatcher extends AbstractSequence {
+
+        @Override public boolean
+        matches(MatcherImpl matcher) {
+            return (
+                matcher.atStart()
+                || "\r\n\u000B\f\u0085\u2028\u2029".indexOf(matcher.peek(-1)) != -1
+            ) && this.successorMatches(matcher);
+        }
+
+        @Override public String
+        toString() { return "^"; }
+    }
+
+    public static
+    class EndOfInputButFinalTerminatorMatcher extends AbstractSequence {
+
+        @Override public boolean
+        matches(MatcherImpl matcher) {
+            return (
+                matcher.atEnd()
+                || (matcher.remaining() == 1 && "\r\n\u000B\f\u0085\u2028\u2029".indexOf(matcher.peek()) != -1)
+                || (matcher.remaining() == 2 && matcher.peek() == '\r' && matcher.peek(1) == '\n')
+            ) && this.successorMatches(matcher); }
+
+        @Override public String
+        toString() { return "^"; }
+    }
+
+    public static
+    class EndOfInputMatcher extends AbstractSequence {
+
+        @Override public boolean
+        matches(MatcherImpl matcher) { return matcher.atEnd() && this.successorMatches(matcher); }
+
+        @Override public String
+        toString() { return "^"; }
+    }
+
+    public static
+    class EndOfLineMatcher extends AbstractSequence {
+
+        @Override public boolean
+        matches(MatcherImpl matcher) {
+            return (
+                matcher.atEnd()
+                || "\r\n\u000B\f\u0085\u2028\u2029".indexOf(matcher.peek()) != -1
+            ) && this.successorMatches(matcher); }
+
+        @Override public String
+        toString() { return "^"; }
+    }
+
+    public static
+    class WordBoundaryMatcher extends AbstractSequence {
+
+        @Override public boolean
+        matches(MatcherImpl matcher) {
+            return (
+                matcher.atStart()
+                || matcher.atEnd()
+                || (Pattern.isWordCharacter(matcher.peek(-1)) ^ Pattern.isWordCharacter(matcher.peek()))
+            ) && this.successorMatches(matcher);
+        }
+
+        @Override public String
+        toString() { return "^"; }
+    }
+
+    public static
+    class EndOfPreviousMatchMatcher extends AbstractSequence {
 
         @Override public boolean
         matches(MatcherImpl matcher) {
 
-            switch (this.kind) {
-            case '^': // ^  The beginning of a line
-                return matcher.atStart() && this.successorMatches(matcher);
-            case '$': // $  The end of a line
-                return matcher.atEnd() && this.successorMatches(matcher);
-            case 'b': // \b  A word boundary
-                return (
-                    matcher.atStart()
-                    || matcher.atEnd()
-                    || (Pattern.isWordCharacter(matcher.peek(-1)) ^ Pattern.isWordCharacter(matcher.peek()))
-                ) && this.successorMatches(matcher);
-            case 'B': // \B  A non-word boundary
-                return (
-                    !matcher.atStart()
-                    && !matcher.atEnd()
-                    && !(Pattern.isWordCharacter(matcher.peek(-1)) ^ Pattern.isWordCharacter(matcher.peek()))
-                    && this.successorMatches(matcher)
-                );
-            case 'A': // \A  The beginning of the input
-                return matcher.atStart() && this.successorMatches(matcher);
-            case 'z': // \z  The end of the input
-                return matcher.atEnd() && this.successorMatches(matcher);
-            case 'G': // \G  The end of the previous match
-            case 'Z': // \Z  The end of the input but for the final terminator, if any
-                throw new AssertionError("'" + this.kind + "' NYI");
-            default:
-                throw new AssertionError(this.kind);
-            }
+            if (!matcher.hadMatch) throw new IllegalStateException("No match available");
+
+            return matcher.offset == matcher.groups[1] && this.successorMatches(matcher);
         }
 
         @Override public String
-        toString() { return Character.isLetter(this.kind) ? new String(new char[] { this.kind }) : "\\" + this.kind; }
+        toString() { return "^"; }
     }
 
     /**
@@ -1289,21 +1370,26 @@ class Pattern {
 
         // Boundary matchers
         // ^   The beginning of a line
-        ss.addRule("\\^",          BOUNDARY_MATCHER);
+        ss.addRule("\\^",   BEGINNING_OF_LINE);
         // $   The end of a line
-        ss.addRule("\\$",          BOUNDARY_MATCHER);
+        ss.addRule("\\$",   END_OF_LINE);
         // \b  A word boundary
+        ss.addRule("\\\\b", WORD_BOUNDARY);
         // \B  A non-word boundary
+        ss.addRule("\\\\B", NON_WORD_BOUNDARY);
         // \A  The beginning of the input
+        ss.addRule("\\\\A", BEGINNING_OF_INPUT);
         // \G  The end of the previous match
+        ss.addRule("\\\\G", END_OF_PREVIOUS_MATCH);
         // \Z  The end of the input but for the final terminator, if any
+        ss.addRule("\\\\Z", END_OF_INPUT_BUT_FINAL_TERMINATOR);
         // \z  The end of the input
-        ss.addRule("\\\\[bBAGZz]", BOUNDARY_MATCHER);
+        ss.addRule("\\\\z", END_OF_INPUT);
 
         // Linebreak matcher
         // \R  Any Unicode linebreak sequence, is equivalent to
         //                          /u000D/u000A|[/u000A/u000B/u000C/u000D/u0085/u2028/u2029]
-        ss.addRule("\r\n|[\n\u000B\u000C\r\u0085\u2028\u2029]", LINEBREAK_MATCHER);
+        ss.addRule("\\\\R", LINEBREAK_MATCHER);
 
         // Greedy quantifiers
         // X?         X, once or not at all
@@ -1975,9 +2061,43 @@ class Pattern {
                     }
                     return new CapturingGroupBackReference(groupNumber);
 
-                case BOUNDARY_MATCHER:
+                case BEGINNING_OF_LINE:
                     this.read();
-                    return new BoundaryMatcher(t.text.charAt(t.text.length() - 1));
+                    return (
+                        (flags & Pattern.MULTILINE) == 0
+                        ? new BeginningOfInputMatcher()
+                        : new BeginningOfLineMatcher()
+                    );
+
+                case END_OF_LINE:
+                    this.read();
+                    return (
+                        (flags & Pattern.MULTILINE) == 0
+                        ? new EndOfInputMatcher()
+                        : new EndOfLineMatcher()
+                    );
+
+                case WORD_BOUNDARY:
+                    return new WordBoundaryMatcher();
+
+                case NON_WORD_BOUNDARY:
+                    return new Negation(new WordBoundaryMatcher());
+
+                case BEGINNING_OF_INPUT:
+                    this.read();
+                    return new BeginningOfInputMatcher();
+
+                case END_OF_PREVIOUS_MATCH:
+                    this.read();
+                    return new EndOfPreviousMatchMatcher();
+
+                case END_OF_INPUT_BUT_FINAL_TERMINATOR:
+                    this.read();
+                    return new EndOfInputButFinalTerminatorMatcher();
+
+                case END_OF_INPUT:
+                    this.read();
+                    return new EndOfInputMatcher();
 
                 case MATCH_FLAGS:
                     this.read();
@@ -2096,8 +2216,8 @@ class Pattern {
                     return new CcLiteralCharacter((char) Integer.parseInt(t.text.substring(2, 8)));
 
                 case LEFT_BRACKET:
-                    boolean negate = this.peekRead("^");
-                    CcSequence  op     = this.parseCcIntersection();
+                    boolean    negate = this.peekRead("^");
+                    CcSequence op     = this.parseCcIntersection();
                     this.read("]");
                     return negate ? new CcNegation(op) : op;
 
