@@ -116,6 +116,13 @@ class PatternTest {
         OracleEssentials.harness(" \r  ", "(?s).");
     }
 
+    @Test public void
+    testLiteralRegex() {
+        OracleEssentials.harness("$\\*xxx$\\*xxx", "$\\*", de.unkrig.lfr.core.Pattern.LITERAL);
+    }
+
+    // ===================================
+
     private void
     verifyLookingAt(String regex, String subject) {
         java.util.regex.Matcher            m1 = java.util.regex.Pattern.compile(regex).matcher(subject);
