@@ -35,6 +35,7 @@ class OracleEssentials {
 
     private static final boolean ALSO_COMPARE_PERFORMANCE = true;
 
+    private static long   totalMs1, totalMs2;
     private static double gainSum;
     private static double gainProduct;
     private static int    totalCount = -1;
@@ -101,15 +102,14 @@ class OracleEssentials {
 
         if (OracleEssentials.ALSO_COMPARE_PERFORMANCE) {
 
-            int N2 = 100000;
-            int N1 = 30000;
+            int chunkCount = 5;
+            int chunkSize  = 100000;
 
-            long ms1 = 0, ms2 = 0;
-            {
-                long start = 0;
-                for (int i = 0; i < N2; i++) {
+            long ms1 = Long.MAX_VALUE;
+            for (int j = 0; j < chunkCount; j++) {
 
-                    if (i == N1) start = System.currentTimeMillis();
+                long start = System.currentTimeMillis();
+                for (int i = 0; i < chunkSize; i++) {
 
                     for (java.util.regex.Matcher m = pattern1.matcher(subject); m.find();) {
                         m.group();
@@ -117,13 +117,16 @@ class OracleEssentials {
                         m.end();
                     }
                 }
-                ms1 = System.currentTimeMillis() - start;
-            }
-            {
-                long start = 0;
-                for (int i = 0; i < N2; i++) {
+                long ms = System.currentTimeMillis() - start;
 
-                    if (i == N1) start = System.currentTimeMillis();
+                if (ms < ms1) ms1 = ms;
+            }
+
+            long ms2 = Long.MAX_VALUE;
+            for (int j = 0; j < chunkCount; j++) {
+
+                long start = System.currentTimeMillis();
+                for (int i = 0; i < chunkSize; i++) {
 
                     for (de.unkrig.lfr.core.Pattern.Matcher m = pattern2.matcher(subject); m.find();) {
                         m.group();
@@ -131,11 +134,15 @@ class OracleEssentials {
                         m.end();
                     }
                 }
-                ms2 = System.currentTimeMillis() - start;
+                long ms = System.currentTimeMillis() - start;
+
+                if (ms < ms2) ms2 = ms;
             }
 
             double gain = (double) ms1 / ms2;
 
+            OracleEssentials.totalMs1    += ms1;
+            OracleEssentials.totalMs2    += ms2;
             OracleEssentials.gainSum     += gain;
             OracleEssentials.gainProduct *= gain;
             OracleEssentials.totalCount++;
@@ -168,14 +175,14 @@ class OracleEssentials {
         return sb.append('"').toString();
     }
 
-    private static void
+    static void
     assertEqualState(String message, java.util.regex.Matcher matcher1, de.unkrig.lfr.core.Pattern.Matcher matcher2) {
 
         // TODO "hitEnd()" is still completely broken. :-(
 //        Assert.assertEquals(message + ", hitEnd()", matcher1.hitEnd(), matcher2.hitEnd());
     }
 
-    private static void
+    static void
     assertEqualStateAfterMatch(
         String                             message,
         java.util.regex.Matcher            matcher1,
@@ -206,6 +213,8 @@ class OracleEssentials {
         Assert.assertEquals(-1, OracleEssentials.totalCount);
         System.out.println("Regex           Subject           ms: jur.P dulc.P    Gain (>100% means dulc is faster)");
         System.out.println("---------------------------------------------------------------------------------------");
+        OracleEssentials.totalMs1    = 0;
+        OracleEssentials.totalMs2    = 0;
         OracleEssentials.gainSum     = 0;
         OracleEssentials.gainProduct = 1;
         OracleEssentials.totalCount  = 0;
@@ -215,6 +224,11 @@ class OracleEssentials {
     endStatistics() {
         Assert.assertNotEquals(-1, OracleEssentials.totalCount);
         System.out.println("------------------------------------------------------------------------------");
+        System.out.printf(
+            "                                     %6d %6d%n",
+            OracleEssentials.totalMs1,
+            OracleEssentials.totalMs2
+        );
         System.out.printf(
             "Average gain:           %6.0f%%%n",
             100 * OracleEssentials.gainSum / OracleEssentials.totalCount
