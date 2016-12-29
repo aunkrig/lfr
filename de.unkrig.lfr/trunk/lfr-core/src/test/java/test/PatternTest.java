@@ -28,15 +28,10 @@
 
 package test;
 
-import static de.unkrig.lfr.core.Pattern.CASE_INSENSITIVE;
-import static de.unkrig.lfr.core.Pattern.LITERAL;
-
 import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
-
-import de.unkrig.lfr.core.Pattern;
 
 public
 class PatternTest {
@@ -123,8 +118,25 @@ class PatternTest {
 
     @Test public void
     testLiteralRegex() {
-        OracleEssentials.harness("$\\*xxx$\\*xxx", "$\\*", Pattern.LITERAL);
-        OracleEssentials.harness("a\\xxxA\\xxx",   "a\\",    Pattern.LITERAL | Pattern.CASE_INSENSITIVE);
+        OracleEssentials.harness("$\\*xxx$\\*xxx", "$\\*", de.unkrig.lfr.core.Pattern.LITERAL);
+        OracleEssentials.harness("a\\xxxA\\xxx",   "a\\",  de.unkrig.lfr.core.Pattern.LITERAL | de.unkrig.lfr.core.Pattern.CASE_INSENSITIVE); // SUPPRESS CHECKSTYLE LineLength
+    }
+
+    @Test public void
+    testBoundaries() {
+        OracleEssentials.harness("___\r___\r\n___\u2028___", "^.");
+        OracleEssentials.harness("___\r___\r\n___\u2028___", ".$");
+        OracleEssentials.harness("___\r___\r\n___\u2028___", "^.", de.unkrig.lfr.core.Pattern.MULTILINE);
+        OracleEssentials.harness("___\r___\r\n___\u2028___", ".$", de.unkrig.lfr.core.Pattern.MULTILINE);
+        OracleEssentials.harness(" a b c",   "\\b");
+        OracleEssentials.harness(" a b c",   "\\B");
+        OracleEssentials.harness("bla\rbla", "\\A");
+        OracleEssentials.harness("aaabbb",   "\\Ga");
+        OracleEssentials.harness("abc",      ".\\Z");
+        OracleEssentials.harness("abc\n",    ".\\Z");
+        OracleEssentials.harness("abc\r\nd", ".\\Z");
+        OracleEssentials.harness("abc\n",    ".\\z");
+        OracleEssentials.harness("abc\r\nd", ".\\z");
     }
 
     // ===================================
