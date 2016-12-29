@@ -28,11 +28,19 @@
 
 package test;
 
+import org.junit.AfterClass;
 import org.junit.Assert;
+import org.junit.BeforeClass;
 import org.junit.Test;
 
 public
 class PatternTest {
+
+    @BeforeClass public static void
+    setUpBeforeClass() { OracleEssentials.beginStatistics(); }
+
+    @AfterClass public static void
+    tearDownAfterClass() { OracleEssentials.endStatistics(); }
 
     @Test public void
     testMatches() {
@@ -49,44 +57,31 @@ class PatternTest {
     private void
     verifyMatches(String regex, String subject) {
 
+        String message = "regex=\"" + regex + "\", subject=\"" + subject + "\"";
+
         java.util.regex.Matcher            matcher1 = java.util.regex.Pattern.compile(regex).matcher(subject);
         de.unkrig.lfr.core.Pattern.Matcher matcher2 = de.unkrig.lfr.core.Pattern.compile(regex).matcher(subject);
 
-        boolean matches1 = matcher1.matches();
-        boolean matches2 = matcher2.matches();
-        Assert.assertEquals(matches1, matches2);
+        boolean m1Matches = matcher1.matches();
+        boolean m2Matches = matcher2.matches();
+        Assert.assertEquals(m1Matches, m2Matches);
 
-        PatternTest.assertEqualState(matcher1, matcher2);
+        if (m1Matches) {
+            OracleEssentials.assertEqualStateAfterMatch(message, matcher1, matcher2);
+        } else {
+            OracleEssentials.assertEqualState(message, matcher1, matcher2);
+        }
     }
 
     @Test public void
     testFind() {
-        this.verifyFind("abc", "abc");
-        this.verifyFind("abc", "xxabcxx");
-        this.verifyFind("abc", "xxaBcxx");
-        this.verifyFind("a.c", "xxabcxx");
-        this.verifyFind("a.*b", "xxaxxbxxbxxbxx");
-        this.verifyFind("a.*?b", "xxaxxbxxbxxbxx");
-        this.verifyFind("a.*+b", "xxaxxbxxbxxbxx");
-    }
-
-    private void
-    verifyFind(String regex, String subject) {
-        this.verifyFind(regex, subject, 0);
-    }
-
-    private void
-    verifyFind(String regex, String subject, int flags) {
-        java.util.regex.Matcher            m1 = java.util.regex.Pattern.compile(regex, flags).matcher(subject);
-        de.unkrig.lfr.core.Pattern.Matcher m2 = de.unkrig.lfr.core.Pattern.compile(regex, flags).matcher(subject);
-
-        for (int i = 0;; i++) {
-            boolean found1 = m1.find();
-            boolean found2 = m2.find();
-            Assert.assertEquals("Match #" + (i + 1) + ": " + subject + " => " + regex, found1, found2);
-            PatternTest.assertEqualState(m1, m2);
-            if (!found1) return;
-        }
+        OracleEssentials.harness("abc", "abc");
+        OracleEssentials.harness("abc", "xxabcxx");
+        OracleEssentials.harness("abc", "xxaBcxx");
+        OracleEssentials.harness("a.c", "xxabcxx");
+        OracleEssentials.harness("a.*b", "xxaxxbxxbxxbxx");
+        OracleEssentials.harness("a.*?b", "xxaxxbxxbxxbxx");
+        OracleEssentials.harness("a.*+b", "xxaxxbxxbxxbxx");
     }
 
     @Test public void
@@ -98,27 +93,27 @@ class PatternTest {
 
     @Test public void
     testCaseInsensitive() {
-        this.verifyFind("(?i)A", "xxxAxxx");
-        this.verifyFind("(?i)A", "xxxaxxx");
-        this.verifyFind("(?i)Ä", "xxxäxxx");
+        OracleEssentials.harness("(?i)A", "xxxAxxx");
+        OracleEssentials.harness("(?i)A", "xxxaxxx");
+        OracleEssentials.harness("(?i)Ä", "xxxäxxx");
         Assert.assertTrue(de.unkrig.lfr.core.Pattern.matches("(?i)Ä", "Ä"));
         Assert.assertFalse(de.unkrig.lfr.core.Pattern.matches("(?i)Ä", "ä"));
     }
 
     @Test public void
     testUnicodeCaseInsensitive() {
-        this.verifyFind("(?ui)A", "xxxAxxx");
-        this.verifyFind("(?ui)A", "xxxaxxx");
-        this.verifyFind("(?ui)Ä", "xxxäxxx");
+        OracleEssentials.harness("(?ui)A", "xxxAxxx");
+        OracleEssentials.harness("(?ui)A", "xxxaxxx");
+        OracleEssentials.harness("(?ui)Ä", "xxxäxxx");
         Assert.assertTrue(de.unkrig.lfr.core.Pattern.matches("(?ui)Ä", "Ä"));
         Assert.assertTrue(de.unkrig.lfr.core.Pattern.matches("(?ui)Ä", "ä"));
     }
 
     @Test public void
     testDotall() {
-        this.verifyFind(" \r  ", ".");
-        this.verifyFind(" \r  ", ".", de.unkrig.lfr.core.Pattern.DOTALL);
-        this.verifyFind(" \r  ", "(?s).");
+        OracleEssentials.harness(" \r  ", ".");
+        OracleEssentials.harness(" \r  ", ".", de.unkrig.lfr.core.Pattern.DOTALL);
+        OracleEssentials.harness(" \r  ", "(?s).");
     }
 
     private void
@@ -126,23 +121,6 @@ class PatternTest {
         java.util.regex.Matcher            m1 = java.util.regex.Pattern.compile(regex).matcher(subject);
         de.unkrig.lfr.core.Pattern.Matcher m2 = de.unkrig.lfr.core.Pattern.compile(regex).matcher(subject);
         Assert.assertEquals(m1.lookingAt(), m2.lookingAt());
-        PatternTest.assertEqualState(m1, m2);
-    }
-
-    private static void
-    assertEqualState(java.util.regex.Matcher m1, de.unkrig.lfr.core.Pattern.Matcher m2) {
-
-        int m1s;
-        try {
-            m1s = m1.start();
-        } catch (IllegalStateException ise) {
-            try { m1.end();   Assert.fail(); } catch (IllegalStateException ise2) {}
-            try { m2.start(); Assert.fail(); } catch (IllegalStateException ise2) {}
-            try { m2.end();   Assert.fail(); } catch (IllegalStateException ise2) {}
-            return;
-        }
-
-        Assert.assertEquals(m1s,      m2.start());
-        Assert.assertEquals(m1.end(), m2.end());
+        OracleEssentials.assertEqualState("regex=\"" + regex + "\", subject=\"" + subject + "\"", m1, m2);
     }
 }
