@@ -33,7 +33,7 @@ class OracleEssentials {
 
     private OracleEssentials() {}
 
-    private static final boolean ALSO_COMPARE_PERFORMANCE = true;
+    private static final boolean ALSO_COMPARE_PERFORMANCE = false;
 
     private static long   totalMs1, totalMs2;
     private static double gainSum;
