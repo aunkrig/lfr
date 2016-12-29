@@ -137,6 +137,10 @@ class PatternTest {
         OracleEssentials.harness("abc\r\nd", ".\\Z");
         OracleEssentials.harness("abc\n",    ".\\z");
         OracleEssentials.harness("abc\r\nd", ".\\z");
+
+        OracleEssentials.harness("abc",      ".", de.unkrig.lfr.core.Pattern.MULTILINE);
+        OracleEssentials.harness("abc\n",    ".", de.unkrig.lfr.core.Pattern.MULTILINE);
+        OracleEssentials.harness("abc\r\nd", ".", de.unkrig.lfr.core.Pattern.MULTILINE);
     }
 
     // ===================================
