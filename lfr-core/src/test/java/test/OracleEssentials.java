@@ -28,11 +28,10 @@ package test;
 
 import org.junit.Assert;
 
-/**
- * @author Arno
- *
- */
-public class OracleEssentials {
+public final
+class OracleEssentials {
+
+    private OracleEssentials() {}
 
     private static final boolean ALSO_COMPARE_PERFORMANCE = true;
 
@@ -55,15 +54,35 @@ public class OracleEssentials {
             java.util.regex.Matcher            matcher1 = pattern1.matcher(subject);
             de.unkrig.lfr.core.Pattern.Matcher matcher2 = pattern2.matcher(subject);
 
-            Assert.assertEquals(message + ", lookingAt()", matcher1.lookingAt(), matcher2.lookingAt());
-            OracleEssentials.assertEqualState(message + ", lookingAt()", matcher1, matcher2);
-            matcher1.reset();
-            matcher2.reset();
+            {
+                boolean lookingAt1 = matcher1.lookingAt();
+                boolean lookingAt2 = matcher2.lookingAt();
+                Assert.assertEquals(message + ", lookingAt()", lookingAt1, lookingAt2);
 
-            Assert.assertEquals(message + ", matches()", matcher1.matches(), matcher2.matches());
-            OracleEssentials.assertEqualState(message + ", matches()", matcher1, matcher2);
-            matcher1.reset();
-            matcher2.reset();
+                if (lookingAt1) {
+                    OracleEssentials.assertEqualStateAfterMatch(message + ", lookingAt()", matcher1, matcher2);
+                } else {
+                    OracleEssentials.assertEqualState(message + ", lookingAt()", matcher1, matcher2);
+                }
+
+                matcher1.reset();
+                matcher2.reset();
+            }
+
+            {
+                boolean matches1 = matcher1.matches();
+                boolean matches2 = matcher2.matches();
+                Assert.assertEquals(message + ", matches()", matches1, matches2);
+
+                if (matches1) {
+                    OracleEssentials.assertEqualStateAfterMatch(message + ", lookingAt()", matcher1, matcher2);
+                } else {
+                    OracleEssentials.assertEqualState(message + ", lookingAt()", matcher1, matcher2);
+                }
+
+                matcher1.reset();
+                matcher2.reset();
+            }
 
             for (int matchCount = 0;; matchCount++) {
                 String message2 = message + ", Match #" + (matchCount + 1);
@@ -82,9 +101,10 @@ public class OracleEssentials {
 
         if (OracleEssentials.ALSO_COMPARE_PERFORMANCE) {
 
-            long ms1 = 0, ms2 = 0;
             int N2 = 100000;
             int N1 = 30000;
+
+            long ms1 = 0, ms2 = 0;
             {
                 long start = 0;
                 for (int i = 0; i < N2; i++) {
@@ -120,7 +140,14 @@ public class OracleEssentials {
             OracleEssentials.gainProduct *= gain;
             OracleEssentials.totalCount++;
 
-            System.out.printf("%-15s %-20s %6d %6d %6.0f%%%n", OracleEssentials.asJavaLiteral(regex), OracleEssentials.asJavaLiteral(subject), ms1, ms2, 100 * gain);
+            System.out.printf(
+                "%-15s %-20s %6d %6d %6.0f%%%n",
+                OracleEssentials.asJavaLiteral(regex),
+                OracleEssentials.asJavaLiteral(subject),
+                ms1,
+                ms2,
+                100 * gain
+            );
         }
     }
 
@@ -131,7 +158,7 @@ public class OracleEssentials {
 
         for (char c : s.toCharArray()) {
             int idx;
-            if ((idx = idx = "\r\n\b\t\\".indexOf(c)) != -1) {
+            if ((idx = "\r\n\b\t\\".indexOf(c)) != -1) {
                 sb.append('\\').append("rnbt\\".charAt(idx));
             } else {
                 sb.append(c);
@@ -144,6 +171,7 @@ public class OracleEssentials {
     private static void
     assertEqualState(String message, java.util.regex.Matcher matcher1, de.unkrig.lfr.core.Pattern.Matcher matcher2) {
 
+        // TODO "hitEnd()" is still completely broken. :-(
 //        Assert.assertEquals(message + ", hitEnd()", matcher1.hitEnd(), matcher2.hitEnd());
     }
 
@@ -158,10 +186,18 @@ public class OracleEssentials {
 
         Assert.assertEquals(message + ", groupCount()", matcher1.groupCount(), matcher2.groupCount());
 
-        for (int i = 0; i < matcher1.groupCount(); i++) {
-            Assert.assertEquals(message + ", group(" + i + ")", matcher1.group(i), matcher2.group(i));
-            Assert.assertEquals(message + ", start(" + i + ")", matcher1.start(i), matcher2.start(i));
-            Assert.assertEquals(message + ", end(" + i + ")",   matcher1.end(i),   matcher2.end(i));
+        for (int i = 0; i <= matcher1.groupCount(); i++) {
+
+            String group1 = matcher1.group(i);
+            String group2 = matcher2.group(i);
+            Assert.assertEquals(message + ", group(" + i + ")", group1, group2);
+
+            int start1 = matcher1.start(i);
+            int start2 = matcher2.start(i);
+            Assert.assertEquals(message + ", start(" + i + ")", start1, start2);
+
+            int end1 = matcher1.end(i);
+            Assert.assertEquals(message + ", end(" + i + ")", end1, matcher2.end(i));
         }
     }
 
