@@ -48,10 +48,15 @@ class PatternTest {
 
     private void
     verifyMatches(String regex, String subject) {
-        java.util.regex.Matcher            m1 = java.util.regex.Pattern.compile(regex).matcher(subject);
-        de.unkrig.lfr.core.Pattern.Matcher m2 = de.unkrig.lfr.core.Pattern.compile(regex).matcher(subject);
-        Assert.assertEquals(m1.matches(), m2.matches());
-        PatternTest.assertEqualState(m1, m2);
+
+        java.util.regex.Matcher            matcher1 = java.util.regex.Pattern.compile(regex).matcher(subject);
+        de.unkrig.lfr.core.Pattern.Matcher matcher2 = de.unkrig.lfr.core.Pattern.compile(regex).matcher(subject);
+
+        boolean matches1 = matcher1.matches();
+        boolean matches2 = matcher2.matches();
+        Assert.assertEquals(matches1, matches2);
+
+        PatternTest.assertEqualState(matcher1, matcher2);
     }
 
     @Test public void

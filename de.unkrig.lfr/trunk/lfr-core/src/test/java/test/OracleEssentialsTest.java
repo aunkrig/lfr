@@ -226,7 +226,7 @@ class OracleEssentialsTest {
      */
     @Test public void
     testUsingTheMatchesMethod() {
-        Assert.assertTrue(de.unkrig.lfr.core.Pattern.matches("\\d","1"));
+        Assert.assertTrue(de.unkrig.lfr.core.Pattern.matches("\\d", "1"));
     }
 
     /**
