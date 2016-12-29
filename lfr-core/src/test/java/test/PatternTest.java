@@ -28,10 +28,15 @@
 
 package test;
 
+import static de.unkrig.lfr.core.Pattern.CASE_INSENSITIVE;
+import static de.unkrig.lfr.core.Pattern.LITERAL;
+
 import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
+
+import de.unkrig.lfr.core.Pattern;
 
 public
 class PatternTest {
@@ -118,7 +123,8 @@ class PatternTest {
 
     @Test public void
     testLiteralRegex() {
-        OracleEssentials.harness("$\\*xxx$\\*xxx", "$\\*", de.unkrig.lfr.core.Pattern.LITERAL);
+        OracleEssentials.harness("$\\*xxx$\\*xxx", "$\\*", Pattern.LITERAL);
+        OracleEssentials.harness("a\\xxxA\\xxx",   "a\\",    Pattern.LITERAL | Pattern.CASE_INSENSITIVE);
     }
 
     // ===================================
