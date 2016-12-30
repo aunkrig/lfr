@@ -2205,6 +2205,7 @@ class Pattern {
 
                 case CC_NEGATION:
                 case CC_RANGE:
+                    // These can only appear inside a character class, like "[^abc]" or "[a-k]".
                     throw new AssertionError(t);
 
                 case CC_INTERSECTION:
