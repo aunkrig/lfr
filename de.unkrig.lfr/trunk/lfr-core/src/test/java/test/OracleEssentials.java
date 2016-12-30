@@ -178,8 +178,7 @@ class OracleEssentials {
     static void
     assertEqualState(String message, java.util.regex.Matcher matcher1, de.unkrig.lfr.core.Pattern.Matcher matcher2) {
 
-        // TODO "hitEnd()" is still completely broken. :-(
-//        Assert.assertEquals(message + ", hitEnd()", matcher1.hitEnd(), matcher2.hitEnd());
+        Assert.assertEquals(message + ", hitEnd()", matcher1.hitEnd(), matcher2.hitEnd());
     }
 
     static void
@@ -188,8 +187,6 @@ class OracleEssentials {
         java.util.regex.Matcher            matcher1,
         de.unkrig.lfr.core.Pattern.Matcher matcher2
     ) {
-
-        OracleEssentials.assertEqualState(message, matcher1, matcher2);
 
         Assert.assertEquals(message + ", groupCount()", matcher1.groupCount(), matcher2.groupCount());
 
@@ -206,6 +203,8 @@ class OracleEssentials {
             int end1 = matcher1.end(i);
             Assert.assertEquals(message + ", end(" + i + ")", end1, matcher2.end(i));
         }
+
+        OracleEssentials.assertEqualState(message, matcher1, matcher2);
     }
 
     public static void
