@@ -35,9 +35,9 @@ class OracleEssentials {
 
     private OracleEssentials() {}
 
-    private static final boolean ALSO_COMPARE_PERFORMANCE = false;
-    private static final int     CHUNK_COUNT              = 5;
-    private static final int     CHUNK_SIZE               = 50000;
+    private static final boolean ALSO_COMPARE_PERFORMANCE = true;
+    private static final int     CHUNK_COUNT              = 50;
+    private static final int     CHUNK_SIZE               = 5000;
 
     private static final Locale LOCALE = Locale.US;
 
