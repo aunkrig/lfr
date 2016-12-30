@@ -85,7 +85,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.regex.PatternSyntaxException;
 
-import de.unkrig.commons.lang.AssertionUtil;
 import de.unkrig.commons.lang.Characters;
 import de.unkrig.commons.lang.protocol.Predicate;
 import de.unkrig.commons.nullanalysis.Nullable;
@@ -155,12 +154,11 @@ class Pattern {
     private static final String UNIX_LINE_BREAK_CHARACTERS     = "\n";
     private static final String WHITESPACE_CHARACTERS          = " \t\n\u000B\f\r";
 
-    int            flags;
-    final String   pattern;
-    final Sequence sequence;
-    final int      groupCount;
-
-    static { AssertionUtil.enableAssertionsForThisClass(); }
+    int                        flags;
+    final String               pattern;
+    final Sequence             sequence;
+    final int                  groupCount;
+    final Map<String, Integer> namedGroups;
 
     /**
      * A drop-in replacement for {@link java.util.regex.Matcher}.
@@ -198,10 +196,10 @@ class Pattern {
          */
         int start();
 
-//        /**
-//         * @see java.util.regex.Matcher#start(String)
-//         */
-//        int start(String name);
+        /**
+         * @see java.util.regex.Matcher#start(String)
+         */
+        int start(String name);
 
         /**
          * @see java.util.regex.Matcher#start(int)
@@ -218,10 +216,10 @@ class Pattern {
          */
         int end(int group);
 
-//        /**
-//         * @see java.util.regex.Matcher#end(String)
-//         */
-//        int end(String name);
+        /**
+         * @see java.util.regex.Matcher#end(String)
+         */
+        int end(String name);
 
         /**
          * @see java.util.regex.Matcher#group()
@@ -233,10 +231,10 @@ class Pattern {
          */
         String group(int group);
 
-//        /**
-//         * @see java.util.regex.Matcher#group(String)
-//         */
-//        String group(String name);
+        /**
+         * @see java.util.regex.Matcher#group(String)
+         */
+        String group(String name);
 
         /**
          * @see java.util.regex.Matcher#groupCount()
@@ -398,9 +396,31 @@ class Pattern {
         }
 
         @Override public int
+        start(String groupName) {
+
+            if (!this.hadMatch) throw new IllegalStateException("No match available");
+
+            Integer groupNumber = this.pattern.namedGroups.get(groupName);
+            if (groupNumber == null) throw new IllegalArgumentException("Invalid group name \"" + groupName + "\"");
+
+            return this.groups[2 * groupNumber];
+        }
+
+        @Override public int
         end(int groupNumber) {
 
             if (!this.hadMatch) throw new IllegalStateException("No match available");
+
+            return this.groups[2 * groupNumber + 1];
+        }
+
+        @Override public int
+        end(String groupName) {
+
+            if (!this.hadMatch) throw new IllegalStateException("No match available");
+
+            Integer groupNumber = this.pattern.namedGroups.get(groupName);
+            if (groupNumber == null) throw new IllegalArgumentException("Invalid group name \"" + groupName + "\"");
 
             return this.groups[2 * groupNumber + 1];
         }
@@ -409,6 +429,18 @@ class Pattern {
         group(int groupNumber) {
 
             if (!this.hadMatch) throw new IllegalStateException("No match available");
+
+            int[] gs = this.groups;
+            return this.subject.subSequence(gs[2 * groupNumber], gs[2 * groupNumber + 1]).toString();
+        }
+
+        @Override public String
+        group(String groupName) {
+
+            if (!this.hadMatch) throw new IllegalStateException("No match available");
+
+            Integer groupNumber = this.pattern.namedGroups.get(groupName);
+            if (groupNumber == null) throw new IllegalArgumentException("Invalid group name \"" + groupName + "\"");
 
             int[] gs = this.groups;
             return this.subject.subSequence(gs[2 * groupNumber], gs[2 * groupNumber + 1]).toString();
@@ -639,9 +671,11 @@ class Pattern {
         END_GROUP,
         /** {@code \}<var>d</var> */
         CAPTURING_GROUP_BACK_REFERENCE,
-        /** {@code \<}<var>name</var>{@code >} */
+        /** {@code \k<}<var>name</var>{@code >} */
         NAMED_CAPTURING_GROUP_BACK_REFERENCE,
+        /** {@code (?<}<var>name</var>{@code >} */
         NAMED_CAPTURING_GROUP,
+        /** {@code (?:} */
         NON_CAPTURING_GROUP,
         /** {@code (?>} */
         INDEPENDENT_NON_CAPTURING_GROUP,
@@ -761,6 +795,24 @@ class Pattern {
             @Override public boolean
             evaluate(Character subject) { return Character.getType(subject) == generalCategory; }
         };
+    }
+
+    /**
+     * Representation of literal characters like "a" or "\.".
+     */
+    public static
+    class CcLiteralCharacter extends CharacterClass {
+
+        private char c;
+
+        public
+        CcLiteralCharacter(char c) { this.c = c; }
+
+        @Override public boolean
+        evaluate(Character subject) { return subject == this.c; }
+
+        @Override public String
+        toString() { return new String(new char[] { this.c }); }
     }
 
     /**
@@ -1096,21 +1148,19 @@ class Pattern {
     ccLiteralCharacter(char c) { return new CcLiteralCharacter(c); }
 
     /**
-     * Representation of literal characters like "a" or "\.".
+     * Representation of a two-characters union, e.g. "[oO]".
      */
-    public static
-    class CcLiteralCharacter extends CharacterClass {
+    public static CharacterClass
+    ccOneOf(final char c1, final char c2) {
 
-        private char c;
+        return new CharacterClass() {
 
-        public
-        CcLiteralCharacter(char c) { this.c = c; }
+            @Override public boolean
+            evaluate(Character subject) { return subject == c1 || subject == c2; }
 
-        @Override public boolean
-        evaluate(Character subject) { return subject == this.c; }
-
-        @Override public String
-        toString() { return new String(new char[] { this.c }); }
+            @Override public String
+            toString() { return "[" + c1 + c2 + ']'; }
+        };
     }
 
     public static CharacterClass
@@ -1131,24 +1181,9 @@ class Pattern {
      */
     public static CharacterClass
     ccCaseInsensitiveLiteralCharacter(final char c) {
-
-        return new CharacterClass() {
-
-            char ref = c >= 'a' && c <= 'z' ? (char) (c - 32) : c;
-
-            @Override public boolean
-            evaluate(Character subject) {
-                char c2 = subject;
-
-                return (
-                    this.ref == c2
-                    || (c2 - this.ref == 32 && c2 >= 'a' && c2 <= 'z')
-                );
-            }
-
-            @Override public String
-            toString() { return "(?i)" + this.ref + "(?-i)"; }
-        };
+        if (c >= 'A' && c <= 'Z') return Pattern.ccOneOf(c, (char) (c + 32));
+        if (c >= 'a' && c <= 'z') return Pattern.ccOneOf(c, (char) (c - 32));
+        return Pattern.ccLiteralCharacter(c);
     }
 
     /**
@@ -1156,17 +1191,9 @@ class Pattern {
      */
     public static CharacterClass
     ccUnicodeCaseInsensitiveLiteralCharacter(final char c) {
-
-        return new CharacterClass() {
-
-            char ref = Character.toUpperCase(c);
-
-            @Override public boolean
-            evaluate(Character subject) { return Character.toUpperCase(subject) == this.ref; }
-
-            @Override public String
-            toString() { return "(?iu)" + this.ref + "(?-iu)"; }
-        };
+        if (Character.isLowerCase(c)) return Pattern.ccOneOf(c, Character.toUpperCase(c));
+        if (Character.isUpperCase(c)) return Pattern.ccOneOf(c, Character.toLowerCase(c));
+        return Pattern.ccLiteralCharacter(c);
     }
 
     /**
@@ -1218,8 +1245,8 @@ class Pattern {
     }
 
     /**  A digit: [0-9] */
-    static final CharacterClass
-    ccSequenceIsDigit() {
+    public static final CharacterClass
+    ccIsDigit() {
         return new CharacterClass() {
             @Override public boolean evaluate(Character subject) { char c = subject; return c >= '0' && c <= '9'; }
             @Override public String  toString()                  { return "\\d"; }
@@ -1227,10 +1254,10 @@ class Pattern {
     }
 
     /**  A non-digit: [^0-9] */
-    static final CharacterClass
-    ccSequenceIsNonDigit() { return Pattern.ccNegate(Pattern.ccSequenceIsDigit(), "\\D"); }
+    public static final CharacterClass
+    ccIsNonDigit() { return Pattern.ccNegate(Pattern.ccIsDigit(), "\\D"); }
 
-    static CharacterClass
+    public static CharacterClass
     ccNegate(final CharacterClass delegate, final String toString) {
         return new CharacterClass() {
 
@@ -1243,8 +1270,8 @@ class Pattern {
     }
 
     /**  A horizontal whitespace character: <code>[ \t\xA0&#92;u1680&#92;u180e&#92;u2000-&#92;u200a&#92;u202f&#92;u205f&#92;u3000]</code> */ // SUPPRESS CHECKSTYLE LineLength
-    static final CharacterClass
-    ccSequenceIsHorizontalWhitespace() {
+    public static final CharacterClass
+    ccIsHorizontalWhitespace() {
 
         return new CharacterClass() {
 
@@ -1262,64 +1289,55 @@ class Pattern {
     }
 
     /**  A non-horizontal whitespace character: [^\h] */
-    static CharacterClass
-    ccSequenceIsNonHorizontalWhitespace() {
-        return Pattern.ccNegate(Pattern.ccSequenceIsHorizontalWhitespace(), "\\H");
-    }
+    public static CharacterClass
+    ccIsNonHorizontalWhitespace() { return Pattern.ccNegate(Pattern.ccIsHorizontalWhitespace(), "\\H"); }
 
     /**  A whitespace character: [ \t\n\x0B\f\r] */
-    static final CharacterClass
-    ccSequenceIsWhitespace() {
+    public static final CharacterClass
+    ccIsWhitespace() {
         return Pattern.ccOneOf(Pattern.WHITESPACE_CHARACTERS);
     }
 
     /**  A non-whitespace character: [^\s] */
-    static final CharacterClass
-    ccSequenceIsNonWhitespace() { return Pattern.ccNegate(Pattern.ccSequenceIsWhitespace(), "\\S"); }
+    public static final CharacterClass
+    ccIsNonWhitespace() { return Pattern.ccNegate(Pattern.ccIsWhitespace(), "\\S"); }
 
     /**  A vertical whitespace character: [\n\x0B\f\r\x85/u2028/u2029] */
-    static final CharacterClass
-    ccSequenceIsVerticalWhitespace() { return Pattern.ccOneOf(Pattern.VERTICAL_WHITESPACE_CHARACTERS); }
+    public static final CharacterClass
+    ccIsVerticalWhitespace() { return Pattern.ccOneOf(Pattern.VERTICAL_WHITESPACE_CHARACTERS); }
 
     /**  A non-vertical whitespace character: [^\v] */
-    static final CharacterClass
-    ccSequenceIsNonVerticalWhitespace() { return Pattern.ccNegate(Pattern.ccSequenceIsVerticalWhitespace(), "\\V"); }
+    public static final CharacterClass
+    ccIsNonVerticalWhitespace() { return Pattern.ccNegate(Pattern.ccIsVerticalWhitespace(), "\\V"); }
 
     /**  A word character: [a-zA-Z_0-9] */
-    static final CharacterClass
-    ccSequenceIsWord() {
+    public static final CharacterClass
+    ccIsWord() {
         return new CharacterClass() {
-
-            @Override public boolean
-            evaluate(Character subject) { return Pattern.isWordCharacter(subject); }
-
-            @Override public String
-            toString() { return "\\w"; }
+            @Override public boolean evaluate(Character subject) { return Pattern.isWordCharacter(subject); }
+            @Override public String  toString()                  { return "\\w";                            }
         };
     }
 
     /**  A non-word character: [^\w] */
-    static final CharacterClass
-    ccSequenceIsNonWord() { return Pattern.ccNegate(Pattern.ccSequenceIsWord(), "\\W"); }
+    public static final CharacterClass
+    ccIsNonWord() { return Pattern.ccNegate(Pattern.ccIsWord(), "\\W"); }
 
-    static final CharacterClass
-    ccSequenceAnyChar() {
+    public static final CharacterClass
+    ccAnyChar() {
         return new CharacterClass() {
-
-            @Override public boolean
-            evaluate(Character subject) { return true; }
-
-            @Override public String
-            toString() { return "."; }
+            @Override public boolean evaluate(Character subject) { return true; }
+            @Override public String  toString()                  { return ".";  }
         };
     }
 
     // ==========================================================
 
-    Pattern(String pattern, int flags, Sequence sequence, int groupCount) {
+    Pattern(String pattern, int flags, Sequence sequence, int groupCount, Map<String, Integer> namedGroups) {
 
-        this.flags   = flags;
-        this.pattern = pattern;
+        this.flags       = flags;
+        this.pattern     = pattern;
+        this.namedGroups = namedGroups;
 
         sequence.linkTo(new Sequence() {
 
@@ -1351,7 +1369,8 @@ class Pattern {
     static
     class RegexScanner extends StatefulScanner<TokenType, ScannerState> {
 
-        int groupCount;
+        int                                  groupCount;
+        final protected Map<String, Integer> namedGroups = new HashMap<String, Integer>();
 
         RegexScanner()                  { super(ScannerState.class); }
         RegexScanner(RegexScanner that) { super(that);        }
@@ -1512,16 +1531,16 @@ class Pattern {
         // Logical operators
         // XY  X followed by Y
         // X|Y Either X or Y
-        ss.addRule("\\|",        EITHER_OR);
+        ss.addRule("\\|",           EITHER_OR);
         // (X) X, as a capturing group
-        ss.addRule("\\((?!\\?)", CAPTURING_GROUP);
-        ss.addRule("\\)",        END_GROUP);
+        ss.addRule("\\((?![\\?<])", CAPTURING_GROUP);
+        ss.addRule("\\)",           END_GROUP);
 
         // Back references
         // \n       Whatever the nth capturing group matched
-        ss.addRule("\\\\\\d",    CAPTURING_GROUP_BACK_REFERENCE);
+        ss.addRule("\\\\\\d",     CAPTURING_GROUP_BACK_REFERENCE);
         // \k<name> Whatever the named-capturing group "name" matched
-        ss.addRule("\\\\<\\w+>", NAMED_CAPTURING_GROUP_BACK_REFERENCE);
+        ss.addRule("\\\\k<\\w+>", NAMED_CAPTURING_GROUP_BACK_REFERENCE);
 
         // "Quotation"
         // Quotation
@@ -1670,7 +1689,7 @@ class Pattern {
             throw pse;
         }
 
-        return new Pattern(regex, flags, sequence, rs.groupCount);
+        return new Pattern(regex, flags, sequence, rs.groupCount, rs.namedGroups);
     }
 
     /**
@@ -2051,7 +2070,7 @@ class Pattern {
 
                 case CC_ANY:
                     return (
-                        (this.currentFlags & Pattern.DOTALL)     != 0 ? Pattern.ccSequenceAnyChar() :
+                        (this.currentFlags & Pattern.DOTALL)     != 0 ? Pattern.ccAnyChar() :
                         (this.currentFlags & Pattern.UNIX_LINES) != 0 ? Pattern.ccNegate(Pattern.ccLiteralCharacter('\n'), ".") : // SUPPRESS CHECKSTYLE LineLength
                         Pattern.ccNegate(Pattern.ccOneOf(Pattern.LINE_BREAK_CHARACTERS), ".")
                     );
@@ -2097,11 +2116,13 @@ class Pattern {
                     }
 
                 case CAPTURING_GROUP_BACK_REFERENCE:
-                    int groupNumber = Integer.parseInt(t.text.substring(1));
-                    if (groupNumber > rs.groupCount) {
-                        throw new ParseException("Group number " + groupNumber + " too big");
+                    {
+                        int groupNumber = Integer.parseInt(t.text.substring(1));
+                        if (groupNumber > rs.groupCount) {
+                            throw new ParseException("Group number " + groupNumber + " too big");
+                        }
+                        return Pattern.capturingGroupBackReference(groupNumber);
                     }
-                    return Pattern.capturingGroupBackReference(groupNumber);
 
                 case BEGINNING_OF_LINE:
                     return (
@@ -2150,9 +2171,31 @@ class Pattern {
                 case LINEBREAK_MATCHER:
                     return Pattern.linebreakSequence();
 
-                case INDEPENDENT_NON_CAPTURING_GROUP:
                 case NAMED_CAPTURING_GROUP:
+                    {
+                        int groupNumber = ++rs.groupCount;
+
+                        String groupName = t.text.substring(3, t.text.length() - 1);
+                        if (rs.namedGroups.put(groupName, groupNumber) != null) {
+                            throw new ParseException("Duplicate captuting group name \"" + groupName + "\"");
+                        }
+
+                        Sequence result = Pattern.capturingGroup(groupNumber, this.parseAlternatives());
+                        this.read(")");
+                        return result;
+                    }
+
                 case NAMED_CAPTURING_GROUP_BACK_REFERENCE:
+                    {
+                        String  groupName   = t.text.substring(3, t.text.length() - 1);
+                        Integer groupNumber = rs.namedGroups.get(groupName);
+                        if (groupNumber > rs.groupCount) {
+                            throw new ParseException("Unknown group name \"" + groupName + "\"");
+                        }
+                        return Pattern.capturingGroupBackReference(groupNumber);
+                    }
+
+                case INDEPENDENT_NON_CAPTURING_GROUP:
                 case NEGATIVE_LOOKAHEAD:
                 case NEGATIVE_LOOKBEHIND:
                 case POSITIVE_LOOKAHEAD:
@@ -2267,16 +2310,16 @@ class Pattern {
 
                 case CC_PREDEFINED:
                     switch (t.text.charAt(1)) {
-                    case 'd': return Pattern.ccSequenceIsDigit();
-                    case 'D': return Pattern.ccSequenceIsNonDigit();
-                    case 'h': return Pattern.ccSequenceIsHorizontalWhitespace();
-                    case 'H': return Pattern.ccSequenceIsNonHorizontalWhitespace();
-                    case 's': return Pattern.ccSequenceIsWhitespace();
-                    case 'S': return Pattern.ccSequenceIsNonWhitespace();
-                    case 'v': return Pattern.ccSequenceIsVerticalWhitespace();
-                    case 'V': return Pattern.ccSequenceIsNonVerticalWhitespace();
-                    case 'w': return Pattern.ccSequenceIsWord();
-                    case 'W': return Pattern.ccSequenceIsNonWord();
+                    case 'd': return Pattern.ccIsDigit();
+                    case 'D': return Pattern.ccIsNonDigit();
+                    case 'h': return Pattern.ccIsHorizontalWhitespace();
+                    case 'H': return Pattern.ccIsNonHorizontalWhitespace();
+                    case 's': return Pattern.ccIsWhitespace();
+                    case 'S': return Pattern.ccIsNonWhitespace();
+                    case 'v': return Pattern.ccIsVerticalWhitespace();
+                    case 'V': return Pattern.ccIsNonVerticalWhitespace();
+                    case 'w': return Pattern.ccIsWord();
+                    case 'W': return Pattern.ccIsNonWord();
                     default:  throw new AssertionError(t);
                     }
 
