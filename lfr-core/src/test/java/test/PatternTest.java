@@ -75,11 +75,11 @@ class PatternTest {
 
     @Test public void
     testFind() {
-        OracleEssentials.harness("abc", "abc");
-        OracleEssentials.harness("abc", "xxabcxx");
-        OracleEssentials.harness("abc", "xxaBcxx");
-        OracleEssentials.harness("a.c", "xxabcxx");
-        OracleEssentials.harness("a.*b", "xxaxxbxxbxxbxx");
+        OracleEssentials.harness("abc",   "abc");
+        OracleEssentials.harness("abc",   "xxabcxx");
+        OracleEssentials.harness("abc",   "xxaBcxx");
+        OracleEssentials.harness("a.c",   "xxabcxx");
+        OracleEssentials.harness("a.*b",  "xxaxxbxxbxxbxx");
         OracleEssentials.harness("a.*?b", "xxaxxbxxbxxbxx");
         OracleEssentials.harness("a.*+b", "xxaxxbxxbxxbxx");
     }
@@ -111,36 +111,36 @@ class PatternTest {
 
     @Test public void
     testDotall() {
-        OracleEssentials.harness(" \r  ", ".");
-        OracleEssentials.harness(" \r  ", ".", de.unkrig.lfr.core.Pattern.DOTALL);
-        OracleEssentials.harness(" \r  ", "(?s).");
+        OracleEssentials.harness(".",     " \r  ");
+        OracleEssentials.harness(".",     " \r  ", de.unkrig.lfr.core.Pattern.DOTALL);
+        OracleEssentials.harness("(?s).", " \r  ");
     }
 
     @Test public void
     testLiteralRegex() {
-        OracleEssentials.harness("$\\*xxx$\\*xxx", "$\\*", de.unkrig.lfr.core.Pattern.LITERAL);
-        OracleEssentials.harness("a\\xxxA\\xxx",   "a\\",  de.unkrig.lfr.core.Pattern.LITERAL | de.unkrig.lfr.core.Pattern.CASE_INSENSITIVE); // SUPPRESS CHECKSTYLE LineLength
+        OracleEssentials.harness("$\\*", "$\\*xxx$\\*xxx", de.unkrig.lfr.core.Pattern.LITERAL);
+        OracleEssentials.harness("a\\", "a\\xxxA\\xxx",    de.unkrig.lfr.core.Pattern.LITERAL | de.unkrig.lfr.core.Pattern.CASE_INSENSITIVE); // SUPPRESS CHECKSTYLE LineLength
     }
 
     @Test public void
     testBoundaries() {
-        OracleEssentials.harness("___\r___\r\n___\u2028___", "^.");
-        OracleEssentials.harness("___\r___\r\n___\u2028___", ".$");
-        OracleEssentials.harness("___\r___\r\n___\u2028___", "^.", de.unkrig.lfr.core.Pattern.MULTILINE);
-        OracleEssentials.harness("___\r___\r\n___\u2028___", ".$", de.unkrig.lfr.core.Pattern.MULTILINE);
-        OracleEssentials.harness(" a b c",   "\\b");
-        OracleEssentials.harness(" a b c",   "\\B");
-        OracleEssentials.harness("bla\rbla", "\\A");
-        OracleEssentials.harness("aaabbb",   "\\Ga");
-        OracleEssentials.harness("abc",      ".\\Z");
-        OracleEssentials.harness("abc\n",    ".\\Z");
-        OracleEssentials.harness("abc\r\nd", ".\\Z");
-        OracleEssentials.harness("abc\n",    ".\\z");
-        OracleEssentials.harness("abc\r\nd", ".\\z");
+        OracleEssentials.harness("^.", "___\r___\r\n___\u2028___");
+        OracleEssentials.harness(".$", "___\r___\r\n___\u2028___");
+        OracleEssentials.harness("^.", "___\r___\r\n___\u2028___", de.unkrig.lfr.core.Pattern.MULTILINE);
+        OracleEssentials.harness(".$", "___\r___\r\n___\u2028___", de.unkrig.lfr.core.Pattern.MULTILINE);
+        OracleEssentials.harness("\\b",  " a b c");
+        OracleEssentials.harness("\\B",  " a b c");
+        OracleEssentials.harness("\\A",  "bla\rbla");
+        OracleEssentials.harness("\\Ga", "aaabbb");
+        OracleEssentials.harness(".\\Z", "abc");
+        OracleEssentials.harness(".\\Z", "abc\n");
+        OracleEssentials.harness(".\\Z", "abc\r\nd");
+        OracleEssentials.harness(".\\z", "abc\n");
+        OracleEssentials.harness(".\\z", "abc\r\nd");
 
-        OracleEssentials.harness("abc",      ".", de.unkrig.lfr.core.Pattern.MULTILINE);
-        OracleEssentials.harness("abc\n",    ".", de.unkrig.lfr.core.Pattern.MULTILINE);
-        OracleEssentials.harness("abc\r\nd", ".", de.unkrig.lfr.core.Pattern.MULTILINE);
+        OracleEssentials.harness(".", "abc",      de.unkrig.lfr.core.Pattern.MULTILINE);
+        OracleEssentials.harness(".", "abc\n",    de.unkrig.lfr.core.Pattern.MULTILINE);
+        OracleEssentials.harness(".", "abc\r\nd", de.unkrig.lfr.core.Pattern.MULTILINE);
     }
 
     // ===================================

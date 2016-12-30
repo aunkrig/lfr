@@ -26,6 +26,8 @@
 
 package test;
 
+import java.util.Locale;
+
 import org.junit.Assert;
 
 public final
@@ -34,8 +36,12 @@ class OracleEssentials {
     private OracleEssentials() {}
 
     private static final boolean ALSO_COMPARE_PERFORMANCE = false;
+    private static final int     CHUNK_COUNT              = 5;
+    private static final int     CHUNK_SIZE               = 50000;
 
-    private static long   totalMs1, totalMs2;
+    private static final Locale LOCALE = Locale.US;
+
+    private static long   totalNs1, totalNs2;
     private static double gainSum;
     private static double gainProduct;
     private static int    totalCount = -1;
@@ -58,6 +64,10 @@ class OracleEssentials {
             {
                 boolean lookingAt1 = matcher1.lookingAt();
                 boolean lookingAt2 = matcher2.lookingAt();
+                if (lookingAt1) {
+                    String s = matcher1.group();
+                    s.hashCode();
+                }
                 Assert.assertEquals(message + ", lookingAt()", lookingAt1, lookingAt2);
 
                 if (lookingAt1) {
@@ -76,16 +86,17 @@ class OracleEssentials {
                 Assert.assertEquals(message + ", matches()", matches1, matches2);
 
                 if (matches1) {
-                    OracleEssentials.assertEqualStateAfterMatch(message + ", lookingAt()", matcher1, matcher2);
+                    OracleEssentials.assertEqualStateAfterMatch(message + ", matches()", matcher1, matcher2);
                 } else {
-                    OracleEssentials.assertEqualState(message + ", lookingAt()", matcher1, matcher2);
+                    OracleEssentials.assertEqualState(message + ", matches()", matcher1, matcher2);
                 }
 
                 matcher1.reset();
                 matcher2.reset();
             }
 
-            for (int matchCount = 0;; matchCount++) {
+            int matchCount;
+            for (matchCount = 0;; matchCount++) {
                 String message2 = message + ", Match #" + (matchCount + 1);
 
                 boolean found1 = matcher1.find();
@@ -97,19 +108,16 @@ class OracleEssentials {
                 OracleEssentials.assertEqualStateAfterMatch(message2, matcher1, matcher2);
             }
 
-            OracleEssentials.assertEqualState(message, matcher1, matcher2);
+            OracleEssentials.assertEqualState(message + ", after " + matchCount + " matches", matcher1, matcher2);
         }
 
         if (OracleEssentials.ALSO_COMPARE_PERFORMANCE) {
 
-            int chunkCount = 5;
-            int chunkSize  = 100000;
+            long ns1 = Long.MAX_VALUE;
+            for (int j = 0; j < OracleEssentials.CHUNK_COUNT; j++) {
 
-            long ms1 = Long.MAX_VALUE;
-            for (int j = 0; j < chunkCount; j++) {
-
-                long start = System.currentTimeMillis();
-                for (int i = 0; i < chunkSize; i++) {
+                long start = System.nanoTime();
+                for (int i = 0; i < OracleEssentials.CHUNK_SIZE; i++) {
 
                     for (java.util.regex.Matcher m = pattern1.matcher(subject); m.find();) {
                         m.group();
@@ -117,16 +125,16 @@ class OracleEssentials {
                         m.end();
                     }
                 }
-                long ms = System.currentTimeMillis() - start;
+                long ns = System.nanoTime() - start;
 
-                if (ms < ms1) ms1 = ms;
+                if (ns < ns1) ns1 = ns;
             }
 
-            long ms2 = Long.MAX_VALUE;
-            for (int j = 0; j < chunkCount; j++) {
+            long ns2 = Long.MAX_VALUE;
+            for (int j = 0; j < OracleEssentials.CHUNK_COUNT; j++) {
 
-                long start = System.currentTimeMillis();
-                for (int i = 0; i < chunkSize; i++) {
+                long start = System.nanoTime();
+                for (int i = 0; i < OracleEssentials.CHUNK_SIZE; i++) {
 
                     for (de.unkrig.lfr.core.Pattern.Matcher m = pattern2.matcher(subject); m.find();) {
                         m.group();
@@ -134,25 +142,28 @@ class OracleEssentials {
                         m.end();
                     }
                 }
-                long ms = System.currentTimeMillis() - start;
+                long ns = System.nanoTime() - start;
 
-                if (ms < ms2) ms2 = ms;
+                if (ns < ns2) ns2 = ns;
             }
 
-            double gain = (double) ms1 / ms2;
+            final double gain = (double) ns1 / ns2;
 
-            OracleEssentials.totalMs1    += ms1;
-            OracleEssentials.totalMs2    += ms2;
+            OracleEssentials.totalNs1    += ns1;
+            OracleEssentials.totalNs2    += ns2;
             OracleEssentials.gainSum     += gain;
             OracleEssentials.gainProduct *= gain;
             OracleEssentials.totalCount++;
 
+            double cs = OracleEssentials.CHUNK_SIZE;
+
             System.out.printf(
-                "%-15s %-20s %6d %6d %6.0f%%%n",
+                OracleEssentials.LOCALE,
+                "%-15s %-21s %,8.1f %,8.1f %4.0f%%%n",
                 OracleEssentials.asJavaLiteral(regex),
                 OracleEssentials.asJavaLiteral(subject),
-                ms1,
-                ms2,
+                ns1 / cs,
+                ns2 / cs,
                 100 * gain
             );
         }
@@ -178,7 +189,9 @@ class OracleEssentials {
     static void
     assertEqualState(String message, java.util.regex.Matcher matcher1, de.unkrig.lfr.core.Pattern.Matcher matcher2) {
 
-        Assert.assertEquals(message + ", hitEnd()", matcher1.hitEnd(), matcher2.hitEnd());
+        boolean hitEnd1 = matcher1.hitEnd();
+        boolean hitEnd2 = matcher2.hitEnd();
+        Assert.assertEquals(message + ", hitEnd()", hitEnd1, hitEnd2);
     }
 
     static void
@@ -210,10 +223,10 @@ class OracleEssentials {
     public static void
     beginStatistics() {
         Assert.assertEquals(-1, OracleEssentials.totalCount);
-        System.out.println("Regex           Subject           ms: jur.P dulc.P    Gain (>100% means dulc is faster)");
-        System.out.println("---------------------------------------------------------------------------------------");
-        OracleEssentials.totalMs1    = 0;
-        OracleEssentials.totalMs2    = 0;
+        System.out.println("Regex           Subject                jur[ns] dulc[ns]  Performance gain");
+        System.out.println("-------------------------------------------------------------------------");
+        OracleEssentials.totalNs1    = 0;
+        OracleEssentials.totalNs2    = 0;
         OracleEssentials.gainSum     = 0;
         OracleEssentials.gainProduct = 1;
         OracleEssentials.totalCount  = 0;
@@ -222,17 +235,20 @@ class OracleEssentials {
     public static void
     endStatistics() {
         Assert.assertNotEquals(-1, OracleEssentials.totalCount);
-        System.out.println("------------------------------------------------------------------------------");
+        System.out.println("-------------------------------------------------------------------------");
         System.out.printf(
-            "                                     %6d %6d%n",
-            OracleEssentials.totalMs1,
-            OracleEssentials.totalMs2
+            OracleEssentials.LOCALE,
+            "                                      %,8.1f %,8.1f%n",
+            OracleEssentials.totalNs1 / (double) OracleEssentials.CHUNK_SIZE,
+            OracleEssentials.totalNs2 / (double) OracleEssentials.CHUNK_SIZE
         );
         System.out.printf(
+            OracleEssentials.LOCALE,
             "Average gain:           %6.0f%%%n",
             100 * OracleEssentials.gainSum / OracleEssentials.totalCount
         );
         System.out.printf(
+            OracleEssentials.LOCALE,
             "Geometric average gain: %6.0f%%%n",
             100 * Math.pow(OracleEssentials.gainProduct, 1. / OracleEssentials.totalCount)
         );

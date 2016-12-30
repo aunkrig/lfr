@@ -421,14 +421,21 @@ class Pattern {
         lookingAt() { return this.matches(0, End.ANY); }
 
         @Override public boolean
-        find() { return this.find(this.offset); }
+        find() {
 
-        @Override public boolean
-        find(int start) {
+            this.hitEnd = false;
+
             for (; this.offset <= this.subject.length(); this.offset++) {
                 if (this.matches(this.offset, End.ANY)) return true;
             }
+
             return false;
+        }
+
+        @Override public boolean
+        find(int start) {
+            this.offset = start;
+            return this.find();
         }
 
         // =====================================
@@ -439,14 +446,15 @@ class Pattern {
             if (this.hadMatch && start == this.groups[1] && start == this.groups[0]) {
                 if (start >= this.subject.length()) {
                     this.hadMatch = false;
+                    this.hitEnd   = true;
                     return false;
                 }
                 start++;
             }
 
-            this.offset   = start;
-            this.groups   = this.initialGroups;
-            this.end      = end;
+            this.offset = start;
+            this.groups = this.initialGroups;
+            this.end    = end;
 
             if (this.pattern.sequence.matches(this)) {
 
@@ -709,13 +717,21 @@ class Pattern {
         toString() { return this.s; }
     }
 
+    // ============================================== Sequences ================================================
+
+    public static Sequence
+    emptyStringSequence() { return new EmptyStringSequence(); }
+
+    public static Sequence
+    literalString(final String s) { return new LiteralString(s); }
+
     /**
      * Representation of the "|" operator.
      */
     public static Sequence
     alternatives(final Sequence[] alternatives) {
 
-        if (alternatives.length == 0) return new EmptyStringSequence();
+        if (alternatives.length == 0) return Pattern.emptyStringSequence();
 
         if (alternatives.length == 1) return alternatives[0];
 
@@ -752,43 +768,33 @@ class Pattern {
     }
 
     /**
-     * Representation of a capturing group, e.g. {@code (abc)}.
+     * @param groupNumber 1...<var>groupCount</var>
      */
-    public static
-    class CapturingGroup extends AbstractSequence {
+    public static Sequence
+    capturingGroup(final int groupNumber, final Sequence subsequence) {
 
-        private final int      groupNumber;
-        private final Sequence subsequence;
+        subsequence.linkTo(Pattern.TERMINAL);
 
-        /**
-         * @param groupNumber 1...<var>groupCount</var>
-         */
-        public
-        CapturingGroup(int groupNumber, Sequence subsequence) {
+        return new AbstractSequence() {
 
-            subsequence.linkTo(Pattern.TERMINAL);
+            @Override public boolean
+            matches(MatcherImpl matcher) {
 
-            this.groupNumber = groupNumber;
-            this.subsequence = subsequence;
-        }
+                final int savedOffset = matcher.offset;
 
-        @Override public boolean
-        matches(MatcherImpl matcher) {
+                if (!subsequence.matches(matcher)) return false;
 
-            final int savedOffset = matcher.offset;
+                // Copy "this.groups" and store group start and end.
+                int[] gs = (matcher.groups = Arrays.copyOf(matcher.groups, matcher.groups.length));
+                gs[2 * groupNumber]     = savedOffset;
+                gs[2 * groupNumber + 1] = matcher.offset;
 
-            if (!this.subsequence.matches(matcher)) return false;
+                return this.successorMatches(matcher);
+            }
 
-            // Copy "this.groups" and store group start and end.
-            int[] gs = (matcher.groups = Arrays.copyOf(matcher.groups, matcher.groups.length));
-            gs[2 * this.groupNumber]     = savedOffset;
-            gs[2 * this.groupNumber + 1] = matcher.offset;
-
-            return this.successorMatches(matcher);
-        }
-
-        @Override public String
-        toString() { return "(" + this.subsequence + ")"; }
+            @Override public String
+            toString() { return "(" + subsequence + ")"; }
+        };
     }
 
     /**
@@ -819,7 +825,7 @@ class Pattern {
     }
 
     public static Sequence
-    beginningOfInputMatcher() {
+    beginningOfInput() {
 
         return new AbstractSequence() {
 
@@ -831,116 +837,194 @@ class Pattern {
         };
     }
 
-    public static
-    class BeginningOfLineMatcher extends AbstractSequence {
+    public static Sequence
+    beginningOfLine(final String lineBreakCharacters) {
 
-        final String lineBreakCharacters;
+        return new AbstractSequence() {
 
-        public
-        BeginningOfLineMatcher(String lineBreakCharacters) { this.lineBreakCharacters = lineBreakCharacters; }
+            @Override public boolean
+            matches(MatcherImpl matcher) {
+                if ((
+                    matcher.atStart()
+                    || lineBreakCharacters.indexOf(matcher.peek(-1)) != -1
+                ) && this.successorMatches(matcher)) return true;
 
-        @Override public boolean
-        matches(MatcherImpl matcher) {
-            return (
-                matcher.atStart()
-                || this.lineBreakCharacters.indexOf(matcher.peek(-1)) != -1
-            ) && this.successorMatches(matcher);
-        }
+                if (matcher.atEnd()) matcher.hitEnd = true;
 
-        @Override public String
-        toString() { return "^"; }
+                return false;
+            }
+
+            @Override public String
+            toString() { return "^"; }
+        };
     }
 
-    public static
-    class EndOfInputButFinalTerminatorMatcher extends AbstractSequence {
+    public static Sequence
+    endOfInputButFinalTerminator() {
 
-        @Override public boolean
-        matches(MatcherImpl matcher) {
-            return (
-                matcher.atEnd()
-                || (matcher.remaining() == 1 && Pattern.LINE_BREAK_CHARACTERS.indexOf(matcher.peek()) != -1)
-                || (matcher.remaining() == 2 && matcher.peek() == '\r' && matcher.peek(1) == '\n')
-            ) && this.successorMatches(matcher); }
+        return new AbstractSequence() {
 
-        @Override public String
-        toString() { return "^"; }
+            @Override public boolean
+            matches(MatcherImpl matcher) {
+
+                if (matcher.atEnd()) {
+                    matcher.hitEnd = true;
+                    return this.successorMatches(matcher);
+                }
+
+                char c = matcher.peek();
+                if (Pattern.LINE_BREAK_CHARACTERS.indexOf(c) == -1) return false;
+
+                int savedOffset = matcher.offset;
+
+                matcher.read();
+
+                if (matcher.atEnd()) {
+                    matcher.offset = savedOffset;
+                    matcher.hitEnd = true;
+                    return this.successorMatches(matcher);
+                }
+
+                if (c == '\r' && matcher.peek() == '\n') {
+                    matcher.read();
+                    if (matcher.atEnd()) {
+                        matcher.offset = savedOffset;
+                        matcher.hitEnd = true;
+                        return this.successorMatches(matcher);
+                    }
+                }
+
+                matcher.offset = savedOffset;
+                return false;
+            }
+
+            @Override public String
+            toString() { return "^"; }
+        };
     }
 
-    public static
-    class EndOfInputMatcher extends AbstractSequence {
+    public static Sequence
+    endOfInput() {
 
-        @Override public boolean
-        matches(MatcherImpl matcher) { return matcher.atEnd() && this.successorMatches(matcher); }
+        return new AbstractSequence() {
 
-        @Override public String
-        toString() { return "^"; }
+            @Override public boolean
+            matches(MatcherImpl matcher) {
+
+                if (!matcher.atEnd()) return false;
+
+                matcher.hitEnd = true;
+                return this.successorMatches(matcher);
+            }
+
+            @Override public String
+            toString() { return "^"; }
+        };
     }
 
-    public static
-    class EndOfLineMatcher extends AbstractSequence {
+    public static Sequence
+    endOfLine(final String lineBreakCharacters) {
 
-        private final String lineBreakCharacters;
+        return new AbstractSequence() {
 
-        public
-        EndOfLineMatcher(String lineBreakCharacters) { this.lineBreakCharacters = lineBreakCharacters; }
+            @Override public boolean
+            matches(MatcherImpl matcher) {
+                if (matcher.atEnd()) {
+                    matcher.hitEnd = true;
+                    return this.successorMatches(matcher);
+                }
+                return lineBreakCharacters.indexOf(matcher.peek()) != -1 && this.successorMatches(matcher);
+            }
 
-        @Override public boolean
-        matches(MatcherImpl matcher) {
-            return (
-                matcher.atEnd()
-                || this.lineBreakCharacters.indexOf(matcher.peek()) != -1
-            ) && this.successorMatches(matcher); }
-
-        @Override public String
-        toString() { return "^"; }
+            @Override public String
+            toString() { return "^"; }
+        };
     }
 
-    public static
-    class WordBoundaryMatcher extends AbstractSequence {
+    public static Sequence
+    wordBoundary() {
 
-        @Override public boolean
-        matches(MatcherImpl matcher) {
-            return (
-                matcher.atStart()
-                || matcher.atEnd()
-                || (Pattern.isWordCharacter(matcher.peek(-1)) ^ Pattern.isWordCharacter(matcher.peek()))
-            ) && this.successorMatches(matcher);
-        }
+        return new AbstractSequence() {
 
-        @Override public String
-        toString() { return "^"; }
-    }
+            @Override public boolean
+            matches(MatcherImpl matcher) {
 
-    public static
-    class NonWordBoundaryMatcher extends AbstractSequence {
+                if (matcher.atEnd()) {
+                    matcher.hitEnd = true;
+                    return (
+                        (matcher.atStart() || Pattern.isWordCharacter(matcher.peek(-1)))
+                        && this.successorMatches(matcher)
+                    );
+                }
 
-        @Override public boolean
-        matches(MatcherImpl matcher) {
-            return (
-                !matcher.atStart()
-                && !matcher.atEnd()
-                && !(Pattern.isWordCharacter(matcher.peek(-1)) ^ Pattern.isWordCharacter(matcher.peek()))
+                if (matcher.atStart()) {
+                    return Pattern.isWordCharacter(matcher.peek()) && this.successorMatches(matcher);
+                }
+
+                return (
+                    Pattern.isWordCharacter(matcher.peek(-1))
+                    ^ Pattern.isWordCharacter(matcher.peek())
                 ) && this.successorMatches(matcher);
-        }
+            }
 
-        @Override public String
-        toString() { return "^"; }
+            @Override public String
+            toString() { return "^"; }
+        };
     }
 
-    public static
-    class EndOfPreviousMatchMatcher extends AbstractSequence {
+    public static Sequence
+    nonWordBoundary() {
 
-        @Override public boolean
-        matches(MatcherImpl matcher) {
+        return new AbstractSequence() {
 
-            if (!matcher.hadMatch) throw new IllegalStateException("No match available");
+            @Override public boolean
+            matches(MatcherImpl matcher) {
 
-            return matcher.offset == matcher.groups[1] && this.successorMatches(matcher);
-        }
+                if (matcher.atEnd()) {
+                    matcher.hitEnd = true;
+                    return (
+                        !matcher.atStart()
+                        && !Pattern.isWordCharacter(matcher.peek(-1))
+                        && this.successorMatches(matcher)
+                    );
+                }
 
-        @Override public String
-        toString() { return "^"; }
+                if (matcher.atStart()) {
+                    return !Pattern.isWordCharacter(matcher.peek()) && this.successorMatches(matcher);
+                }
+
+                return (
+                    !(Pattern.isWordCharacter(matcher.peek(-1)) ^ Pattern.isWordCharacter(matcher.peek()))
+                    && this.successorMatches(matcher)
+                );
+            }
+
+            @Override public String
+            toString() { return "^"; }
+        };
     }
+
+    public static Sequence
+    endOfPreviousMatch() {
+
+        return new AbstractSequence() {
+
+            @Override public boolean
+            matches(MatcherImpl matcher) {
+
+                // The documentation of java.util.regex is totally unclear about the following case, but this seems to
+                // be how it works:
+                if (!matcher.hadMatch) return this.successorMatches(matcher);
+
+                return matcher.offset == matcher.groups[1] && this.successorMatches(matcher);
+            }
+
+            @Override public String
+            toString() { return "^"; }
+        };
+    }
+
+    // ====================================== Character classes ===========================================
 
     /**
      * Representation of literal characters like "a" or "\.".
@@ -966,8 +1050,8 @@ class Pattern {
         toString() { return new String(new char[] { this.c }); }
     }
 
-    public static
-    CharacterClass ccOneOf(final String chars) {
+    public static CharacterClass
+    ccOneOf(final String chars) {
 
         return new CharacterClass() {
 
@@ -982,96 +1066,192 @@ class Pattern {
     /**
      * Representation of an (ASCII-)case-insensitive literal character.
      */
-    public static
-    class CaseInsensitiveLiteralCharacter extends CharacterClass {
+    public static CharacterClass
+    ccCaseInsensitiveLiteralCharacter(final char c) {
 
-        private char c;
+        return new CharacterClass() {
 
-        public
-        CaseInsensitiveLiteralCharacter(char c) { this.c = c; }
+            char ref = c >= 'a' && c <= 'z' ? (char) (c - 32) : c;
 
-        @Override public boolean
-        evaluate(Character subject) {
-            char c1 = this.c, c2 = subject;
-            if (c1 == c2) return true;
-            int diff = c1 - c2;
-            if (diff == 32  && c1 >= 'a' && c1 <= 'z') return true;
-            if (diff == -32 && c1 >= 'A' && c1 <= 'Z') return true;
-            return false;
-        }
+            @Override public boolean
+            evaluate(Character subject) {
+                char c2 = subject;
 
-        @Override public String
-        toString() { return "(?i)" + this.c + "(?-i)"; }
+                return (
+                    this.ref == c2
+                    || (c2 - this.ref == 32 && c2 >= 'a' && c2 <= 'z')
+                );
+            }
+
+            @Override public String
+            toString() { return "(?i)" + this.ref + "(?-i)"; }
+        };
     }
 
     /**
      * Representation of a (UNICODE-)case-insensitive literal character.
      */
-    public static
-    class UnicodeCaseInsensitiveLiteralCharacter extends CharacterClass {
+    public static CharacterClass
+    ccUnicodeCaseInsensitiveLiteralCharacter(final char c) {
 
-        private char c;
+        return new CharacterClass() {
 
-        public
-        UnicodeCaseInsensitiveLiteralCharacter(char c) { this.c = c; }
+            char ref = Character.toUpperCase(c);
 
-        @Override public boolean
-        evaluate(Character subject) { return Character.toUpperCase(this.c) == Character.toUpperCase(subject); }
+            @Override public boolean
+            evaluate(Character subject) { return Character.toUpperCase(subject) == this.ref; }
 
-        @Override public String
-        toString() { return "(?iu)" + this.c + "(?-iu)"; }
+            @Override public String
+            toString() { return "(?iu)" + this.ref + "(?-iu)"; }
+        };
     }
 
     /**
      * Representation of a character class intersection like {@code "\w&&[^abc]"}.
      */
-    public static
-    class CcIntersection extends CharacterClass {
+    public static CharacterClass
+    ccIntersection(final Predicate<Character> lhs, final Predicate<Character> rhs) {
 
-        private Predicate<Character> lhs, rhs;
+        return new CharacterClass() {
 
-        public CcIntersection(Predicate<Character> lhs, Predicate<Character> rhs) { this.lhs = lhs; this.rhs = rhs; }
+            @Override public boolean
+            evaluate(Character subject) { return lhs.evaluate(subject) && rhs.evaluate(subject); }
 
-        @Override public boolean
-        evaluate(Character subject) { return this.lhs.evaluate(subject) && this.rhs.evaluate(subject); }
-
-        @Override public String
-        toString() { return this.lhs + "&&" + this.rhs; }
+            @Override public String
+            toString() { return lhs + "&&" + rhs; }
+        };
     }
 
     /**
      * Representation of a character class union like {@code "ab"}.
      */
-    public static
-    class CcUnion extends CharacterClass {
+    public static CharacterClass
+    ccUnion(final Predicate<Character> lhs, final Predicate<Character> rhs) {
 
-        private Predicate<Character> lhs, rhs;
+        return new CharacterClass() {
 
-        public CcUnion(Predicate<Character> lhs, Predicate<Character> rhs) { this.lhs = lhs; this.rhs = rhs; }
+            @Override public boolean
+            evaluate(Character subject) { return lhs.evaluate(subject) || rhs.evaluate(subject); }
 
-        @Override public boolean
-        evaluate(Character subject) { return this.lhs.evaluate(subject) || this.rhs.evaluate(subject); }
-
-        @Override public String
-        toString() { return this.lhs.toString() + this.rhs; }
+            @Override public String
+            toString() { return lhs.toString() + rhs; }
+        };
     }
 
     /**
      * Representation of a character class range like {@code "a-k"}.
      */
-    public static
-    class CcRange extends CharacterClass {
+    public static CharacterClass
+    ccRange(final char lhs, final char rhs) {
 
-        private char lhs, rhs;
+        return new CharacterClass() {
 
-        public CcRange(char lhs, char rhs) { this.lhs = lhs; this.rhs = rhs; }
+            @Override public boolean
+            evaluate(Character subject) { return subject >= lhs && subject <= rhs; }
 
-        @Override public boolean
-        evaluate(Character subject) { return subject >= this.lhs && subject <= this.rhs; }
-
-        @Override public String
-        toString() { return this.lhs + "-" + this.rhs; }
+            @Override public String
+            toString() { return lhs + "-" + rhs; }
+        };
     }
+
+    /**  A digit: [0-9] */
+    static final CharacterClass
+    ccSequenceIsDigit() {
+        return new CharacterClass() {
+            @Override public boolean evaluate(Character subject) { char c = subject; return c >= '0' && c <= '9'; }
+            @Override public String  toString()                  { return "\\d"; }
+        };
+    }
+
+    /**  A non-digit: [^0-9] */
+    static final CharacterClass
+    ccSequenceIsNonDigit() { return Pattern.ccNegate(Pattern.ccSequenceIsDigit(), "\\D"); }
+
+    static CharacterClass
+    ccNegate(final CharacterClass delegate, final String toString) {
+        return new CharacterClass() {
+
+            @Override public boolean
+            evaluate(Character subject) { return !delegate.evaluate(subject); }
+
+            @Override public String
+            toString() { return toString; }
+        };
+    }
+
+    /**  A horizontal whitespace character: <code>[ \t\xA0&#92;u1680&#92;u180e&#92;u2000-&#92;u200a&#92;u202f&#92;u205f&#92;u3000]</code> */ // SUPPRESS CHECKSTYLE LineLength
+    static final CharacterClass
+    ccSequenceIsHorizontalWhitespace() {
+
+        return new CharacterClass() {
+
+            @Override public boolean
+            evaluate(Character subject) {
+                return (
+                    "\t\u00A0\u1680\u180e\u202f\u205f\u3000".indexOf(subject) != -1
+                    || (subject >= '\u2000' && subject <= '\u200a')
+                );
+            }
+
+            @Override public String
+            toString() { return "\\h"; }
+        };
+    }
+
+    /**  A non-horizontal whitespace character: [^\h] */
+    static CharacterClass
+    ccSequenceIsNonHorizontalWhitespace() {
+        return Pattern.ccNegate(Pattern.ccSequenceIsHorizontalWhitespace(), "\\H");
+    }
+
+    /**  A whitespace character: [ \t\n\x0B\f\r] */
+    static final CharacterClass
+    ccSequenceIsWhitespace() {
+        return Pattern.ccOneOf(Pattern.WHITESPACE_CHARACTERS);
+    }
+
+    /**  A non-whitespace character: [^\s] */
+    static final CharacterClass
+    ccSequenceIsNonWhitespace() { return Pattern.ccNegate(Pattern.ccSequenceIsWhitespace(), "\\S"); }
+
+    /**  A vertical whitespace character: [\n\x0B\f\r\x85/u2028/u2029] */
+    static final CharacterClass
+    ccSequenceIsVerticalWhitespace() { return Pattern.ccOneOf(Pattern.VERTICAL_WHITESPACE_CHARACTERS); }
+
+    /**  A non-vertical whitespace character: [^\v] */
+    static final CharacterClass
+    ccSequenceIsNonVerticalWhitespace() { return Pattern.ccNegate(Pattern.ccSequenceIsVerticalWhitespace(), "\\V"); }
+
+    /**  A word character: [a-zA-Z_0-9] */
+    static final CharacterClass
+    ccSequenceIsWord() {
+        return new CharacterClass() {
+
+            @Override public boolean
+            evaluate(Character subject) { return Pattern.isWordCharacter(subject); }
+
+            @Override public String
+            toString() { return "\\w"; }
+        };
+    }
+
+    /**  A non-word character: [^\w] */
+    static final CharacterClass
+    ccSequenceIsNonWord() { return Pattern.ccNegate(Pattern.ccSequenceIsWord(), "\\W"); }
+
+    static final CharacterClass
+    ccSequenceAnyChar() {
+        return new CharacterClass() {
+
+            @Override public boolean
+            evaluate(Character subject) { return true; }
+
+            @Override public String
+            toString() { return "."; }
+        };
+    }
+
+    // ==========================================================
 
     Pattern(String pattern, int flags, Sequence sequence, int groupCount) {
 
@@ -1321,87 +1501,6 @@ class Pattern {
         Pattern.LITERAL_SCANNER.addRule(".", LITERAL_CHARACTER);
     }
 
-    // ============================== CC SEQUENCES FOR "PREDEFINED CHARACTER CLASSES" ==============================
-
-    /**  A digit: [0-9] */
-    static final CharacterClass
-    ccSequenceIsDigit() {
-        return new CharacterClass() {
-            @Override public boolean evaluate(Character subject) { char c = subject; return c >= '0' && c <= '9'; }
-            @Override public String  toString()                  { return "\\d"; }
-        };
-    }
-
-    /**  A non-digit: [^0-9] */
-    static final CharacterClass
-    ccSequenceIsNonDigit() { return Pattern.negate(Pattern.ccSequenceIsDigit(), "\\D"); }
-
-    static CharacterClass
-    negate(final CharacterClass delegate, final String toString) {
-        return new CharacterClass() {
-
-            @Override public boolean
-            evaluate(Character subject) { return !delegate.evaluate(subject); }
-
-            @Override public String
-            toString() { return toString; }
-        };
-    }
-
-    /**  A horizontal whitespace character: <code>[ \t\xA0&#92;u1680&#92;u180e&#92;u2000-&#92;u200a&#92;u202f&#92;u205f&#92;u3000]</code> */ // SUPPRESS CHECKSTYLE LineLength
-    static final CharacterClass
-    ccSequenceIsHorizontalWhitespace() {
-
-        return new CharacterClass() {
-
-            @Override public boolean
-            evaluate(Character subject) {
-                return (
-                    "\t\u00A0\u1680\u180e\u202f\u205f\u3000".indexOf(subject) != -1
-                    || (subject >= '\u2000' && subject <= '\u200a')
-                );
-            }
-
-            @Override public String
-            toString() { return "\\h"; }
-        };
-    }
-
-    /**  A non-horizontal whitespace character: [^\h] */
-    static CharacterClass
-    ccSequenceIsNonHorizontalWhitespace() { return Pattern.negate(Pattern.ccSequenceIsHorizontalWhitespace(), "\\H"); }
-
-    /**  A whitespace character: [ \t\n\x0B\f\r] */
-    static final CharacterClass
-    ccSequenceIsWhitespace() {
-        return Pattern.ccOneOf(Pattern.WHITESPACE_CHARACTERS);
-    }
-
-    /**  A non-whitespace character: [^\s] */
-    static final CharacterClass
-    ccSequenceIsNonWhitespace() { return Pattern.negate(Pattern.ccSequenceIsWhitespace(), "\\S"); }
-
-    /**  A vertical whitespace character: [\n\x0B\f\r\x85/u2028/u2029] */
-    static final CharacterClass
-    ccSequenceIsVerticalWhitespace() { return Pattern.ccOneOf(Pattern.VERTICAL_WHITESPACE_CHARACTERS); }
-
-    /**  A non-vertical whitespace character: [^\v] */
-    static final CharacterClass
-    ccSequenceIsNonVerticalWhitespace() { return Pattern.negate(Pattern.ccSequenceIsVerticalWhitespace(), "\\V"); }
-
-    /**  A word character: [a-zA-Z_0-9] */
-    static final CharacterClass
-    ccSequenceIsWord() {
-        return new CharacterClass() {
-
-            @Override public boolean
-            evaluate(Character subject) { return Pattern.isWordCharacter(subject); }
-
-            @Override public String
-            toString() { return "\\w"; }
-        };
-    }
-
     public static boolean
     isWordCharacter(char subject) {
         return (
@@ -1409,22 +1508,6 @@ class Pattern {
             || (subject >= 'A' && subject <= 'Z')
             || (subject >= 'a' && subject <= 'z')
         );
-    }
-
-    /**  A non-word character: [^\w] */
-    static final CharacterClass
-    ccSequenceIsNonWord() { return Pattern.negate(Pattern.ccSequenceIsWord(), "\\W"); }
-
-    static final CharacterClass
-    ccSequenceAnyChar() {
-        return new CharacterClass() {
-
-            @Override public boolean
-            evaluate(Character subject) { return true; }
-
-            @Override public String
-            toString() { return "."; }
-        };
     }
 
     /**
@@ -1627,7 +1710,7 @@ class Pattern {
             private Sequence
             parseSequence() throws ParseException {
 
-                if (this.peek() == null || this.peekRead("|")) return new EmptyStringSequence();
+                if (this.peek() == null || this.peekRead("|")) return Pattern.emptyStringSequence();
 
                 Sequence first = this.parseQuantified();
                 if (this.peek(null, "|", ")") != -1) return first;
@@ -1649,7 +1732,7 @@ class Pattern {
                 // Merge consecutive literals into one string literal.
                 for (int i = 0; i < elements.size() - 1;) {
 
-                    LiteralString merged = this.merge(elements.get(i), elements.get(i + 1));
+                    Sequence merged = this.merge(elements.get(i), elements.get(i + 1));
                     if (merged != null) {
                         elements.set(i, merged);
                         elements.remove(i + 1);
@@ -1664,26 +1747,26 @@ class Pattern {
                 return elements.get(0);
             }
 
-            @Nullable private LiteralString
+            @Nullable private Sequence
             merge(Sequence s1, Sequence s2) {
 
                 if (s1 instanceof CcLiteralCharacter && s2 instanceof CcLiteralCharacter) {
-                    return new LiteralString(new String(new char[] {
+                    return Pattern.literalString(new String(new char[] {
                         ((CcLiteralCharacter) s1).c,
                         ((CcLiteralCharacter) s2).c,
                     }));
                 }
 
                 if (s1 instanceof LiteralString && s2 instanceof CcLiteralCharacter) {
-                    return new LiteralString(((LiteralString) s1).s + ((CcLiteralCharacter) s2).c);
+                    return Pattern.literalString(((LiteralString) s1).s + ((CcLiteralCharacter) s2).c);
                 }
 
                 if (s1 instanceof CcLiteralCharacter && s2 instanceof LiteralString) {
-                    return new LiteralString(((CcLiteralCharacter) s1).c + ((LiteralString) s2).s);
+                    return Pattern.literalString(((CcLiteralCharacter) s1).c + ((LiteralString) s2).s);
                 }
 
                 if (s1 instanceof LiteralString && s2 instanceof LiteralString) {
-                    return new LiteralString(((LiteralString) s1).s + ((LiteralString) s2).s);
+                    return Pattern.literalString(((LiteralString) s1).s + ((LiteralString) s2).s);
                 }
 
                 return null;
@@ -1753,7 +1836,7 @@ class Pattern {
                                 int   longestMatchOffset = 0;
                                 int[] longestMatchGroups = null;
 
-                                int limit = max - min;
+                                final int limit = max - min;
 
                                 for (int i = 0;; i++) {
 
@@ -1794,7 +1877,7 @@ class Pattern {
                                     if (!op.matches(matcher)) return false;
                                 }
 
-                                int limit = max - min;
+                                final int limit = max - min;
 
                                 for (int i = 0;; i++) {
 
@@ -1884,9 +1967,11 @@ class Pattern {
                 case LITERAL_CHARACTER:
                     char c = t.text.charAt(0);
                     return (
-                        (this.currentFlags & Pattern.CASE_INSENSITIVE) == 0 ? Pattern.ccLiteralCharacter(c)              :
-                        (this.currentFlags & Pattern.UNICODE_CASE)     == 0 ? new CaseInsensitiveLiteralCharacter(c) :
-                        new UnicodeCaseInsensitiveLiteralCharacter(c)
+                        (this.currentFlags & Pattern.CASE_INSENSITIVE) == 0
+                        ? Pattern.ccLiteralCharacter(c)
+                        : (this.currentFlags & Pattern.UNICODE_CASE) == 0
+                        ? Pattern.ccCaseInsensitiveLiteralCharacter(c)
+                        : Pattern.ccUnicodeCaseInsensitiveLiteralCharacter(c)
                     );
 
                 case LITERAL_CONTROL:
@@ -1911,7 +1996,7 @@ class Pattern {
                     boolean        negate = this.peekRead("^");
                     CharacterClass op     = this.parseCcIntersection();
                     this.read("]");
-                    return negate ? Pattern.negate(op, '^' + op.toString()) : op;
+                    return negate ? Pattern.ccNegate(op, '^' + op.toString()) : op;
 
                 case CC_PREDEFINED:
                     switch (t.text.charAt(1)) {
@@ -1931,8 +2016,8 @@ class Pattern {
                 case CC_ANY:
                     return (
                         (this.currentFlags & Pattern.DOTALL)     != 0 ? Pattern.ccSequenceAnyChar() :
-                        (this.currentFlags & Pattern.UNIX_LINES) != 0 ? Pattern.negate(Pattern.ccLiteralCharacter('\n'), ".") : // SUPPRESS CHECKSTYLE LineLength
-                        Pattern.negate(Pattern.ccOneOf(Pattern.LINE_BREAK_CHARACTERS), ".")
+                        (this.currentFlags & Pattern.UNIX_LINES) != 0 ? Pattern.ccNegate(Pattern.ccLiteralCharacter('\n'), ".") : // SUPPRESS CHECKSTYLE LineLength
+                        Pattern.ccNegate(Pattern.ccOneOf(Pattern.LINE_BREAK_CHARACTERS), ".")
                     );
 
                 case QUOTED_CHARACTER:
@@ -1947,7 +2032,7 @@ class Pattern {
 
                 case CAPTURING_GROUP:
                     {
-                        Sequence result = new CapturingGroup(++rs.groupCount, this.parseAlternatives());
+                        Sequence result = Pattern.capturingGroup(++rs.groupCount, this.parseAlternatives());
                         this.read(")");
                         return result;
                     }
@@ -1962,8 +2047,8 @@ class Pattern {
                 case BEGINNING_OF_LINE:
                     return (
                         (flags & Pattern.MULTILINE) == 0
-                        ? Pattern.beginningOfInputMatcher()
-                        : new BeginningOfLineMatcher(
+                        ? Pattern.beginningOfInput()
+                        : Pattern.beginningOfLine(
                             (flags & Pattern.UNIX_LINES) != 0
                             ? Pattern.UNIX_LINE_BREAK_CHARACTERS
                             : Pattern.LINE_BREAK_CHARACTERS
@@ -1973,8 +2058,8 @@ class Pattern {
                 case END_OF_LINE:
                     return (
                         (flags & Pattern.MULTILINE) == 0
-                        ? new EndOfInputMatcher()
-                        : new EndOfLineMatcher(
+                        ? Pattern.endOfInput()
+                        : Pattern.endOfLine(
                             (flags & Pattern.UNIX_LINES) != 0
                             ? Pattern.UNIX_LINE_BREAK_CHARACTERS
                             : Pattern.LINE_BREAK_CHARACTERS
@@ -1982,26 +2067,26 @@ class Pattern {
                     );
 
                 case WORD_BOUNDARY:
-                    return new WordBoundaryMatcher();
+                    return Pattern.wordBoundary();
 
                 case NON_WORD_BOUNDARY:
-                    return new NonWordBoundaryMatcher();
+                    return Pattern.nonWordBoundary();
 
                 case BEGINNING_OF_INPUT:
-                    return Pattern.beginningOfInputMatcher();
+                    return Pattern.beginningOfInput();
 
                 case END_OF_PREVIOUS_MATCH:
-                    return new EndOfPreviousMatchMatcher();
+                    return Pattern.endOfPreviousMatch();
 
                 case END_OF_INPUT_BUT_FINAL_TERMINATOR:
-                    return new EndOfInputButFinalTerminatorMatcher();
+                    return Pattern.endOfInputButFinalTerminator();
 
                 case END_OF_INPUT:
-                    return new EndOfInputMatcher();
+                    return Pattern.endOfInput();
 
                 case MATCH_FLAGS:
                     this.currentFlags = this.parseFlags(this.currentFlags, t.text.substring(2, t.text.length() - 1));
-                    return new EmptyStringSequence();
+                    return Pattern.emptyStringSequence();
 
                 case LINEBREAK_MATCHER:
                     return Pattern.linebreakSequence();
@@ -2095,9 +2180,11 @@ class Pattern {
                 case LITERAL_CHARACTER:
                     char c = t.text.charAt(0);
                     return (
-                        (this.currentFlags & Pattern.CASE_INSENSITIVE) == 0 ? Pattern.ccLiteralCharacter(c)              :
-                        (this.currentFlags & Pattern.UNICODE_CASE)     == 0 ? new CaseInsensitiveLiteralCharacter(c) :
-                        new UnicodeCaseInsensitiveLiteralCharacter(c)
+                        (this.currentFlags & Pattern.CASE_INSENSITIVE) == 0
+                        ? Pattern.ccLiteralCharacter(c)
+                        : (this.currentFlags & Pattern.UNICODE_CASE) == 0
+                        ? Pattern.ccCaseInsensitiveLiteralCharacter(c)
+                        : Pattern.ccUnicodeCaseInsensitiveLiteralCharacter(c)
                     );
 
                 case LITERAL_CONTROL:
@@ -2109,20 +2196,20 @@ class Pattern {
                     }
 
                 case LITERAL_HEXADECIMAL:
-                    return new CcLiteralCharacter((char) Integer.parseInt(
+                    return Pattern.ccLiteralCharacter((char) Integer.parseInt(
                         t.text.charAt(2) == '{'
                         ? t.text.substring(3, t.text.length() - 1)
                         : t.text.substring(2)
                     ));
 
                 case LITERAL_OCTAL:
-                    return new CcLiteralCharacter((char) Integer.parseInt(t.text.substring(2, 8)));
+                    return Pattern.ccLiteralCharacter((char) Integer.parseInt(t.text.substring(2, 8)));
 
                 case LEFT_BRACKET:
-                    boolean    negate = this.peekRead("^");
+                    boolean        negate = this.peekRead("^");
                     CharacterClass op     = this.parseCcIntersection();
                     this.read("]");
-                    return negate ? Pattern.negate(op, '^' + op.toString()) : op;
+                    return negate ? Pattern.ccNegate(op, '^' + op.toString()) : op;
 
                 case CC_PREDEFINED:
                     switch (t.text.charAt(1)) {
@@ -2147,14 +2234,14 @@ class Pattern {
             private CharacterClass
             parseCcIntersection() throws ParseException {
                 CharacterClass result = this.parseCcUnion();
-                while (this.peekRead("&&")) result = new CcIntersection(result, this.parseCcUnion());
+                while (this.peekRead("&&")) result = Pattern.ccIntersection(result, this.parseCcUnion());
                 return result;
             }
 
             private CharacterClass
             parseCcUnion() throws ParseException {
                 CharacterClass result = this.parseCcRange();
-                while (this.peek("]", "&&") == -1) result = new CcUnion(result, this.parseCcRange());
+                while (this.peek("]", "&&") == -1) result = Pattern.ccUnion(result, this.parseCcRange());
                 return result;
             }
 
@@ -2162,9 +2249,9 @@ class Pattern {
             parseCcRange() throws ParseException {
                 String lhs = this.peekRead(LITERAL_CHARACTER);
                 if (lhs == null) return this.parseCharacterClass();
-                if (!this.peekRead("-")) return new CcLiteralCharacter(lhs.charAt(0));
+                if (!this.peekRead("-")) return Pattern.ccLiteralCharacter(lhs.charAt(0));
                 String rhs = this.read(LITERAL_CHARACTER);
-                return new CcRange(lhs.charAt(0), rhs.charAt(0));
+                return Pattern.ccRange(lhs.charAt(0), rhs.charAt(0));
             }
         }.parse();
     }
