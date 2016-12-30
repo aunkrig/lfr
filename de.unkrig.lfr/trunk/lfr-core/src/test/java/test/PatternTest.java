@@ -167,6 +167,25 @@ class PatternTest {
 //        OracleEssentials.harness("\\p{IsAlphabetic}",  " a B c ä Ä ");  Unicode binary properties are not implementd
     }
 
+    @Test public void
+    testNamedCapturingGroups() {
+        OracleEssentials.harness("(<xxx>a+)", " a aa aaa");
+
+        de.unkrig.lfr.core.Pattern.Matcher
+        matcher = de.unkrig.lfr.core.Pattern.compile("(?<xxx>a+)").matcher(" a aa aaa");
+
+        Assert.assertTrue(matcher.find());
+        Assert.assertEquals("a", matcher.group("xxx"));
+
+        Assert.assertTrue(matcher.find());
+        Assert.assertEquals("aa", matcher.group("xxx"));
+
+        Assert.assertTrue(matcher.find());
+        Assert.assertEquals("aaa", matcher.group("xxx"));
+
+        Assert.assertFalse(matcher.find());
+    }
+
     // ===================================
 
     private void
