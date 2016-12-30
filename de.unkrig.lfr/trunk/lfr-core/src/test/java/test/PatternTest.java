@@ -156,14 +156,23 @@ class PatternTest {
     @Test public void
     testPosixCharacterClasses() {
         OracleEssentials.harness("\\p{Lower}", " a B c ä Ä ");
+        OracleEssentials.harness("\\P{Lower}", " a B c ä Ä ");
     }
 
     @Test public void
     testJavaCharacterClasses() {
+        
         OracleEssentials.harness("\\p{javaLowerCase}", " a B c ä Ä ");
+        OracleEssentials.harness("\\P{javaLowerCase}", " a B c ä Ä ");
+        
 //        OracleEssentials.harness("\\p{IsLatin}",       " a B c ä Ä ");  Unicode scripts are not implemented
+        
         OracleEssentials.harness("\\p{InBasicLatin}",  " a B c ä Ä ");
+        OracleEssentials.harness("\\P{InBasicLatin}",  " a B c ä Ä ");
+        
         OracleEssentials.harness("\\p{Lu}",            " a B c ä Ä ");
+        OracleEssentials.harness("\\P{Lu}",            " a B c ä Ä ");
+        
 //        OracleEssentials.harness("\\p{IsAlphabetic}",  " a B c ä Ä ");  Unicode binary properties are not implementd
     }
 

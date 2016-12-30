@@ -767,10 +767,11 @@ class Pattern {
     }
 
     public static CharacterClass
-    characterClass(final Predicate<Character> predicate) {
+    characterClass(final Predicate<Character> predicate, final String toString) {
 
         return new CharacterClass() {
             @Override public boolean evaluate(Character subject) { return predicate.evaluate(subject); }
+            @Override public String  toString()                  { return toString;                    }
         };
     }
 
@@ -1457,14 +1458,14 @@ class Pattern {
         // \p{Cntrl}   A control character: [\x00-\x1F\x7F]
         // \p{XDigit}  A hexadecimal digit: [0-9a-fA-F]
         // \p{Space}   A whitespace character: [ \t\n\x0B\f\r]
-        ss.addRule(ss.ANY_STATE, "\\\\p\\{(?:Lower|Upper|ASCII|Alpha|Digit|Alnum|Punct|Graph|Print|Blank|Cntrl|XDigit|Space)}", CC_POSIX, null); // SUPPRESS CHECKSTYLE LineLength
+        ss.addRule(ss.ANY_STATE, "\\\\[pP]\\{(?:Lower|Upper|ASCII|Alpha|Digit|Alnum|Punct|Graph|Print|Blank|Cntrl|XDigit|Space)}", CC_POSIX, null); // SUPPRESS CHECKSTYLE LineLength
 
         // java.lang.Character classes (simple java character type)
         // \p{javaLowerCase}   Equivalent to java.lang.Character.isLowerCase()
         // \p{javaUpperCase}   Equivalent to java.lang.Character.isUpperCase()
         // \p{javaWhitespace}  Equivalent to java.lang.Character.isWhitespace()
         // \p{javaMirrored}    Equivalent to java.lang.Character.isMirrored()
-        ss.addRule(ss.ANY_STATE, "\\\\p\\{(?:javaLowerCase|javaUpperCase|javaWhitespace|javaMirrored)}", CC_JAVA, null);
+        ss.addRule(ss.ANY_STATE, "\\\\[pP]\\{(?:javaLowerCase|javaUpperCase|javaWhitespace|javaMirrored)}", CC_JAVA, null);
 
         // Classes for Unicode scripts, blocks, categories and binary properties
         // \p{IsLatin}        A Latin script character (script)
@@ -2303,10 +2304,14 @@ class Pattern {
                     return Pattern.ccLiteralCharacter((char) Integer.parseInt(t.text.substring(2, 8)));
 
                 case LEFT_BRACKET:
-                    boolean        negate = this.peekRead("^");
-                    CharacterClass op     = this.parseCcIntersection();
-                    this.read("]");
-                    return negate ? Pattern.ccNegate(op, '^' + op.toString()) : op;
+                    {
+                        boolean        negate = this.peekRead("^");
+                        CharacterClass cc     = this.parseCcIntersection();
+                        this.read("]");
+
+                        if (negate) cc = Pattern.ccNegate(cc, '^' + cc.toString());
+                        return cc;
+                    }
 
                 case CC_PREDEFINED:
                     switch (t.text.charAt(1)) {
@@ -2324,40 +2329,77 @@ class Pattern {
                     }
 
                 case CC_POSIX:
-                    if ("\\p{Lower}".equals(t.text))  return Pattern.characterClass(Characters.IS_POSIX_LOWER);
-                    if ("\\p{Upper}".equals(t.text))  return Pattern.characterClass(Characters.IS_POSIX_UPPER);
-                    if ("\\p{ASCII}".equals(t.text))  return Pattern.characterClass(Characters.IS_POSIX_ASCII);
-                    if ("\\p{Alpha}".equals(t.text))  return Pattern.characterClass(Characters.IS_POSIX_ALPHA);
-                    if ("\\p{Digit}".equals(t.text))  return Pattern.characterClass(Characters.IS_POSIX_DIGIT);
-                    if ("\\p{Alnum}".equals(t.text))  return Pattern.characterClass(Characters.IS_POSIX_ALNUM);
-                    if ("\\p{Punct}".equals(t.text))  return Pattern.characterClass(Characters.IS_POSIX_PUNCT);
-                    if ("\\p{Graph}".equals(t.text))  return Pattern.characterClass(Characters.IS_POSIX_GRAPH);
-                    if ("\\p{Print}".equals(t.text))  return Pattern.characterClass(Characters.IS_POSIX_PRINT);
-                    if ("\\p{Blank}".equals(t.text))  return Pattern.characterClass(Characters.IS_POSIX_BLANK);
-                    if ("\\p{Cntrl}".equals(t.text))  return Pattern.characterClass(Characters.IS_POSIX_CNTRL);
-                    if ("\\p{XDigit}".equals(t.text)) return Pattern.characterClass(Characters.IS_POSIX_XDIGIT);
-                    if ("\\p{Space}".equals(t.text))  return Pattern.characterClass(Characters.IS_POSIX_SPACE);
-                    throw new AssertionError(t.toString());
+                    {
+                        String ccName = t.text.substring(3, t.text.length() - 1);
+                        Predicate<Character> result = (
+                            "Lower".equals(ccName)  ? Characters.IS_POSIX_LOWER  :
+                            "Upper".equals(ccName)  ? Characters.IS_POSIX_UPPER  :
+                            "ASCII".equals(ccName)  ? Characters.IS_POSIX_ASCII  :
+                            "Alpha".equals(ccName)  ? Characters.IS_POSIX_ALPHA  :
+                            "Digit".equals(ccName)  ? Characters.IS_POSIX_DIGIT  :
+                            "Alnum".equals(ccName)  ? Characters.IS_POSIX_ALNUM  :
+                            "Punct".equals(ccName)  ? Characters.IS_POSIX_PUNCT  :
+                            "Graph".equals(ccName)  ? Characters.IS_POSIX_GRAPH  :
+                            "Print".equals(ccName)  ? Characters.IS_POSIX_PRINT  :
+                            "Blank".equals(ccName)  ? Characters.IS_POSIX_BLANK  :
+                            "Cntrl".equals(ccName)  ? Characters.IS_POSIX_CNTRL  :
+                            "XDigit".equals(ccName) ? Characters.IS_POSIX_XDIGIT :
+                            "Space".equals(ccName)  ? Characters.IS_POSIX_SPACE  :
+                            null
+                        );
+                        assert result != null;
+
+                        CharacterClass cc = Pattern.characterClass(result, t.text);
+                        if (t.text.charAt(1) == 'P') cc = Pattern.ccNegate(cc, t.text);
+                        return cc;
+                    }
 
                 case CC_JAVA:
-                    if ("\\p{javaLowerCase}".equals(t.text))  return Pattern.characterClass(Characters.IS_LOWER_CASE);
-                    if ("\\p{javaUpperCase}".equals(t.text))  return Pattern.characterClass(Characters.IS_UPPER_CASE);
-                    if ("\\p{javaWhitespace}".equals(t.text)) return Pattern.characterClass(Characters.IS_WHITESPACE);
-                    if ("\\p{javaMirrored}".equals(t.text))   return Pattern.characterClass(Characters.IS_MIRRORED);
-                    throw new AssertionError(t.toString());
+                    {
+                        String ccName = t.text.substring(3, t.text.length() - 1);
+                        Predicate<Character> result = (
+                            "javaLowerCase".equals(ccName)  ? Characters.IS_LOWER_CASE :
+                            "javaUpperCase".equals(ccName)  ? Characters.IS_UPPER_CASE :
+                            "javaWhitespace".equals(ccName) ? Characters.IS_WHITESPACE :
+                            "javaMirrored".equals(ccName)   ? Characters.IS_MIRRORED   :
+                            null
+                        );
+                        assert result != null;
+
+                        CharacterClass cc = Pattern.characterClass(result, t.text);
+                        if (t.text.charAt(1) == 'P') cc = Pattern.ccNegate(cc, t.text);
+                        return cc;
+                    }
 
                 case CC_UNICODE_SCRIPT_OR_BINARY_PROPERTY:
                     throw new AssertionError("Unicode scripts and binary properties are not implemented");
 
                 case CC_UNICODE_BLOCK:
-                    UnicodeBlock block = Character.UnicodeBlock.forName(t.text.substring(5, t.text.length() - 1));
-                    return Pattern.ccInUnicodeBlock(block);
+                    {
+                        String unicodeBlockName = t.text.substring(5, t.text.length() - 1);
+
+                        UnicodeBlock block;
+                        try {
+                            block = Character.UnicodeBlock.forName(unicodeBlockName);
+                        } catch (IllegalArgumentException iae) {
+                            throw new ParseException("Invalid unicode block \"" + unicodeBlockName + "\"");
+                        }
+
+                        CharacterClass cc = Pattern.ccInUnicodeBlock(block);
+                        if (t.text.charAt(1) == 'P') cc = Pattern.ccNegate(cc, t.text);
+                        return cc;
+                    }
 
                 case CC_UNICODE_CATEGORY:
-                    String  gcName = t.text.substring(3, 5);
-                    Byte    gc     = Pattern.getGeneralCategory(gcName);
-                    if (gc == null) throw new ParseException("Unknown general cateogry \"" + gcName + "\"");
-                    return Pattern.ccInUnicodeGeneralCategory(gc);
+                    {
+                        String  gcName = t.text.substring(3, 5);
+                        Byte    gc     = Pattern.getGeneralCategory(gcName);
+                        if (gc == null) throw new ParseException("Unknown general cateogry \"" + gcName + "\"");
+
+                        CharacterClass cc = Pattern.ccInUnicodeGeneralCategory(gc);
+                        if (t.text.charAt(1) == 'P') cc = Pattern.ccNegate(cc, t.text);
+                        return cc;
+                    }
 
                 default:
                     throw new ParseException("Character class expected instead of \"" + t + "\" (" + t.type + ")");
