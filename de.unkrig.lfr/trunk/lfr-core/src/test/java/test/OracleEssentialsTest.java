@@ -117,9 +117,9 @@ class OracleEssentialsTest {
      */
     @Test public void
     testPredefinedCharacterClasses() {
-        OracleEssentials.harness(".", "@");
-        OracleEssentials.harness(".", "1");
-        OracleEssentials.harness(".", "a");
+        OracleEssentials.harness(".",   "@");
+        OracleEssentials.harness(".",   "1");
+        OracleEssentials.harness(".",   "a");
         OracleEssentials.harness("\\d", "1");
         OracleEssentials.harness("\\d", "a");
         OracleEssentials.harness("\\D", "1");
