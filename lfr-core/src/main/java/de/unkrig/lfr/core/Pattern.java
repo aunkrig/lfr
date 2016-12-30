@@ -498,10 +498,12 @@ class Pattern {
         public boolean
         peekRead(Predicate<Character> predicate) {
 
-            if (
-                this.offset >= this.subject.length()
-                || !predicate.evaluate(this.subject.charAt(this.offset))
-            ) return false;
+            if (this.offset >= this.subject.length()) {
+                this.hitEnd = true;
+                return false;
+            }
+
+            if (!predicate.evaluate(this.subject.charAt(this.offset))) return false;
 
             this.offset++;
             return true;
@@ -520,7 +522,7 @@ class Pattern {
         atEnd() { return this.offset >= this.subject.length(); }
 
         public int
-        remaining() { return this.subject.length() - this.offset; }
+        remaining() { this.hitEnd = true; return this.subject.length() - this.offset; }
 
         @Override public String
         toString() {
@@ -1748,12 +1750,12 @@ class Pattern {
                                     if (!op.matches(matcher)) return false;
                                 }
 
-                                int limit = Math.min(max - min, matcher.remaining());
-
                                 int   longestMatchOffset = 0;
                                 int[] longestMatchGroups = null;
 
-                                for (int i = 0; i <= limit; i++) {
+                                int limit = max - min;
+
+                                for (int i = 0;; i++) {
 
                                     final int   savedOffset = matcher.offset;
                                     final int[] savedGroups = matcher.groups;
@@ -1765,6 +1767,8 @@ class Pattern {
                                     }
                                     matcher.offset = savedOffset;
                                     matcher.groups = savedGroups;
+
+                                    if (i >= limit) break;
 
                                     if (!op.matches(matcher)) break;
                                 }
@@ -1790,9 +1794,9 @@ class Pattern {
                                     if (!op.matches(matcher)) return false;
                                 }
 
-                                int limit = Math.min(max - min, matcher.remaining());
+                                int limit = max - min;
 
-                                for (int i = 0; i < limit; i++) {
+                                for (int i = 0;; i++) {
 
                                     final int   savedOffset = matcher.offset;
                                     final int[] savedGroups = matcher.groups;
@@ -1801,6 +1805,8 @@ class Pattern {
                                     }
                                     matcher.offset = savedOffset;
                                     matcher.groups = savedGroups;
+
+                                    if (i >= limit) break;
 
                                     if (!op.matches(matcher)) return false;
                                 }
