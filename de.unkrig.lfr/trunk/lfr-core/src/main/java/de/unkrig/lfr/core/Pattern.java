@@ -39,7 +39,9 @@ import static de.unkrig.lfr.core.Pattern.TokenType.CC_NEGATION;
 import static de.unkrig.lfr.core.Pattern.TokenType.CC_POSIX;
 import static de.unkrig.lfr.core.Pattern.TokenType.CC_PREDEFINED;
 import static de.unkrig.lfr.core.Pattern.TokenType.CC_RANGE;
-import static de.unkrig.lfr.core.Pattern.TokenType.CC_UNICODE;
+import static de.unkrig.lfr.core.Pattern.TokenType.CC_UNICODE_BLOCK;
+import static de.unkrig.lfr.core.Pattern.TokenType.CC_UNICODE_CATEGORY;
+import static de.unkrig.lfr.core.Pattern.TokenType.CC_UNICODE_SCRIPT_OR_BINARY_PROPERTY;
 import static de.unkrig.lfr.core.Pattern.TokenType.EITHER_OR;
 import static de.unkrig.lfr.core.Pattern.TokenType.END_GROUP;
 import static de.unkrig.lfr.core.Pattern.TokenType.END_OF_INPUT;
@@ -55,7 +57,7 @@ import static de.unkrig.lfr.core.Pattern.TokenType.LITERAL_CONTROL;
 import static de.unkrig.lfr.core.Pattern.TokenType.LITERAL_HEXADECIMAL;
 import static de.unkrig.lfr.core.Pattern.TokenType.LITERAL_OCTAL;
 import static de.unkrig.lfr.core.Pattern.TokenType.MATCH_FLAGS;
-import static de.unkrig.lfr.core.Pattern.TokenType.MATCH_FLAGS_CAPTURING_GROUP;
+import static de.unkrig.lfr.core.Pattern.TokenType.MATCH_FLAGS_NON_CAPTURING_GROUP;
 import static de.unkrig.lfr.core.Pattern.TokenType.NAMED_CAPTURING_GROUP;
 import static de.unkrig.lfr.core.Pattern.TokenType.NAMED_CAPTURING_GROUP_BACK_REFERENCE;
 import static de.unkrig.lfr.core.Pattern.TokenType.NEGATIVE_LOOKAHEAD;
@@ -72,14 +74,19 @@ import static de.unkrig.lfr.core.Pattern.TokenType.RELUCTANT_QUANTIFIER;
 import static de.unkrig.lfr.core.Pattern.TokenType.RIGHT_BRACKET;
 import static de.unkrig.lfr.core.Pattern.TokenType.WORD_BOUNDARY;
 
+import java.lang.Character.UnicodeBlock;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.PatternSyntaxException;
 
 import de.unkrig.commons.lang.AssertionUtil;
+import de.unkrig.commons.lang.Characters;
 import de.unkrig.commons.lang.protocol.Predicate;
 import de.unkrig.commons.nullanalysis.Nullable;
 import de.unkrig.commons.text.parser.AbstractParser;
@@ -579,9 +586,32 @@ class Pattern {
         CC_ANY,
         /** {@code \d \D \h \H \s \S \v \V \w \W} */
         CC_PREDEFINED,
+        /** <code>\p{Lower}</code>, <code>\p{Upper}</code> etc. */
         CC_POSIX,
+        /**
+         * <code>\p{javaLowerCase}</code>
+         * <code>\p{javaUpperCase}</code>
+         * <code>\p{javaWhitespace}</code>
+         * <code>\p{javaMirrored}</code>
+         */
         CC_JAVA,
-        CC_UNICODE,
+        /**
+         * <code>\p{Is</code><var>script</var><code>}</code> A script character, e.g. <code>\p{IsLatin}</code> for the
+         * Latin script.
+         * <br />
+         * <code>\p{Is</code><var>property</var><code>}</code> A binary property, e.g. <code>\p{IsAlphabetic}</code>.
+         */
+        CC_UNICODE_SCRIPT_OR_BINARY_PROPERTY,
+        /**
+         * <code>\p{In</code><var>block</var><code>}</code> A block character, e.g. <code>\p{InGreek}</code> for the
+         * Greek block.
+         */
+        CC_UNICODE_BLOCK,
+        /**
+         * <code>\p{</code><var>cc</var><code>}</code> A character category, e.g. <code>\p{Lu}</code> for uppercase
+         * letters or <code>\p{Sc}</code> for currency symbols.
+         */
+        CC_UNICODE_CATEGORY,
 
         // Matchers.
         /** {@code ^ $ \b \B \A \G \Z \z} */
@@ -601,7 +631,9 @@ class Pattern {
         POSSESSIVE_QUANTIFIER,
 
         // Logical operators.
+        /** {@code X|Y} */
         EITHER_OR,
+        /** {@code (} */
         CAPTURING_GROUP,
         /** {@code )} */
         END_GROUP,
@@ -626,7 +658,7 @@ class Pattern {
         /** {@code (?i}<var>dmsuxU</var>{@code -}<var>idmsuxU</var>{@code )} */
         MATCH_FLAGS,
         /** {@code (?}<var>idmsux</var>{@code -}<var>idmsux</var>{@code :}<var>X</var>{@code )} */
-        MATCH_FLAGS_CAPTURING_GROUP,
+        MATCH_FLAGS_NON_CAPTURING_GROUP,
 
         // Lookahead / lookbehind.
         /** {@code (?=} */
@@ -698,6 +730,37 @@ class Pattern {
 
         @Override public boolean
         matches(MatcherImpl matcher) { return matcher.peekRead(this) && this.successorMatches(matcher); }
+    }
+
+    public static CharacterClass
+    characterClass(final Predicate<Character> predicate) {
+
+        return new CharacterClass() {
+            @Override public boolean evaluate(Character subject) { return predicate.evaluate(subject); }
+        };
+    }
+
+    public static CharacterClass
+    ccInUnicodeBlock(final Character.UnicodeBlock block) {
+
+        return new CharacterClass() {
+
+            @Override public boolean
+            evaluate(Character subject) { return Character.UnicodeBlock.of(subject) == block; }
+        };
+    }
+
+    /**
+     * @param generalCategory One of the "general category" constants in {@link Character}
+     */
+    public static CharacterClass
+    ccInUnicodeGeneralCategory(final int generalCategory) {
+
+        return new CharacterClass() {
+
+            @Override public boolean
+            evaluate(Character subject) { return Character.getType(subject) == generalCategory; }
+        };
     }
 
     /**
@@ -1386,13 +1449,15 @@ class Pattern {
 
         // Classes for Unicode scripts, blocks, categories and binary properties
         // \p{IsLatin}        A Latin script character (script)
-        // \p{InGreek}        A character in the Greek block (block)
-        // \p{Lu}             An uppercase letter (category)
         // \p{IsAlphabetic}   An alphabetic character (binary property)
+        ss.addRule(ss.ANY_STATE, "\\\\[pP]\\{Is\\w+}", CC_UNICODE_SCRIPT_OR_BINARY_PROPERTY, null);
+        // \p{InGreek}        A character in the Greek block (block)
+        ss.addRule(ss.ANY_STATE, "\\\\[pP]\\{In\\w+}", CC_UNICODE_BLOCK, null);
+        // \p{Lu}             An uppercase letter (category)
         // \p{Sc}             A currency symbol
+        ss.addRule(ss.ANY_STATE, "\\\\[pP]\\{\\w\\w}", CC_UNICODE_CATEGORY, null);
         // \P{InGreek}        Any character except one in the Greek block (negation)
         // [\p{L}&&[^\p{Lu}]] Any letter except an uppercase letter (subtraction)
-        ss.addRule(ss.ANY_STATE, "\\\\p\\{(?:IsLatin|InGreek|Lu|IsAlphabetic|Sc|InGreek)}", CC_UNICODE, null);
 
         // Boundary matchers
         // ^   The beginning of a line
@@ -1447,7 +1512,7 @@ class Pattern {
         // Logical operators
         // XY  X followed by Y
         // X|Y Either X or Y
-        ss.addRule("\\|", EITHER_OR);
+        ss.addRule("\\|",        EITHER_OR);
         // (X) X, as a capturing group
         ss.addRule("\\((?!\\?)", CAPTURING_GROUP);
         ss.addRule("\\)",        END_GROUP);
@@ -1470,19 +1535,19 @@ class Pattern {
 
         // "Special constructs (named-capturing and non-capturing)"
         // Special constructs (named-capturing and non-capturing)
-        // (?<name>X)  X, as a named-capturing group
-        // (?:X)   X, as a non-capturing group
+        // (?<name>X)          X, as a named-capturing group
+        // (?:X)               X, as a non-capturing group
         // (?idmsuxU-idmsuxU)  Nothing, but turns match flags i d m s u x U on - off
-        // (?idmsux-idmsux:X)      X, as a non-capturing group with the given flags i d m s u x on - off
-        // (?=X)   X, via zero-width positive lookahead
-        // (?!X)   X, via zero-width negative lookahead
-        // (?<=X)  X, via zero-width positive lookbehind
-        // (?<!X)  X, via zero-width negative lookbehind
-        // (?>X)   X, as an independent, non-capturing group
+        // (?idmsux-idmsux:X)  X, as a non-capturing group with the given flags i d m s u x on - off
+        // (?=X)               X, via zero-width positive lookahead
+        // (?!X)               X, via zero-width negative lookahead
+        // (?<=X)              X, via zero-width positive lookbehind
+        // (?<!X)              X, via zero-width negative lookbehind
+        // (?>X)               X, as an independent, non-capturing group
         ss.addRule("\\(\\?<\\w+>",                        NAMED_CAPTURING_GROUP);
         ss.addRule("\\(\\?:",                             NON_CAPTURING_GROUP);
         ss.addRule("\\(\\?[idmsuxU]*(?:-[idmsuxU]+)?\\)", MATCH_FLAGS);
-        ss.addRule("\\(\\?[idmsux]*(?:-[idmsux]*)?:",     MATCH_FLAGS_CAPTURING_GROUP);
+        ss.addRule("\\(\\?[idmsux]*(?:-[idmsux]*)?:",     MATCH_FLAGS_NON_CAPTURING_GROUP);
         ss.addRule("\\(\\?=",                             POSITIVE_LOOKAHEAD);
         ss.addRule("\\(\\?!",                             NEGATIVE_LOOKAHEAD);
         ss.addRule("\\(\\?<=",                            POSITIVE_LOOKBEHIND);
@@ -1703,7 +1768,7 @@ class Pattern {
                 List<Sequence> alternatives = new ArrayList<Sequence>();
                 alternatives.add(op1);
                 alternatives.add(this.parseSequence());
-                while (this.peekRead("|")) alternatives.add(this.parseSequence());
+                while (this.peekRead(EITHER_OR) != null) alternatives.add(this.parseSequence());
                 return Pattern.alternatives(alternatives.toArray(new Sequence[alternatives.size()]));
             }
 
@@ -1957,6 +2022,12 @@ class Pattern {
                         || tt == TokenType.LITERAL_OCTAL
                         || tt == TokenType.LEFT_BRACKET
                         || tt == TokenType.CC_PREDEFINED
+                        || tt == TokenType.CC_JAVA
+                        || tt == TokenType.CC_POSIX
+                        || tt == TokenType.CC_UNICODE_SCRIPT_OR_BINARY_PROPERTY
+                        || tt == TokenType.CC_UNICODE_BLOCK
+                        || tt == TokenType.CC_UNICODE_CATEGORY
+
                     ) return this.parseCharacterClass();
                 }
 
@@ -1965,53 +2036,18 @@ class Pattern {
                 switch (t.type) {
 
                 case LITERAL_CHARACTER:
-                    char c = t.text.charAt(0);
-                    return (
-                        (this.currentFlags & Pattern.CASE_INSENSITIVE) == 0
-                        ? Pattern.ccLiteralCharacter(c)
-                        : (this.currentFlags & Pattern.UNICODE_CASE) == 0
-                        ? Pattern.ccCaseInsensitiveLiteralCharacter(c)
-                        : Pattern.ccUnicodeCaseInsensitiveLiteralCharacter(c)
-                    );
-
                 case LITERAL_CONTROL:
-                    {
-                        int idx = "ctnrfae".indexOf(t.text.charAt(1));
-                        assert idx != -1;
-                        if (idx == 0) return Pattern.ccLiteralCharacter((char) (t.text.charAt(2) & 0x1f));
-                        return Pattern.ccLiteralCharacter("c\t\n\r\f\u0007\u001b".charAt(idx));
-                    }
-
                 case LITERAL_HEXADECIMAL:
-                    return Pattern.ccLiteralCharacter((char) Integer.parseInt(
-                        t.text.charAt(2) == '{'
-                        ? t.text.substring(3, t.text.length() - 1)
-                        : t.text.substring(2)
-                    ));
-
                 case LITERAL_OCTAL:
-                    return Pattern.ccLiteralCharacter((char) Integer.parseInt(t.text.substring(2, 8)));
-
                 case LEFT_BRACKET:
-                    boolean        negate = this.peekRead("^");
-                    CharacterClass op     = this.parseCcIntersection();
-                    this.read("]");
-                    return negate ? Pattern.ccNegate(op, '^' + op.toString()) : op;
-
                 case CC_PREDEFINED:
-                    switch (t.text.charAt(1)) {
-                    case 'd': return Pattern.ccSequenceIsDigit();
-                    case 'D': return Pattern.ccSequenceIsNonDigit();
-                    case 'h': return Pattern.ccSequenceIsHorizontalWhitespace();
-                    case 'H': return Pattern.ccSequenceIsNonHorizontalWhitespace();
-                    case 's': return Pattern.ccSequenceIsWhitespace();
-                    case 'S': return Pattern.ccSequenceIsNonWhitespace();
-                    case 'v': return Pattern.ccSequenceIsVerticalWhitespace();
-                    case 'V': return Pattern.ccSequenceIsNonVerticalWhitespace();
-                    case 'w': return Pattern.ccSequenceIsWord();
-                    case 'W': return Pattern.ccSequenceIsNonWord();
-                    default:  throw new AssertionError(t);
-                    }
+                case CC_JAVA:
+                case CC_POSIX:
+                case CC_UNICODE_SCRIPT_OR_BINARY_PROPERTY:
+                case CC_UNICODE_BLOCK:
+                case CC_UNICODE_CATEGORY:
+                    // These were handled before.
+                    throw new AssertionError();
 
                 case CC_ANY:
                     return (
@@ -2034,6 +2070,29 @@ class Pattern {
                     {
                         Sequence result = Pattern.capturingGroup(++rs.groupCount, this.parseAlternatives());
                         this.read(")");
+                        return result;
+                    }
+
+                case NON_CAPTURING_GROUP:
+                    {
+                        final Sequence result = this.parseAlternatives();
+                        this.read(")");
+                        return result;
+                    }
+
+                case MATCH_FLAGS_NON_CAPTURING_GROUP:
+                    {
+                        int savedFlags = this.currentFlags;
+                        this.currentFlags = (
+                            this.parseFlags(this.currentFlags, t.text.substring(2, t.text.length() - 1))
+                        );
+
+                        final Sequence result = this.parseAlternatives();
+
+                        this.currentFlags = savedFlags;
+
+                        this.read(")");
+
                         return result;
                     }
 
@@ -2091,17 +2150,11 @@ class Pattern {
                 case LINEBREAK_MATCHER:
                     return Pattern.linebreakSequence();
 
-                case CC_INTERSECTION:
-                case CC_JAVA:
-                case CC_POSIX:
-                case CC_UNICODE:
                 case INDEPENDENT_NON_CAPTURING_GROUP:
-                case MATCH_FLAGS_CAPTURING_GROUP:
                 case NAMED_CAPTURING_GROUP:
                 case NAMED_CAPTURING_GROUP_BACK_REFERENCE:
                 case NEGATIVE_LOOKAHEAD:
                 case NEGATIVE_LOOKBEHIND:
-                case NON_CAPTURING_GROUP:
                 case POSITIVE_LOOKAHEAD:
                 case POSITIVE_LOOKBEHIND:
                     throw new ParseException("\"" + t + "\" (" + t.type + ") is not yet implemented");
@@ -2110,6 +2163,7 @@ class Pattern {
                 case CC_RANGE:
                     throw new AssertionError(t);
 
+                case CC_INTERSECTION:
                 case EITHER_OR:
                 case END_GROUP:
                 case RIGHT_BRACKET:
@@ -2226,6 +2280,42 @@ class Pattern {
                     default:  throw new AssertionError(t);
                     }
 
+                case CC_POSIX:
+                    if ("\\p{Lower}".equals(t.text))  return Pattern.characterClass(Characters.IS_POSIX_LOWER);
+                    if ("\\p{Upper}".equals(t.text))  return Pattern.characterClass(Characters.IS_POSIX_UPPER);
+                    if ("\\p{ASCII}".equals(t.text))  return Pattern.characterClass(Characters.IS_POSIX_ASCII);
+                    if ("\\p{Alpha}".equals(t.text))  return Pattern.characterClass(Characters.IS_POSIX_ALPHA);
+                    if ("\\p{Digit}".equals(t.text))  return Pattern.characterClass(Characters.IS_POSIX_DIGIT);
+                    if ("\\p{Alnum}".equals(t.text))  return Pattern.characterClass(Characters.IS_POSIX_ALNUM);
+                    if ("\\p{Punct}".equals(t.text))  return Pattern.characterClass(Characters.IS_POSIX_PUNCT);
+                    if ("\\p{Graph}".equals(t.text))  return Pattern.characterClass(Characters.IS_POSIX_GRAPH);
+                    if ("\\p{Print}".equals(t.text))  return Pattern.characterClass(Characters.IS_POSIX_PRINT);
+                    if ("\\p{Blank}".equals(t.text))  return Pattern.characterClass(Characters.IS_POSIX_BLANK);
+                    if ("\\p{Cntrl}".equals(t.text))  return Pattern.characterClass(Characters.IS_POSIX_CNTRL);
+                    if ("\\p{XDigit}".equals(t.text)) return Pattern.characterClass(Characters.IS_POSIX_XDIGIT);
+                    if ("\\p{Space}".equals(t.text))  return Pattern.characterClass(Characters.IS_POSIX_SPACE);
+                    throw new AssertionError(t.toString());
+
+                case CC_JAVA:
+                    if ("\\p{javaLowerCase}".equals(t.text))  return Pattern.characterClass(Characters.IS_LOWER_CASE);
+                    if ("\\p{javaUpperCase}".equals(t.text))  return Pattern.characterClass(Characters.IS_UPPER_CASE);
+                    if ("\\p{javaWhitespace}".equals(t.text)) return Pattern.characterClass(Characters.IS_WHITESPACE);
+                    if ("\\p{javaMirrored}".equals(t.text))   return Pattern.characterClass(Characters.IS_MIRRORED);
+                    throw new AssertionError(t.toString());
+
+                case CC_UNICODE_SCRIPT_OR_BINARY_PROPERTY:
+                    throw new AssertionError("Unicode scripts and binary properties are not implemented");
+
+                case CC_UNICODE_BLOCK:
+                    UnicodeBlock block = Character.UnicodeBlock.forName(t.text.substring(5, t.text.length() - 1));
+                    return Pattern.ccInUnicodeBlock(block);
+
+                case CC_UNICODE_CATEGORY:
+                    String  gcName = t.text.substring(3, 5);
+                    Integer gc     = Pattern.getGeneralCategory(gcName);
+                    if (gc == null) throw new ParseException("Unknown general cateogry \"" + gcName + "\"");
+                    return Pattern.ccInUnicodeGeneralCategory(gc);
+
                 default:
                     throw new ParseException("Character class expected instead of \"" + t + "\" (" + t.type + ")");
                 }
@@ -2233,15 +2323,25 @@ class Pattern {
 
             private CharacterClass
             parseCcIntersection() throws ParseException {
+
                 CharacterClass result = this.parseCcUnion();
-                while (this.peekRead("&&")) result = Pattern.ccIntersection(result, this.parseCcUnion());
+
+                while (this.peekRead(CC_INTERSECTION) != null) {
+                    result = Pattern.ccIntersection(result, this.parseCcUnion());
+                }
+
                 return result;
             }
 
             private CharacterClass
             parseCcUnion() throws ParseException {
+
                 CharacterClass result = this.parseCcRange();
-                while (this.peek("]", "&&") == -1) result = Pattern.ccUnion(result, this.parseCcRange());
+
+                while (this.peek(RIGHT_BRACKET, CC_INTERSECTION) == -1) {
+                    result = Pattern.ccUnion(result, this.parseCcRange());
+                }
+
                 return result;
             }
 
@@ -2255,4 +2355,50 @@ class Pattern {
             }
         }.parse();
     }
+
+    @Nullable private static Integer
+    getGeneralCategory(String name) {
+
+        Map<String, Integer> m = Pattern.generalCategories;
+        if (m == null) {
+            m = new HashMap<String, Integer>();
+
+            // The JRE provides no way to translate GC names int GC values.
+            m.put("Cn", (int) Character.UNASSIGNED);
+            m.put("Lu", (int) Character.UPPERCASE_LETTER);
+            m.put("Ll", (int) Character.LOWERCASE_LETTER);
+            m.put("Lt", (int) Character.TITLECASE_LETTER);
+            m.put("Lm", (int) Character.MODIFIER_LETTER);
+            m.put("Lo", (int) Character.OTHER_LETTER);
+            m.put("Mn", (int) Character.NON_SPACING_MARK);
+            m.put("Me", (int) Character.ENCLOSING_MARK);
+            m.put("Mc", (int) Character.COMBINING_SPACING_MARK);
+            m.put("Nd", (int) Character.DECIMAL_DIGIT_NUMBER);
+            m.put("Nl", (int) Character.LETTER_NUMBER);
+            m.put("No", (int) Character.OTHER_NUMBER);
+            m.put("Zs", (int) Character.SPACE_SEPARATOR);
+            m.put("Zl", (int) Character.LINE_SEPARATOR);
+            m.put("Zp", (int) Character.PARAGRAPH_SEPARATOR);
+            m.put("Cc", (int) Character.CONTROL);
+            m.put("Cf", (int) Character.FORMAT);
+            m.put("Co", (int) Character.PRIVATE_USE);
+            m.put("Cs", (int) Character.SURROGATE);
+            m.put("Pd", (int) Character.DASH_PUNCTUATION);
+            m.put("Ps", (int) Character.START_PUNCTUATION);
+            m.put("Pe", (int) Character.END_PUNCTUATION);
+            m.put("Pc", (int) Character.CONNECTOR_PUNCTUATION);
+            m.put("Po", (int) Character.OTHER_PUNCTUATION);
+            m.put("Sm", (int) Character.MATH_SYMBOL);
+            m.put("Sc", (int) Character.CURRENCY_SYMBOL);
+            m.put("Sk", (int) Character.MODIFIER_SYMBOL);
+            m.put("So", (int) Character.OTHER_SYMBOL);
+            m.put("Pi", (int) Character.INITIAL_QUOTE_PUNCTUATION);
+            m.put("Pf", (int) Character.FINAL_QUOTE_PUNCTUATION);
+
+            Pattern.generalCategories = Collections.unmodifiableMap(m);
+        }
+
+        return m.get(name);
+    }
+    @Nullable private static Map<String, Integer> generalCategories;
 }
