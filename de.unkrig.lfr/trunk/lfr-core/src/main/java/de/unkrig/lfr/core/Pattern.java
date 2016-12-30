@@ -2312,7 +2312,7 @@ class Pattern {
 
                 case CC_UNICODE_CATEGORY:
                     String  gcName = t.text.substring(3, 5);
-                    Integer gc     = Pattern.getGeneralCategory(gcName);
+                    Byte    gc     = Pattern.getGeneralCategory(gcName);
                     if (gc == null) throw new ParseException("Unknown general cateogry \"" + gcName + "\"");
                     return Pattern.ccInUnicodeGeneralCategory(gc);
 
@@ -2356,49 +2356,49 @@ class Pattern {
         }.parse();
     }
 
-    @Nullable private static Integer
+    @Nullable private static Byte
     getGeneralCategory(String name) {
 
-        Map<String, Integer> m = Pattern.generalCategories;
+        Map<String, Byte> m = Pattern.generalCategories;
         if (m == null) {
-            m = new HashMap<String, Integer>();
+            m = new HashMap<String, Byte>();
 
             // The JRE provides no way to translate GC names int GC values.
-            m.put("Cn", (int) Character.UNASSIGNED);
-            m.put("Lu", (int) Character.UPPERCASE_LETTER);
-            m.put("Ll", (int) Character.LOWERCASE_LETTER);
-            m.put("Lt", (int) Character.TITLECASE_LETTER);
-            m.put("Lm", (int) Character.MODIFIER_LETTER);
-            m.put("Lo", (int) Character.OTHER_LETTER);
-            m.put("Mn", (int) Character.NON_SPACING_MARK);
-            m.put("Me", (int) Character.ENCLOSING_MARK);
-            m.put("Mc", (int) Character.COMBINING_SPACING_MARK);
-            m.put("Nd", (int) Character.DECIMAL_DIGIT_NUMBER);
-            m.put("Nl", (int) Character.LETTER_NUMBER);
-            m.put("No", (int) Character.OTHER_NUMBER);
-            m.put("Zs", (int) Character.SPACE_SEPARATOR);
-            m.put("Zl", (int) Character.LINE_SEPARATOR);
-            m.put("Zp", (int) Character.PARAGRAPH_SEPARATOR);
-            m.put("Cc", (int) Character.CONTROL);
-            m.put("Cf", (int) Character.FORMAT);
-            m.put("Co", (int) Character.PRIVATE_USE);
-            m.put("Cs", (int) Character.SURROGATE);
-            m.put("Pd", (int) Character.DASH_PUNCTUATION);
-            m.put("Ps", (int) Character.START_PUNCTUATION);
-            m.put("Pe", (int) Character.END_PUNCTUATION);
-            m.put("Pc", (int) Character.CONNECTOR_PUNCTUATION);
-            m.put("Po", (int) Character.OTHER_PUNCTUATION);
-            m.put("Sm", (int) Character.MATH_SYMBOL);
-            m.put("Sc", (int) Character.CURRENCY_SYMBOL);
-            m.put("Sk", (int) Character.MODIFIER_SYMBOL);
-            m.put("So", (int) Character.OTHER_SYMBOL);
-            m.put("Pi", (int) Character.INITIAL_QUOTE_PUNCTUATION);
-            m.put("Pf", (int) Character.FINAL_QUOTE_PUNCTUATION);
+            m.put("Cn", Character.UNASSIGNED);
+            m.put("Lu", Character.UPPERCASE_LETTER);
+            m.put("Ll", Character.LOWERCASE_LETTER);
+            m.put("Lt", Character.TITLECASE_LETTER);
+            m.put("Lm", Character.MODIFIER_LETTER);
+            m.put("Lo", Character.OTHER_LETTER);
+            m.put("Mn", Character.NON_SPACING_MARK);
+            m.put("Me", Character.ENCLOSING_MARK);
+            m.put("Mc", Character.COMBINING_SPACING_MARK);
+            m.put("Nd", Character.DECIMAL_DIGIT_NUMBER);
+            m.put("Nl", Character.LETTER_NUMBER);
+            m.put("No", Character.OTHER_NUMBER);
+            m.put("Zs", Character.SPACE_SEPARATOR);
+            m.put("Zl", Character.LINE_SEPARATOR);
+            m.put("Zp", Character.PARAGRAPH_SEPARATOR);
+            m.put("Cc", Character.CONTROL);
+            m.put("Cf", Character.FORMAT);
+            m.put("Co", Character.PRIVATE_USE);
+            m.put("Cs", Character.SURROGATE);
+            m.put("Pd", Character.DASH_PUNCTUATION);
+            m.put("Ps", Character.START_PUNCTUATION);
+            m.put("Pe", Character.END_PUNCTUATION);
+            m.put("Pc", Character.CONNECTOR_PUNCTUATION);
+            m.put("Po", Character.OTHER_PUNCTUATION);
+            m.put("Sm", Character.MATH_SYMBOL);
+            m.put("Sc", Character.CURRENCY_SYMBOL);
+            m.put("Sk", Character.MODIFIER_SYMBOL);
+            m.put("So", Character.OTHER_SYMBOL);
+            m.put("Pi", Character.INITIAL_QUOTE_PUNCTUATION);
+            m.put("Pf", Character.FINAL_QUOTE_PUNCTUATION);
 
             Pattern.generalCategories = Collections.unmodifiableMap(m);
         }
 
         return m.get(name);
     }
-    @Nullable private static Map<String, Integer> generalCategories;
+    @Nullable private static Map<String, Byte> generalCategories;
 }
