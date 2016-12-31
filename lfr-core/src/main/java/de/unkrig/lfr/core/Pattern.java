@@ -345,7 +345,6 @@ class Pattern {
         CharSequence subject;
 
         // STATE
-        int             offset;
         int[]           groups, initialGroups;
         private boolean hitEnd;
         boolean         hadMatch;
@@ -372,7 +371,6 @@ class Pattern {
 
         @Override public Matcher
         reset() {
-            this.offset   = 0;
             this.hadMatch = false;
             this.hitEnd   = false;
             return this;
@@ -381,7 +379,6 @@ class Pattern {
         @Override public Matcher
         reset(CharSequence input) {
             this.subject  = input;
-            this.offset   = 0;
             this.hadMatch = false;
             this.hitEnd   = false;
             return this;
@@ -461,44 +458,43 @@ class Pattern {
 
         @Override public boolean
         find() {
+            return this.find(this.hadMatch ? this.groups[1] : 0);
+        }
+
+        @Override public boolean
+        find(int start) {
 
             this.hitEnd = false;
 
-            for (; this.offset <= this.subject.length(); this.offset++) {
-                if (this.matches(this.offset, End.ANY)) return true;
+            for (; start <= this.length(); start++) {
+                if (this.matches(start, End.ANY)) return true;
             }
 
             return false;
         }
 
-        @Override public boolean
-        find(int start) {
-            this.offset = start;
-            return this.find();
-        }
-
         // =====================================
 
         private boolean
-        matches(int start, End end) {
+        matches(int offset, End end) {
 
-            if (this.hadMatch && start == this.groups[1] && start == this.groups[0]) {
-                if (start >= this.subject.length()) {
+            if (this.hadMatch && offset == this.groups[1] && offset == this.groups[0]) {
+                if (offset >= this.length()) {
                     this.hadMatch = false;
                     this.hitEnd   = true;
                     return false;
                 }
-                start++;
+                offset++;
             }
 
-            this.offset = start;
             this.groups = this.initialGroups;
             this.end    = end;
 
-            if (this.pattern.sequence.matches(this)) {
+            int newOffset = this.pattern.sequence.matches(this, offset);
+            if (newOffset != -1) {
 
-                this.groups[0] = start;
-                this.groups[1] = this.offset;
+                this.groups[0] = offset;
+                this.groups[1] = newOffset;
                 this.hadMatch  = true;
 
                 return true;
@@ -509,67 +505,49 @@ class Pattern {
             return false;
         }
 
-        public Character
-        read() { return this.subject.charAt(this.offset++); }
-
         /**
          * If the next characters in this matcher equal <var>cs</var>, then the offset is advanced and {@code true} is
          * returned.
+         *
+         * @return The offset after the match, or -1 if <var>cs</var> does not match
          */
-        public boolean
-        peekRead(CharSequence cs) {
+        public int
+        peekRead(int offset, CharSequence cs) {
 
             int          sLength = cs.length();
-            CharSequence subject = this.subject;
-            int          offset  = this.offset;
-
-            if (offset + sLength > subject.length()) {
+            if (offset + sLength > this.length()) {
 
                 // Not enough chars left.
                 this.hitEnd = true;
-                return false;
+                return -1;
             }
 
             for (int i = 0; i < sLength; i++) {
-                if (subject.charAt(offset + i) != cs.charAt(i)) return false;
+                if (this.charAt(offset + i) != cs.charAt(i)) return -1;
             }
 
-            this.offset += sLength;
-            return true;
+            return offset + sLength;
         }
 
         /**
-         * If the <var>predicate</var> evaluates for the next character in this matcher equal <var>s</var>, then the
-         * offset is advanced and {@code true} is returned.
+         * @return Whether the <var>predicate</var> evaluates for the character at the given offset
          */
         public boolean
-        peekRead(Predicate<Character> predicate) {
+        peekRead(int offset, Predicate<Character> predicate) {
 
-            if (this.offset >= this.subject.length()) {
+            if (offset >= this.length()) {
                 this.hitEnd = true;
                 return false;
             }
 
-            if (!predicate.evaluate(this.subject.charAt(this.offset))) return false;
-
-            this.offset++;
-            return true;
+            return predicate.evaluate(this.charAt(offset));
         }
 
-        public char
-        peek(int delta) { return this.subject.charAt(this.offset + delta); }
+        final char
+        charAt(int offset) { return this.subject.charAt(offset); }
 
-        public char
-        peek() { return this.subject.charAt(this.offset); }
-
-        public boolean
-        atStart() { return this.offset == 0; }
-
-        public boolean
-        atEnd() { return this.offset >= this.subject.length(); }
-
-        public int
-        remaining() { this.hitEnd = true; return this.subject.length() - this.offset; }
+        final int
+        length() { return this.subject.length(); }
 
         @Override public String
         toString() {
@@ -585,8 +563,8 @@ class Pattern {
             return sb.append(']').toString();
         }
 
-        boolean
-        sequenceEndMatches() { return this.end == End.ANY || this.atEnd(); }
+        int
+        sequenceEndMatches(int offset) { return this.end == End.ANY || offset == this.length() ? offset : -1; }
     }
 
     enum End { END_OF_SUBJECT, ANY }
@@ -713,57 +691,58 @@ class Pattern {
     interface Sequence {
 
         /**
-         * Checks whether the subject of the <var>matcher</var>, starting at the {@code currentOffset} of the
-         * <var>matcher</var>, matches.
+         * Checks whether the subject of the <var>matcher</var>, starting at the <var>offset</var>, matches.
          * <p>
-         *   If this sequence matches, then the method returns {@code true}, and the <var>matcher</var> reflects the
-         *   state <em>after</em> the match (in its {@code currentOffset} and {@code groups} fields).
+         *   If this sequence matches, then the method returns the offset of the first character <em>after</em> the
+         *   match, and the <var>matcher</var> reflects the final state (in its {@link MatcherImpl#groups} and {@link
+         *   MatcherImpl#hitEnd} fields).
          * </p>
          * <p>
-         *   Otherwise, if this sequence does <em>not</em> match, then this method returns {@code false}, and the state
-         *   of the matcher is undefined.
+         *   Otherwise, if this sequence does <em>not</em> match, then this method returns {@code -1}, and the state
+         *   of the <var>matcher</var> is undefined.
          * </p>
          */
-        boolean
-        matches(MatcherImpl matcher);
+        int
+        matches(MatcherImpl matcher, int offset);
 
         /**
-         * Must be called exactly once, before the first invocation of {@link #matches(Matcher)}.
+         * Appends <var>that</var> to {@code this} sequence.
          */
         void
-        linkTo(Sequence successor);
-
-        boolean
-        successorMatches(MatcherImpl matcher);
+        append(Sequence that);
     }
 
     abstract static
     class AbstractSequence implements Sequence {
 
-        @Nullable private Sequence successor;
+        Sequence successor = Pattern.TERMINAL;
+
 
         @Override public void
-        linkTo(Sequence newSuccessor) {
-            Sequence successor = this.successor;
-            if (successor == null) {
+        append(Sequence newSuccessor) {
+            if (this.successor == Pattern.TERMINAL) {
                 this.successor = newSuccessor;
             } else {
-                successor.linkTo(newSuccessor);
+                this.successor.append(newSuccessor);
             }
-        }
-
-        @Override public final boolean
-        successorMatches(MatcherImpl matcher) {
-            assert this.successor != null;
-            return this.successor.matches(matcher);
         }
     }
 
     abstract static
     class CharacterClass extends AbstractSequence implements Predicate<Character> {
 
-        @Override public boolean
-        matches(MatcherImpl matcher) { return matcher.peekRead(this) && this.successorMatches(matcher); }
+        @Override public int
+        matches(MatcherImpl matcher, int offset) {
+
+            if (offset >= matcher.length()) {
+                matcher.hitEnd = true;
+                return -1;
+            }
+
+            if (!this.evaluate(matcher.charAt(offset))) return -1;
+
+            return this.successor.matches(matcher, offset + 1);
+        }
     }
 
     public static CharacterClass
@@ -826,8 +805,12 @@ class Pattern {
 
         LiteralString(String s) { this.s = s; }
 
-        @Override public boolean
-        matches(MatcherImpl matcher) { return matcher.peekRead(this.s) && this.successorMatches(matcher); }
+        @Override public int
+        matches(MatcherImpl matcher, int offset) {
+            offset = matcher.peekRead(offset, this.s);
+            if (offset == -1) return -1;
+            return this.successor.matches(matcher, offset);
+        }
 
         @Override public String
         toString() { return this.s; }
@@ -854,28 +837,27 @@ class Pattern {
         return new AbstractSequence() {
 
             @Override public void
-            linkTo(Sequence successor) {
-                super.linkTo(successor);
-                for (Sequence s : alternatives) s.linkTo(successor);
+            append(Sequence that) {
+                for (Sequence s : alternatives) s.append(that);
             }
 
-            @Override public boolean
-            matches(MatcherImpl matcher) {
+            @Override public int
+            matches(MatcherImpl matcher, int offset) {
 
-                final int   savedOffset = matcher.offset;
                 final int[] savedGroups = matcher.groups;
 
-                if (alternatives[0].matches(matcher)) return true;
+                int result = alternatives[0].matches(matcher, offset);
+                if (result != -1) return result;
 
                 for (int i = 1; i < alternatives.length; i++) {
 
-                    matcher.offset = savedOffset;
                     matcher.groups = savedGroups;
 
-                    if (alternatives[i].matches(matcher)) return true;
+                    result = alternatives[i].matches(matcher, offset);
+                    if (result != -1) return result;
                 }
 
-                return false;
+                return -1;
             }
 
             @Override public String
@@ -889,23 +871,22 @@ class Pattern {
     public static Sequence
     capturingGroup(final int groupNumber, final Sequence subsequence) {
 
-        subsequence.linkTo(Pattern.TERMINAL);
+        subsequence.append(Pattern.TERMINAL);
 
         return new AbstractSequence() {
 
-            @Override public boolean
-            matches(MatcherImpl matcher) {
+            @Override public int
+            matches(MatcherImpl matcher, int offset) {
 
-                final int savedOffset = matcher.offset;
-
-                if (!subsequence.matches(matcher)) return false;
+                int result = subsequence.matches(matcher, offset);
+                if (result == -1) return -1;
 
                 // Copy "this.groups" and store group start and end.
                 int[] gs = (matcher.groups = Arrays.copyOf(matcher.groups, matcher.groups.length));
-                gs[2 * groupNumber]     = savedOffset;
-                gs[2 * groupNumber + 1] = matcher.offset;
+                gs[2 * groupNumber]     = offset;
+                gs[2 * groupNumber + 1] = result;
 
-                return this.successorMatches(matcher);
+                return this.successor.matches(matcher, result);
             }
 
             @Override public String
@@ -923,8 +904,8 @@ class Pattern {
 
         return new AbstractSequence() {
 
-            @Override public boolean
-            matches(MatcherImpl matcher) {
+            @Override public int
+            matches(MatcherImpl matcher, int offset) {
 
                 int[]        gs    = matcher.groups;
                 CharSequence group = matcher.subject.subSequence(
@@ -932,7 +913,10 @@ class Pattern {
                     gs[2 * groupNumber + 1]
                 );
 
-                return matcher.peekRead(group) && this.successorMatches(matcher);
+                offset = matcher.peekRead(offset, group);
+                if (offset == -1) return -1;
+
+                return this.successor.matches(matcher, offset);
             }
 
             @Override public String
@@ -945,8 +929,10 @@ class Pattern {
 
         return new AbstractSequence() {
 
-            @Override public boolean
-            matches(MatcherImpl matcher) { return matcher.atStart() && this.successorMatches(matcher); }
+            @Override public int
+            matches(MatcherImpl matcher, int offset) {
+                return offset != 0 ? -1 : this.successor.matches(matcher, offset);
+            }
 
             @Override public String
             toString() { return "^"; }
@@ -958,16 +944,16 @@ class Pattern {
 
         return new AbstractSequence() {
 
-            @Override public boolean
-            matches(MatcherImpl matcher) {
-                if ((
-                    matcher.atStart()
-                    || lineBreakCharacters.indexOf(matcher.peek(-1)) != -1
-                ) && this.successorMatches(matcher)) return true;
+            @Override public int
+            matches(MatcherImpl matcher, int offset) {
+                if (
+                    offset == 0
+                    || lineBreakCharacters.indexOf(matcher.charAt(offset - 1)) != -1
+                ) return this.successor.matches(matcher, offset);
 
-                if (matcher.atEnd()) matcher.hitEnd = true;
+                if (offset == matcher.length()) matcher.hitEnd = true;
 
-                return false;
+                return -1;
             }
 
             @Override public String
@@ -980,38 +966,30 @@ class Pattern {
 
         return new AbstractSequence() {
 
-            @Override public boolean
-            matches(MatcherImpl matcher) {
+            @Override public int
+            matches(MatcherImpl matcher, int offset) {
 
-                if (matcher.atEnd()) {
+                if (offset >= matcher.length()) {
                     matcher.hitEnd = true;
-                    return this.successorMatches(matcher);
+                    return this.successor.matches(matcher, offset);
                 }
 
-                char c = matcher.peek();
-                if (Pattern.LINE_BREAK_CHARACTERS.indexOf(c) == -1) return false;
+                char c = matcher.charAt(offset);
+                if (Pattern.LINE_BREAK_CHARACTERS.indexOf(c) == -1) return -1;
 
-                int savedOffset = matcher.offset;
-
-                matcher.read();
-
-                if (matcher.atEnd()) {
-                    matcher.offset = savedOffset;
+                if (offset == matcher.length() - 1) {
                     matcher.hitEnd = true;
-                    return this.successorMatches(matcher);
+                    return this.successor.matches(matcher, offset);
                 }
 
-                if (c == '\r' && matcher.peek() == '\n') {
-                    matcher.read();
-                    if (matcher.atEnd()) {
-                        matcher.offset = savedOffset;
+                if (c == '\r' && matcher.charAt(offset + 1) == '\n') {
+                    if (offset == matcher.length() - 2) {
                         matcher.hitEnd = true;
-                        return this.successorMatches(matcher);
+                        return this.successor.matches(matcher, offset);
                     }
                 }
 
-                matcher.offset = savedOffset;
-                return false;
+                return -1;
             }
 
             @Override public String
@@ -1024,13 +1002,14 @@ class Pattern {
 
         return new AbstractSequence() {
 
-            @Override public boolean
-            matches(MatcherImpl matcher) {
+            @Override public int
+            matches(MatcherImpl matcher, int offset) {
 
-                if (!matcher.atEnd()) return false;
+                if (offset < matcher.length()) return -1;
 
                 matcher.hitEnd = true;
-                return this.successorMatches(matcher);
+
+                return this.successor.matches(matcher, offset);
             }
 
             @Override public String
@@ -1043,13 +1022,17 @@ class Pattern {
 
         return new AbstractSequence() {
 
-            @Override public boolean
-            matches(MatcherImpl matcher) {
-                if (matcher.atEnd()) {
+            @Override public int
+            matches(MatcherImpl matcher, int offset) {
+
+                if (offset == matcher.length()) {
                     matcher.hitEnd = true;
-                    return this.successorMatches(matcher);
+                    return this.successor.matches(matcher, offset);
                 }
-                return lineBreakCharacters.indexOf(matcher.peek()) != -1 && this.successorMatches(matcher);
+
+                if (lineBreakCharacters.indexOf(matcher.charAt(offset)) == -1) return -1;
+
+                return this.successor.matches(matcher, offset);
             }
 
             @Override public String
@@ -1062,25 +1045,29 @@ class Pattern {
 
         return new AbstractSequence() {
 
-            @Override public boolean
-            matches(MatcherImpl matcher) {
+            @Override public int
+            matches(MatcherImpl matcher, int offset) {
 
-                if (matcher.atEnd()) {
+                if (offset >= matcher.length()) {
                     matcher.hitEnd = true;
-                    return (
-                        (matcher.atStart() || Pattern.isWordCharacter(matcher.peek(-1)))
-                        && this.successorMatches(matcher)
-                    );
+                    if (offset == 0) return -1;
+                    if (Pattern.isWordCharacter(matcher.charAt(offset - 1))) {
+                        return this.successor.matches(matcher, offset);
+                    }
+                    return -1;
                 }
 
-                if (matcher.atStart()) {
-                    return Pattern.isWordCharacter(matcher.peek()) && this.successorMatches(matcher);
+                if (offset == 0) {
+                    if (!Pattern.isWordCharacter(matcher.charAt(0))) return -1;
+                    return this.successor.matches(matcher, 0);
                 }
 
-                return (
-                    Pattern.isWordCharacter(matcher.peek(-1))
-                    ^ Pattern.isWordCharacter(matcher.peek())
-                ) && this.successorMatches(matcher);
+                if (
+                    Pattern.isWordCharacter(matcher.charAt(offset - 1))
+                    ^ Pattern.isWordCharacter(matcher.charAt(offset))
+                ) return this.successor.matches(matcher, offset);
+
+                return -1;
             }
 
             @Override public String
@@ -1093,26 +1080,29 @@ class Pattern {
 
         return new AbstractSequence() {
 
-            @Override public boolean
-            matches(MatcherImpl matcher) {
+            @Override public int
+            matches(MatcherImpl matcher, int offset) {
 
-                if (matcher.atEnd()) {
+                if (offset == matcher.length()) {
                     matcher.hitEnd = true;
-                    return (
-                        !matcher.atStart()
-                        && !Pattern.isWordCharacter(matcher.peek(-1))
-                        && this.successorMatches(matcher)
-                    );
+                    if (
+                        offset > 0
+                        && !Pattern.isWordCharacter(matcher.charAt(offset - 1))
+                    ) return this.successor.matches(matcher, offset);
+                    return -1;
                 }
 
-                if (matcher.atStart()) {
-                    return !Pattern.isWordCharacter(matcher.peek()) && this.successorMatches(matcher);
+                if (offset == 0) {
+                    if (Pattern.isWordCharacter(matcher.charAt(0))) return -1;
+                    return this.successor.matches(matcher, 0);
                 }
 
-                return (
-                    !(Pattern.isWordCharacter(matcher.peek(-1)) ^ Pattern.isWordCharacter(matcher.peek()))
-                    && this.successorMatches(matcher)
-                );
+                if (
+                    Pattern.isWordCharacter(matcher.charAt(offset - 1))
+                    ^ Pattern.isWordCharacter(matcher.charAt(offset))
+                ) return -1;
+
+                return this.successor.matches(matcher, offset);
             }
 
             @Override public String
@@ -1125,14 +1115,16 @@ class Pattern {
 
         return new AbstractSequence() {
 
-            @Override public boolean
-            matches(MatcherImpl matcher) {
+            @Override public int
+            matches(MatcherImpl matcher, int offset) {
 
                 // The documentation of java.util.regex is totally unclear about the following case, but this seems to
                 // be how it works:
-                if (!matcher.hadMatch) return this.successorMatches(matcher);
+                if (!matcher.hadMatch) return this.successor.matches(matcher, offset);
 
-                return matcher.offset == matcher.groups[1] && this.successorMatches(matcher);
+                if (offset != matcher.groups[1]) return -1;
+
+                return this.successor.matches(matcher, offset);
             }
 
             @Override public String
@@ -1340,13 +1332,12 @@ class Pattern {
         this.pattern     = pattern;
         this.namedGroups = namedGroups;
 
-        sequence.linkTo(new Sequence() {
+        sequence.append(new Sequence() {
 
-            @Override public boolean
-            matches(MatcherImpl matcher) { return matcher.sequenceEndMatches(); }
+            @Override public int
+            matches(MatcherImpl matcher, int offset) { return matcher.sequenceEndMatches(offset); }
 
-            @Override public boolean successorMatches(MatcherImpl matcher) { throw new UnsupportedOperationException(); } // SUPPRESS CHECKSTYLE LineLength:2
-            @Override public void    linkTo(Sequence successor)            { throw new UnsupportedOperationException(); }
+            @Override public void append(Sequence that) { throw new UnsupportedOperationException(); }
 
             @Override public String toString() { return "[END]"; }
         });
@@ -1596,31 +1587,29 @@ class Pattern {
     }
 
     /**
-     * A sequence that begins with a linebreak.
+     * A sequence that matches a linebreak.
      */
     static final Sequence
     linebreakSequence() {
 
         return new AbstractSequence() {
 
-            @Override public boolean
-            matches(MatcherImpl matcher) {
+            @Override public int
+            matches(MatcherImpl matcher, int offset) {
 
-                if (matcher.atEnd()) return false;
+                if (offset >= matcher.length()) return -1;
 
-                char c = matcher.peek();
+                char c = matcher.charAt(offset);
 
-                if (c == '\r') {
-                    if (!matcher.atEnd() && matcher.peek() == '\n') matcher.read();
-                    return this.successorMatches(matcher);
+                if (c == '\r' && offset < matcher.length() - 1 && matcher.charAt(offset + 1) == '\n') {
+                    return this.successor.matches(matcher, offset + 2);
                 }
 
                 if (Pattern.LINE_BREAK_CHARACTERS.indexOf(c) != -1) {
-                    matcher.read();
-                    return this.successorMatches(matcher);
+                    return this.successor.matches(matcher, offset + 1);
                 }
 
-                return false;
+                return -1;
             }
 
             @Override public String
@@ -1634,8 +1623,8 @@ class Pattern {
     public static final
     class EmptyStringSequence extends AbstractSequence {
 
-        @Override public boolean
-        matches(MatcherImpl matcher) { return this.successorMatches(matcher); }
+        @Override public int
+        matches(MatcherImpl matcher, int offset) { return this.successor.matches(matcher, offset); }
 
         @Override public String toString() { return ""; }
     }
@@ -1643,16 +1632,11 @@ class Pattern {
     public static final Sequence
     TERMINAL = new Sequence() {
 
-        @Override public boolean
-        matches(MatcherImpl matcher) { return true; }
+        @Override public int
+        matches(MatcherImpl matcher, int offset) { return offset; }
 
         @Override public void
-        linkTo(Sequence successor) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override public boolean
-        successorMatches(MatcherImpl matcher) { throw new UnsupportedOperationException(); }
+        append(Sequence that) { throw new UnsupportedOperationException(); }
     };
 
     /**
@@ -1760,10 +1744,9 @@ class Pattern {
 
         MatcherImpl mi = new MatcherImpl(this, subject);
 
-        mi.offset = offset;
-        mi.end    = End.END_OF_SUBJECT;
+        mi.end = End.END_OF_SUBJECT;
 
-        return this.sequence.matches(mi);
+        return this.sequence.matches(mi, offset) != -1;
     }
 
     /**
@@ -1827,7 +1810,7 @@ class Pattern {
                 }
 
                 // Now link all sequence elements one to another.
-                for (int i = 0; i < elements.size() - 1; i++) elements.get(i).linkTo(elements.get(i + 1));
+                for (int i = 0; i < elements.size() - 1; i++) elements.get(i).append(elements.get(i + 1));
 
                 return elements.get(0);
             }
@@ -1872,7 +1855,7 @@ class Pattern {
                 case POSSESSIVE_QUANTIFIER:
                     this.read();
 
-                    op.linkTo(Pattern.TERMINAL);
+                    op.append(Pattern.TERMINAL);
 
                     final int min, max;
                     switch (t.text.charAt(0)) {
@@ -1911,11 +1894,12 @@ class Pattern {
                     case GREEDY_QUANTIFIER:
                         return new AbstractSequence() {
 
-                            @Override public boolean
-                            matches(MatcherImpl matcher) {
+                            @Override public int
+                            matches(MatcherImpl matcher, int offset) {
 
                                 for (int i = 0; i < min; i++) {
-                                    if (!op.matches(matcher)) return false;
+                                    offset = op.matches(matcher, offset);
+                                    if (offset == -1) return -1;
                                 }
 
                                 int   longestMatchOffset = 0;
@@ -1925,27 +1909,26 @@ class Pattern {
 
                                 for (int i = 0;; i++) {
 
-                                    final int   savedOffset = matcher.offset;
                                     final int[] savedGroups = matcher.groups;
                                     {
-                                        if (this.successorMatches(matcher)) {
-                                            longestMatchOffset = matcher.offset;
+                                        int offset2 = this.successor.matches(matcher, offset);
+                                        if (offset2 != -1) {
+                                            longestMatchOffset = offset2;
                                             longestMatchGroups = matcher.groups;
                                         }
                                     }
-                                    matcher.offset = savedOffset;
                                     matcher.groups = savedGroups;
 
                                     if (i >= limit) break;
 
-                                    if (!op.matches(matcher)) break;
+                                    offset = op.matches(matcher, offset);
+                                    if (offset == -1) break;
                                 }
 
-                                if (longestMatchGroups == null) return false;
+                                if (longestMatchGroups == null) return -1;
 
-                                matcher.offset = longestMatchOffset;
                                 matcher.groups = longestMatchGroups;
-                                return true;
+                                return longestMatchOffset;
                             }
 
                             @Override public String
@@ -1955,31 +1938,32 @@ class Pattern {
                     case RELUCTANT_QUANTIFIER:
                         return new AbstractSequence() {
 
-                            @Override public boolean
-                            matches(MatcherImpl matcher) {
+                            @Override public int
+                            matches(MatcherImpl matcher, int offset) {
 
                                 for (int i = 0; i < min; i++) {
-                                    if (!op.matches(matcher)) return false;
+                                    offset = op.matches(matcher, offset);
+                                    if (offset == -1) return -1;
                                 }
 
                                 final int limit = max - min;
 
                                 for (int i = 0;; i++) {
 
-                                    final int   savedOffset = matcher.offset;
                                     final int[] savedGroups = matcher.groups;
                                     {
-                                        if (this.successorMatches(matcher)) return true;
+                                        int offset2 = this.successor.matches(matcher, offset);
+                                        if (offset2 != -1) return offset2;
                                     }
-                                    matcher.offset = savedOffset;
                                     matcher.groups = savedGroups;
 
                                     if (i >= limit) break;
 
-                                    if (!op.matches(matcher)) return false;
+                                    offset = op.matches(matcher, offset);
+                                    if (offset == -1) return -1;
                                 }
 
-                                return false;
+                                return -1;
                             }
 
                             @Override public String
@@ -1989,28 +1973,27 @@ class Pattern {
                     case POSSESSIVE_QUANTIFIER:
                         return new AbstractSequence() {
 
-                            @Override public boolean
-                            matches(MatcherImpl matcher) {
+                            @Override public int
+                            matches(MatcherImpl matcher, int offset) {
 
                                 for (int i = 0; i < min; i++) {
-                                    if (!op.matches(matcher)) return false;
+                                    offset = op.matches(matcher, offset);
+                                    if (offset == -1) return -1;
                                 }
 
-                                int limit = Math.min(max - min, matcher.remaining());
-
+                                int limit = max - min;
                                 for (int i = 0; i < limit; i++) {
 
-                                    final int   savedOffset = matcher.offset;
                                     final int[] savedGroups = matcher.groups;
-
-                                    if (!op.matches(matcher)) {
-                                        matcher.offset = savedOffset;
+                                    int offset2 = op.matches(matcher, offset);
+                                    if (offset2 == -1) {
                                         matcher.groups = savedGroups;
-                                        return this.successorMatches(matcher);
+                                        return this.successor.matches(matcher, offset);
                                     }
+                                    offset = offset2;
                                 }
 
-                                return this.successorMatches(matcher);
+                                return this.successor.matches(matcher, offset);
                             }
 
                             @Override public String
