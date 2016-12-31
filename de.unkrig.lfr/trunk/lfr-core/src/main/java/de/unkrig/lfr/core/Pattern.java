@@ -461,24 +461,16 @@ class Pattern {
         matches() { return this.matches(0, End.END_OF_SUBJECT); }
 
         @Override public boolean
-        lookingAt() { return this.matches(0, End.ANY); }
-
-        @Override public boolean
-        find() {
-            return this.find(this.hadMatch ? this.groups[1] : 0);
-        }
-
-        @Override public boolean
-        find(int start) {
-
+        lookingAt() {
             this.hitEnd = false;
-
-            for (; start <= this.length(); start++) {
-                if (this.matches(start, End.ANY)) return true;
-            }
-
-            return false;
+            return this.matches(0, End.ANY);
         }
+
+        @Override public boolean
+        find() { return this.pattern.sequence.find(this, this.hadMatch ? this.groups[1] : 0); }
+
+        @Override public boolean
+        find(int start) { return this.pattern.sequence.find(this, start); }
 
         // =====================================
 
@@ -572,6 +564,81 @@ class Pattern {
 
         int
         sequenceEndMatches(int offset) { return this.end == End.ANY || offset == this.length() ? offset : -1; }
+
+        /**
+         * Reverses this matcher, i.e. the subject and all capturing groups are reversed.
+         * <p>
+         *   Example: If the subject is {@code "abc"} and the capturing groups are $1=0-1 and $2=0-2, then afterwards
+         *   the subject is {@code "cba"}, anf the capturing groups are $1=2-3 and $2=1-3.
+         * </p>
+         * <p>
+         *   Matcher reversing is used by "lookbehind", where a sequence is in <em>reverse</em> direction.
+         * </p>
+         */
+        void
+        reverse() {
+
+            this.subject = Pattern.asReverse(this.subject);
+
+            int l1 = this.subject.length();
+
+            int[] tmp = new int[this.groups.length];
+            for (int i = 0; i < tmp.length;) {
+                tmp[i] = this.groups[i + 1] == -1 ? -1 : l1 - this.groups[i + 1];
+                i++;
+                tmp[i] = this.groups[i - 1] == -1 ? -1 : l1 - this.groups[i - 1];
+                i++;
+            }
+            this.groups = tmp;
+        }
+    }
+
+    static CharSequence
+    asReverse(final CharSequence subject) {
+
+        class ReverseCharSequence implements CharSequence {
+
+            final CharSequence original;
+            final int          l1;
+
+            public
+            ReverseCharSequence(CharSequence subject) {
+                this.original = subject;
+                this.l1       = subject.length() - 1;
+            }
+
+            @Override public int
+            length() { return this.original.length(); }
+
+            @Override public char
+            charAt(int index) { return this.original.charAt(this.l1 - index); }
+
+            @Override public CharSequence
+            subSequence(int start, int end) { return Pattern.subsequence(this.original, start, end); }
+
+            @Override public String
+            toString() { return new StringBuilder(this).toString(); }
+        }
+
+        return (
+            subject instanceof ReverseCharSequence
+            ? ((ReverseCharSequence) subject).original
+            : new ReverseCharSequence(subject)
+        );
+    }
+
+    static CharSequence
+    subsequence(final CharSequence subject, final int start, final int end) {
+
+        if (start < 0)                throw new IndexOutOfBoundsException();
+        if (end < start)              throw new IndexOutOfBoundsException();
+        if (start > subject.length()) throw new IndexOutOfBoundsException();
+
+        return new CharSequence() {
+            @Override public CharSequence subSequence(int start, int end) { return Pattern.subsequence(this, start, end); }
+            @Override public int length()                                 { return end - start;                   }
+            @Override public char charAt(int index)                       { return subject.charAt(start + index); }
+        };
     }
 
     enum End { END_OF_SUBJECT, ANY }
@@ -713,10 +780,21 @@ class Pattern {
         matches(MatcherImpl matcher, int offset);
 
         /**
+         * Implements {@link Matcher#find()} and {@link Matcher#find(int)}.
+         */
+        boolean
+        find(MatcherImpl matcherImpl, int start);
+
+        /**
          * Appends <var>that</var> to {@code this} sequence.
          */
         void
         append(Sequence that);
+
+        /**
+         * @return The last element of the sequence, linked to the last-but-one element, and so forth
+         */
+        Sequence reverse();
     }
 
     abstract static
@@ -732,6 +810,31 @@ class Pattern {
             } else {
                 this.successor.append(newSuccessor);
             }
+        }
+
+        @Override public Sequence
+        reverse() {
+
+            if (this.successor == Pattern.TERMINAL) return this;
+
+            Sequence result = this.successor.reverse();
+            this.successor = Pattern.TERMINAL;
+            result.append(this);
+            return result;
+        }
+
+        @Override public boolean
+        find(MatcherImpl matcher, int start) {
+
+            matcher.hitEnd = false;
+
+            for (; start <= matcher.length(); start++) {
+                if (matcher.matches(start, End.ANY)) return true;
+            }
+
+            matcher.hitEnd = true;
+
+            return false;
         }
     }
 
@@ -817,6 +920,14 @@ class Pattern {
             offset = matcher.peekRead(offset, this.s);
             if (offset == -1) return -1;
             return this.successor.matches(matcher, offset);
+        }
+
+        @Override
+        public Sequence reverse() {
+
+            this.s = new StringBuilder(this.s).reverse().toString();
+
+            return super.reverse();
         }
 
         @Override public String
@@ -941,6 +1052,13 @@ class Pattern {
                 return offset != 0 ? -1 : this.successor.matches(matcher, offset);
             }
 
+            // Override "AbstractSequence.find()" such that we give the match only one shot.
+            @Override public boolean
+            find(MatcherImpl matcher, int start) {
+                matcher.hitEnd = false;
+                return matcher.matches(start, End.ANY);
+            }
+
             @Override public String
             toString() { return "^"; }
         };
@@ -1058,20 +1176,20 @@ class Pattern {
                 if (offset >= matcher.length()) {
                     matcher.hitEnd = true;
                     if (offset == 0) return -1;
-                    if (Pattern.isWordCharacter(matcher.charAt(offset - 1))) {
+                    if (Characters.IS_POSIX_ALNUM.evaluate(matcher.charAt(offset - 1))) {
                         return this.successor.matches(matcher, offset);
                     }
                     return -1;
                 }
 
                 if (offset == 0) {
-                    if (!Pattern.isWordCharacter(matcher.charAt(0))) return -1;
+                    if (!Characters.IS_POSIX_ALNUM.evaluate(matcher.charAt(0))) return -1;
                     return this.successor.matches(matcher, 0);
                 }
 
                 if (
-                    Pattern.isWordCharacter(matcher.charAt(offset - 1))
-                    ^ Pattern.isWordCharacter(matcher.charAt(offset))
+                    Characters.IS_POSIX_ALNUM.evaluate(matcher.charAt(offset - 1))
+                    ^ Characters.IS_POSIX_ALNUM.evaluate(matcher.charAt(offset))
                 ) return this.successor.matches(matcher, offset);
 
                 return -1;
@@ -1094,19 +1212,19 @@ class Pattern {
                     matcher.hitEnd = true;
                     if (
                         offset > 0
-                        && !Pattern.isWordCharacter(matcher.charAt(offset - 1))
+                        && !Characters.IS_POSIX_ALNUM.evaluate(matcher.charAt(offset - 1))
                     ) return this.successor.matches(matcher, offset);
                     return -1;
                 }
 
                 if (offset == 0) {
-                    if (Pattern.isWordCharacter(matcher.charAt(0))) return -1;
+                    if (Characters.IS_POSIX_ALNUM.evaluate(matcher.charAt(0))) return -1;
                     return this.successor.matches(matcher, 0);
                 }
 
                 if (
-                    Pattern.isWordCharacter(matcher.charAt(offset - 1))
-                    ^ Pattern.isWordCharacter(matcher.charAt(offset))
+                    Characters.IS_POSIX_ALNUM.evaluate(matcher.charAt(offset - 1))
+                    ^ Characters.IS_POSIX_ALNUM.evaluate(matcher.charAt(offset))
                 ) return -1;
 
                 return this.successor.matches(matcher, offset);
@@ -1314,8 +1432,8 @@ class Pattern {
     public static final CharacterClass
     ccIsWord() {
         return new CharacterClass() {
-            @Override public boolean evaluate(Character subject) { return Pattern.isWordCharacter(subject); }
-            @Override public String  toString()                  { return "\\w";                            }
+            @Override public boolean evaluate(Character subject) { return Characters.IS_POSIX_ALNUM.evaluate(subject); }
+            @Override public String  toString()                  { return "\\w";                                       }
         };
     }
 
@@ -1342,11 +1460,21 @@ class Pattern {
         sequence.append(new Sequence() {
 
             @Override public int
-            matches(MatcherImpl matcher, int offset) { return matcher.sequenceEndMatches(offset); }
+            matches(MatcherImpl matcher, int offset) {
+                return matcher.end == End.ANY || offset == matcher.length() ? offset : -1;
+            }
 
-            @Override public void append(Sequence that) { throw new UnsupportedOperationException(); }
+            @Override public void
+            append(Sequence that) { throw new UnsupportedOperationException(); }
 
-            @Override public String toString() { return "[END]"; }
+            @Override public Sequence
+            reverse() { return this; }
+
+            @Override public boolean
+            find(MatcherImpl matcherImpl, int start) { throw new UnsupportedOperationException(); }
+
+            @Override public String
+            toString() { return "[END]"; }
         });
 
         this.sequence   = sequence;
@@ -1541,35 +1669,33 @@ class Pattern {
         // \k<name> Whatever the named-capturing group "name" matched
         ss.addRule("\\\\k<\\w+>", NAMED_CAPTURING_GROUP_BACK_REFERENCE);
 
-        // "Quotation"
         // Quotation
         // \   Nothing, but quotes the following character
         // \Q  Nothing, but quotes all characters until \E
         // \E  Nothing, but ends quoting started by \Q
-        ss.addRule(ss.ANY_STATE,       "\\\\[^0-9A-Za-z]", QUOTED_CHARACTER,  null);
-        ss.addRule("\\\\Q",                                QUOTATION_BEGIN,   ScannerState.IN_QUOTATION);
+        ss.addRule(ss.ANY_STATE,              "\\\\[^0-9A-Za-z]", QUOTED_CHARACTER,  null);
+        ss.addRule("\\\\Q",                                       QUOTATION_BEGIN,   ScannerState.IN_QUOTATION);
         ss.addRule(ScannerState.IN_QUOTATION, "\\\\E",            QUOTATION_END,     ScannerState.IN_QUOTATION);
         ss.addRule(ScannerState.IN_QUOTATION, ".",                LITERAL_CHARACTER, ScannerState.IN_QUOTATION);
 
-        // "Special constructs (named-capturing and non-capturing)"
         // Special constructs (named-capturing and non-capturing)
         // (?<name>X)          X, as a named-capturing group
-        // (?:X)               X, as a non-capturing group
-        // (?idmsuxU-idmsuxU)  Nothing, but turns match flags i d m s u x U on - off
-        // (?idmsux-idmsux:X)  X, as a non-capturing group with the given flags i d m s u x on - off
-        // (?=X)               X, via zero-width positive lookahead
-        // (?!X)               X, via zero-width negative lookahead
-        // (?<=X)              X, via zero-width positive lookbehind
-        // (?<!X)              X, via zero-width negative lookbehind
-        // (?>X)               X, as an independent, non-capturing group
         ss.addRule("\\(\\?<\\w+>",                        NAMED_CAPTURING_GROUP);
+        // (?:X)               X, as a non-capturing group
         ss.addRule("\\(\\?:",                             NON_CAPTURING_GROUP);
+        // (?idmsuxU-idmsuxU)  Nothing, but turns match flags i d m s u x U on - off
         ss.addRule("\\(\\?[idmsuxU]*(?:-[idmsuxU]+)?\\)", MATCH_FLAGS);
+        // (?idmsux-idmsux:X)  X, as a non-capturing group with the given flags i d m s u x on - off
         ss.addRule("\\(\\?[idmsux]*(?:-[idmsux]*)?:",     MATCH_FLAGS_NON_CAPTURING_GROUP);
+        // (?=X)               X, via zero-width positive lookahead
         ss.addRule("\\(\\?=",                             POSITIVE_LOOKAHEAD);
+        // (?!X)               X, via zero-width negative lookahead
         ss.addRule("\\(\\?!",                             NEGATIVE_LOOKAHEAD);
+        // (?<=X)              X, via zero-width positive lookbehind
         ss.addRule("\\(\\?<=",                            POSITIVE_LOOKBEHIND);
+        // (?<!X)              X, via zero-width negative lookbehind
         ss.addRule("\\(\\?<!",                            NEGATIVE_LOOKBEHIND);
+        // (?>X)               X, as an independent, non-capturing group
         ss.addRule("\\(\\?>",                             INDEPENDENT_NON_CAPTURING_GROUP);
 
         ss.addRule(ss.ANY_STATE, "[^\\\\]", LITERAL_CHARACTER, null); // +++
@@ -1582,15 +1708,6 @@ class Pattern {
     static final RegexScanner LITERAL_SCANNER = new RegexScanner();
     static {
         Pattern.LITERAL_SCANNER.addRule(".", LITERAL_CHARACTER);
-    }
-
-    public static boolean
-    isWordCharacter(char subject) {
-        return (
-            (subject >= '0' && subject <= '9')
-            || (subject >= 'A' && subject <= 'Z')
-            || (subject >= 'a' && subject <= 'z')
-        );
     }
 
     /**
@@ -1644,6 +1761,12 @@ class Pattern {
 
         @Override public void
         append(Sequence that) { throw new UnsupportedOperationException(); }
+
+        @Override public boolean
+        find(MatcherImpl matcherImpl, int start) { throw new UnsupportedOperationException(); }
+
+        @Override public Sequence
+        reverse() { return this; }
     };
 
     /**
@@ -2189,6 +2312,7 @@ class Pattern {
                 case POSITIVE_LOOKAHEAD:
                     {
                         final Sequence op = this.parseAlternatives();
+                        this.read(TokenType.END_GROUP);
                         return new AbstractSequence() {
 
                             @Override public int
@@ -2201,6 +2325,7 @@ class Pattern {
                 case NEGATIVE_LOOKAHEAD:
                     {
                         final Sequence op = this.parseAlternatives();
+                        this.read(TokenType.END_GROUP);
                         return new AbstractSequence() {
 
                             @Override public int
@@ -2210,9 +2335,67 @@ class Pattern {
                         };
                     }
 
-                case INDEPENDENT_NON_CAPTURING_GROUP:
-                case NEGATIVE_LOOKBEHIND:
                 case POSITIVE_LOOKBEHIND:
+                    {
+                        final Sequence op = this.parseAlternatives().reverse();
+                        this.read(TokenType.END_GROUP);
+                        return new AbstractSequence() {
+
+                            @Override public int
+                            matches(MatcherImpl matcher, int offset) {
+
+                                int l1 = matcher.subject.length();
+
+                                boolean savedHitEnd = matcher.hitEnd; // We want to ignore the lookbehind's HITEND.
+                                End     savedEnd    = matcher.end;
+                                boolean lookbehindMatches;
+
+                                matcher.reverse();
+                                {
+                                    matcher.end = End.ANY;
+                                    lookbehindMatches = op.matches(matcher, l1 - offset) != -1;
+                                }
+                                matcher.reverse();
+
+                                matcher.hitEnd = savedHitEnd;
+                                matcher.end    = savedEnd;
+
+                                return lookbehindMatches ? this.successor.matches(matcher, offset) : -1;
+                            }
+                        };
+                    }
+
+                case NEGATIVE_LOOKBEHIND:
+                    {
+                        final Sequence op = this.parseAlternatives().reverse();
+                        this.read(TokenType.END_GROUP);
+                        return new AbstractSequence() {
+
+                            @Override public int
+                            matches(MatcherImpl matcher, int offset) {
+
+                                int l1 = matcher.subject.length();
+
+                                boolean savedHitEnd = matcher.hitEnd; // We want to ignore the lookbehind's HITEND.
+                                End     savedEnd    = matcher.end;
+                                boolean lookbehindMatches;
+
+                                matcher.reverse();
+                                {
+                                    matcher.end = End.ANY;
+                                    lookbehindMatches = op.matches(matcher, l1 - offset) != -1;
+                                }
+                                matcher.reverse();
+
+                                matcher.hitEnd = savedHitEnd;
+                                matcher.end    = savedEnd;
+
+                                return lookbehindMatches ? -1 : this.successor.matches(matcher, offset);
+                            }
+                        };
+                    }
+
+                case INDEPENDENT_NON_CAPTURING_GROUP:
                     throw new ParseException("\"" + t + "\" (" + t.type + ") is not yet implemented");
 
                 case CC_NEGATION:
