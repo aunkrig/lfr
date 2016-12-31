@@ -35,7 +35,7 @@ class OracleEssentials {
 
     private OracleEssentials() {}
 
-    private static final boolean ALSO_COMPARE_PERFORMANCE = true;
+    private static final boolean ALSO_COMPARE_PERFORMANCE = false;
     private static final int     CHUNK_COUNT              = 50;
     private static final int     CHUNK_SIZE               = 5000;
 
@@ -205,16 +205,16 @@ class OracleEssentials {
 
         for (int i = 0; i <= matcher1.groupCount(); i++) {
 
-            String group1 = matcher1.group(i);
-            String group2 = matcher2.group(i);
-            Assert.assertEquals(message + ", group(" + i + ")", group1, group2);
-
             int start1 = matcher1.start(i);
             int start2 = matcher2.start(i);
             Assert.assertEquals(message + ", start(" + i + ")", start1, start2);
 
             int end1 = matcher1.end(i);
             Assert.assertEquals(message + ", end(" + i + ")", end1, matcher2.end(i));
+
+            String group1 = matcher1.group(i);
+            String group2 = matcher2.group(i);
+            Assert.assertEquals(message + ", group(" + i + ")", group1, group2);
         }
 
         OracleEssentials.assertEqualState(message, matcher1, matcher2);
@@ -222,6 +222,9 @@ class OracleEssentials {
 
     public static void
     beginStatistics() {
+
+        if (!OracleEssentials.ALSO_COMPARE_PERFORMANCE) return;
+
         Assert.assertEquals(-1, OracleEssentials.totalCount);
         System.out.println("Regex           Subject                jur[ns] dulc[ns]  Performance gain");
         System.out.println("-------------------------------------------------------------------------");
@@ -234,6 +237,9 @@ class OracleEssentials {
 
     public static void
     endStatistics() {
+
+        if (!OracleEssentials.ALSO_COMPARE_PERFORMANCE) return;
+
         Assert.assertNotEquals(-1, OracleEssentials.totalCount);
         System.out.println("-------------------------------------------------------------------------");
         System.out.printf(
