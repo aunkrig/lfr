@@ -224,17 +224,17 @@ class Pattern {
         /**
          * @see java.util.regex.Matcher#group()
          */
-        String group();
+        @Nullable String group();
 
         /**
          * @see java.util.regex.Matcher#group(int)
          */
-        String group(int group);
+        @Nullable String group(int group);
 
         /**
          * @see java.util.regex.Matcher#group(String)
          */
-        String group(String name);
+        @Nullable String group(String name);
 
         /**
          * @see java.util.regex.Matcher#groupCount()
@@ -422,16 +422,20 @@ class Pattern {
             return this.groups[2 * groupNumber + 1];
         }
 
-        @Override public String
+        @Nullable @Override public String
         group(int groupNumber) {
 
             if (!this.hadMatch) throw new IllegalStateException("No match available");
 
             int[] gs = this.groups;
-            return this.subject.subSequence(gs[2 * groupNumber], gs[2 * groupNumber + 1]).toString();
+
+            int start = gs[2 * groupNumber];
+            int end   = gs[2 * groupNumber + 1];
+
+            return start == -1 ? null : this.subject.subSequence(start, end).toString();
         }
 
-        @Override public String
+        @Override @Nullable public String
         group(String groupName) {
 
             if (!this.hadMatch) throw new IllegalStateException("No match available");
@@ -440,15 +444,18 @@ class Pattern {
             if (groupNumber == null) throw new IllegalArgumentException("Invalid group name \"" + groupName + "\"");
 
             int[] gs = this.groups;
-            return this.subject.subSequence(gs[2 * groupNumber], gs[2 * groupNumber + 1]).toString();
+
+            int start = gs[2 * groupNumber];
+            int end   = gs[2 * groupNumber + 1];
+
+            return start == -1 ? null : this.subject.subSequence(start, end).toString();
         }
 
-        @Override public int    start() { return this.start(0); }
-        @Override public int    end()   { return this.end(0);   }
-        @Override public String group() { return this.group(0); }
-
-        @Override public int     groupCount() { return this.pattern().groupCount; }
-        @Override public boolean hitEnd()     { return this.hitEnd;             }
+        @Override public int              start()      { return this.start(0);             }
+        @Override public int              end()        { return this.end(0);               }
+        @Override @Nullable public String group()      { return this.group(0);             }
+        @Override public int              groupCount() { return this.pattern().groupCount; }
+        @Override public boolean          hitEnd()     { return this.hitEnd;               }
 
         @Override public boolean
         matches() { return this.matches(0, End.END_OF_SUBJECT); }
@@ -2179,10 +2186,32 @@ class Pattern {
                         return Pattern.capturingGroupBackReference(groupNumber);
                     }
 
-                case INDEPENDENT_NON_CAPTURING_GROUP:
-                case NEGATIVE_LOOKAHEAD:
-                case NEGATIVE_LOOKBEHIND:
                 case POSITIVE_LOOKAHEAD:
+                    {
+                        final Sequence op = this.parseAlternatives();
+                        return new AbstractSequence() {
+
+                            @Override public int
+                            matches(MatcherImpl matcher, int offset) {
+                                return op.matches(matcher, offset) == -1 ? -1 : offset;
+                            }
+                        };
+                    }
+
+                case NEGATIVE_LOOKAHEAD:
+                    {
+                        final Sequence op = this.parseAlternatives();
+                        return new AbstractSequence() {
+
+                            @Override public int
+                            matches(MatcherImpl matcher, int offset) {
+                                return op.matches(matcher, offset) == -1 ? offset : -1;
+                            }
+                        };
+                    }
+
+                case INDEPENDENT_NON_CAPTURING_GROUP:
+                case NEGATIVE_LOOKBEHIND:
                 case POSITIVE_LOOKBEHIND:
                     throw new ParseException("\"" + t + "\" (" + t.type + ") is not yet implemented");
 

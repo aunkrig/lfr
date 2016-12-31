@@ -161,18 +161,18 @@ class PatternTest {
 
     @Test public void
     testJavaCharacterClasses() {
-        
+
         OracleEssentials.harness("\\p{javaLowerCase}", " a B c ä Ä ");
         OracleEssentials.harness("\\P{javaLowerCase}", " a B c ä Ä ");
-        
+
 //        OracleEssentials.harness("\\p{IsLatin}",       " a B c ä Ä ");  Unicode scripts are not implemented
-        
+
         OracleEssentials.harness("\\p{InBasicLatin}",  " a B c ä Ä ");
         OracleEssentials.harness("\\P{InBasicLatin}",  " a B c ä Ä ");
-        
+
         OracleEssentials.harness("\\p{Lu}",            " a B c ä Ä ");
         OracleEssentials.harness("\\P{Lu}",            " a B c ä Ä ");
-        
+
 //        OracleEssentials.harness("\\p{IsAlphabetic}",  " a B c ä Ä ");  Unicode binary properties are not implementd
     }
 
@@ -193,6 +193,20 @@ class PatternTest {
         Assert.assertEquals("aaa", matcher.group("xxx"));
 
         Assert.assertFalse(matcher.find());
+    }
+
+    @Test public void
+    testPositiveLookahead() {
+        OracleEssentials.harness("a(?=b)",   " a ab abb a");
+        OracleEssentials.harness("a(?=(b))", " a ab abb a");
+    }
+
+    @Test public void
+    testNegativeLookahead() {
+        OracleEssentials.harness("a(?!b)",   " a ab abb a");
+
+        // JREs 6, 7 and 8 falsely report for the second match (10-11) a $1 of 7-8.
+//        OracleEssentials.harness("a(?!(b))", " a ab abb a");
     }
 
     // ===================================
