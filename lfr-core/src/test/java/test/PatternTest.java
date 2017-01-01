@@ -204,27 +204,19 @@ class PatternTest {
     @Test public void
     testNegativeLookahead() {
         OracleEssentials.harness("a(?!b)",   " a aba abba a");
-
-        // JREs 6, 7 and 8 falsely report for the second match (10-11, "a") a $1 of 7-8 (" "). Obviously the $1 is not
-        // cleared after the mismatch 7-8.
-//        OracleEssentials.harness("a(?!(b))", " a aba abba a");
+        OracleEssentials.harness("a(?!(b))", " a aba abba a");
     }
 
     @Test public void
     testPositiveLookbehind() {
         OracleEssentials.harness("(?<=b)a",   " a aba abba a");
-
-        // JREs 6, 7 and 8 falsely report for the first match 4-6 ("ba"), insstead of 5-6 ("a")
-//        OracleEssentials.harness("(?<=(b))a", " a aba abba a");
+        OracleEssentials.harness("(?<=(b))a", " a aba abba a");
     }
 
     @Test public void
     testNegativeLookbehind() {
         OracleEssentials.harness("(?<!b)a",   " a aba abba a");
-
-        // JREs 6, 7 and 8 falsely report for the third match (7-8, "a") a $1 of 4-5 ("b"). Obviously the $1 is not
-        // cleared after the mismatch 5-6.
-//        OracleEssentials.harness("(?<!(b))a", " a aba abba a");
+        OracleEssentials.harness("(?<!(b))a", " a aba abba a");
     }
 
     // ===================================
