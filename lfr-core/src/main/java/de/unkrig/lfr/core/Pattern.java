@@ -489,14 +489,14 @@ class Pattern {
             this.hitEnd = false;
 
             this.end = End.END_OF_SUBJECT;
-            int newOffset = this.pattern.sequence.matches(this, 0);
+            int newOffset = this.pattern.sequence.matches(this, this.regionStart);
 
             if (newOffset == -1) {
                 this.hadMatch = false;
                 return false;
             }
 
-            this.groups[0] = 0;
+            this.groups[0] = this.regionStart;
             this.groups[1] = newOffset;
             this.hadMatch  = true;
 
@@ -510,14 +510,14 @@ class Pattern {
             this.hitEnd = false;
 
             this.end = End.ANY;
-            int newOffset = this.pattern.sequence.matches(this, 0);
+            int newOffset = this.pattern.sequence.matches(this, this.regionStart);
 
             if (newOffset == -1) {
                 this.hadMatch = false;
                 return false;
             }
 
-            this.groups[0] = 0;
+            this.groups[0] = this.regionStart;
             this.groups[1] = newOffset;
             this.hadMatch  = true;
 
@@ -525,7 +525,7 @@ class Pattern {
         }
 
         @Override public boolean
-        find() { return this.find(this.hadMatch ? this.groups[1] : 0); }
+        find() { return this.find(this.hadMatch ? this.groups[1] : this.regionStart); }
 
         @Override public boolean
         find(int start) {
@@ -533,8 +533,11 @@ class Pattern {
             this.groups = this.initialGroups;
             this.hitEnd = false;
 
-            if (this.hadMatch && this.groups[1] == start && this.groups[0] == start) {
-                if (start >= this.length()) {
+            if (this.hadMatch && start == this.groups[1] && start == this.groups[0]) {
+
+                // The previous match is a zero-length match. To prevent an endless series of these matches, advance
+                // start position by one.
+                if (start >= this.regionEnd) {
                     this.hadMatch = false;
                     this.hitEnd   = true;
                     return false;
@@ -566,6 +569,10 @@ class Pattern {
 
         @Override public Matcher
         region(int start, int end) {
+
+            if (start < 0)                   throw new IndexOutOfBoundsException();
+            if (end < start)                 throw new IndexOutOfBoundsException();
+            if (end > this.subject.length()) throw new IndexOutOfBoundsException();
 
             this.regionStart = start;
             this.regionEnd   = end;
@@ -622,27 +629,28 @@ class Pattern {
         }
 
         /**
-         * If the next characters in this matcher equal <var>cs</var>, then the offset is advanced and {@code true} is
-         * returned.
+         * If the subject infix ranging from the <var>offset</var> to the region end starts with the <var>cs</var>,
+         * then the offset is advanced and {@code true} is returned.
          *
          * @return The offset after the match, or -1 if <var>cs</var> does not match
          */
         public int
         peekRead(int offset, CharSequence cs) {
 
-            int          sLength = cs.length();
-            if (offset + sLength > this.length()) {
+            int csLength = cs.length();
+
+            if (offset + csLength > this.regionEnd) {
 
                 // Not enough chars left.
                 this.hitEnd = true;
                 return -1;
             }
 
-            for (int i = 0; i < sLength; i++) {
+            for (int i = 0; i < csLength; i++) {
                 if (this.charAt(offset + i) != cs.charAt(i)) return -1;
             }
 
-            return offset + sLength;
+            return offset + csLength;
         }
 
         /**
@@ -651,7 +659,7 @@ class Pattern {
         public boolean
         peekRead(int offset, Predicate<Character> predicate) {
 
-            if (offset >= this.length()) {
+            if (offset >= this.regionEnd) {
                 this.hitEnd = true;
                 return false;
             }
@@ -661,9 +669,6 @@ class Pattern {
 
         final char
         charAt(int offset) { return this.subject.charAt(offset); }
-
-        final int
-        length() { return this.subject.length(); }
 
         @Override public String
         toString() {
@@ -680,7 +685,7 @@ class Pattern {
         }
 
         int
-        sequenceEndMatches(int offset) { return this.end == End.ANY || offset == this.length() ? offset : -1; }
+        sequenceEndMatches(int offset) { return this.end == End.ANY || offset == this.regionEnd ? offset : -1; }
 
         /**
          * Reverses this matcher, i.e. the subject and all capturing groups are reversed.
@@ -697,16 +702,47 @@ class Pattern {
 
             this.subject = Pattern.asReverse(this.subject);
 
-            int l1 = this.subject.length();
+            int l = this.subject.length();
 
-            int[] tmp = new int[this.groups.length];
-            for (int i = 0; i < tmp.length;) {
-                tmp[i] = this.groups[i + 1] == -1 ? -1 : l1 - this.groups[i + 1];
-                i++;
-                tmp[i] = this.groups[i - 1] == -1 ? -1 : l1 - this.groups[i - 1];
-                i++;
+            // Reverse the "region".
+            {
+                int tmp = this.regionStart;
+                this.regionEnd = l - this.regionEnd;
+                this.regionEnd = l - tmp;
             }
-            this.groups = tmp;
+
+            // Reverse the "transparent region".
+            {
+                int tmp = this.transparentRegionStart;
+                this.transparentRegionEnd = l - this.transparentRegionEnd;
+                this.transparentRegionEnd = l - tmp;
+            }
+
+            // Reverse the "anchoring region".
+            {
+                int tmp = this.anchoringRegionStart;
+                this.anchoringRegionEnd = l - this.anchoringRegionEnd;
+                this.anchoringRegionEnd = l - tmp;
+            }
+
+            // Reverse "hitStart" and "hitEnd".
+            {
+                boolean tmp = this.hitStart;
+                this.hitStart = this.hitEnd;
+                this.hitEnd   = tmp;
+            }
+
+            // Reverse the groups.
+            {
+                int[] tmp = new int[this.groups.length];
+                for (int i = 0; i < tmp.length;) {
+                    tmp[i] = this.groups[i + 1] == -1 ? -1 : l - this.groups[i + 1];
+                    i++;
+                    tmp[i] = this.groups[i - 1] == -1 ? -1 : l - this.groups[i - 1];
+                    i++;
+                }
+                this.groups = tmp;
+            }
         }
     }
 
@@ -946,7 +982,7 @@ class Pattern {
 
             matcher.hitEnd = false;
 
-            for (; start <= matcher.length(); start++) {
+            for (; start <= matcher.regionEnd; start++) {
 
                 int newOffset = this.matches(matcher, start);
 
@@ -968,7 +1004,7 @@ class Pattern {
         @Override public int
         matches(MatcherImpl matcher, int offset) {
 
-            if (offset >= matcher.length()) {
+            if (offset >= matcher.regionEnd) {
                 matcher.hitEnd = true;
                 return -1;
             }
@@ -1173,7 +1209,7 @@ class Pattern {
 
             @Override public int
             matches(MatcherImpl matcher, int offset) {
-                return offset != 0 ? -1 : this.successor.matches(matcher, offset);
+                return offset != matcher.anchoringRegionStart ? -1 : this.successor.matches(matcher, offset);
             }
 
             // Override "AbstractSequence.find()" such that we give the match only one shot.
@@ -1203,11 +1239,11 @@ class Pattern {
             @Override public int
             matches(MatcherImpl matcher, int offset) {
                 if (
-                    offset == 0
+                    offset == matcher.anchoringRegionStart
                     || lineBreakCharacters.indexOf(matcher.charAt(offset - 1)) != -1
                 ) return this.successor.matches(matcher, offset);
 
-                if (offset == matcher.length()) matcher.hitEnd = true;
+                if (offset == matcher.anchoringRegionEnd) matcher.hitEnd = true;
 
                 return -1;
             }
@@ -1225,7 +1261,7 @@ class Pattern {
             @Override public int
             matches(MatcherImpl matcher, int offset) {
 
-                if (offset >= matcher.length()) {
+                if (offset >= matcher.anchoringRegionEnd) {
                     matcher.hitEnd = true;
                     return this.successor.matches(matcher, offset);
                 }
@@ -1233,13 +1269,13 @@ class Pattern {
                 char c = matcher.charAt(offset);
                 if (Pattern.LINE_BREAK_CHARACTERS.indexOf(c) == -1) return -1;
 
-                if (offset == matcher.length() - 1) {
+                if (offset == matcher.anchoringRegionEnd - 1) {
                     matcher.hitEnd = true;
                     return this.successor.matches(matcher, offset);
                 }
 
                 if (c == '\r' && matcher.charAt(offset + 1) == '\n') {
-                    if (offset == matcher.length() - 2) {
+                    if (offset == matcher.anchoringRegionEnd - 2) {
                         matcher.hitEnd = true;
                         return this.successor.matches(matcher, offset);
                     }
@@ -1261,7 +1297,7 @@ class Pattern {
             @Override public int
             matches(MatcherImpl matcher, int offset) {
 
-                if (offset < matcher.length()) return -1;
+                if (offset < matcher.anchoringRegionEnd) return -1;
 
                 matcher.hitEnd = true;
 
@@ -1281,7 +1317,7 @@ class Pattern {
             @Override public int
             matches(MatcherImpl matcher, int offset) {
 
-                if (offset == matcher.length()) {
+                if (offset == matcher.anchoringRegionEnd) {
                     matcher.hitEnd = true;
                     return this.successor.matches(matcher, offset);
                 }
@@ -1304,26 +1340,22 @@ class Pattern {
             @Override public int
             matches(MatcherImpl matcher, int offset) {
 
-                if (offset >= matcher.length()) {
+                if (offset >= matcher.transparentRegionEnd) {
                     matcher.hitEnd = true;
-                    if (offset == 0) return -1;
-                    if (Characters.IS_POSIX_ALNUM.evaluate(matcher.charAt(offset - 1))) {
-                        return this.successor.matches(matcher, offset);
-                    }
+                    if (offset == matcher.transparentRegionStart) return -1; // Zero-length region.
+                    if (!Pattern.isWordCharacter(matcher.charAt(offset - 1))) return -1;
+                } else
+                if (offset <= matcher.transparentRegionStart) {
+                    if (!Pattern.isWordCharacter(matcher.charAt(offset))) return -1;
+                } else
+                if (
+                    Pattern.isWordCharacter(matcher.charAt(offset - 1))
+                    == Pattern.isWordCharacter(matcher.charAt(offset))
+                ) {
                     return -1;
                 }
 
-                if (offset == 0) {
-                    if (!Characters.IS_POSIX_ALNUM.evaluate(matcher.charAt(0))) return -1;
-                    return this.successor.matches(matcher, 0);
-                }
-
-                if (
-                    Characters.IS_POSIX_ALNUM.evaluate(matcher.charAt(offset - 1))
-                    ^ Characters.IS_POSIX_ALNUM.evaluate(matcher.charAt(offset))
-                ) return this.successor.matches(matcher, offset);
-
-                return -1;
+                return this.successor.matches(matcher, offset);
             }
 
             @Override public String
@@ -1339,24 +1371,22 @@ class Pattern {
             @Override public int
             matches(MatcherImpl matcher, int offset) {
 
-                if (offset == matcher.length()) {
+                if (offset >= matcher.transparentRegionEnd) {
                     matcher.hitEnd = true;
                     if (
-                        offset > 0
-                        && !Characters.IS_POSIX_ALNUM.evaluate(matcher.charAt(offset - 1))
-                    ) return this.successor.matches(matcher, offset);
+                        offset <= matcher.transparentRegionStart
+                        || Pattern.isWordCharacter(matcher.charAt(offset - 1))
+                    ) return -1;
+                } else
+                if (offset <= matcher.transparentRegionStart) {
+                    if (Pattern.isWordCharacter(matcher.charAt(offset))) return -1;
+                } else
+                if (
+                    Pattern.isWordCharacter(matcher.charAt(offset - 1))
+                    != Pattern.isWordCharacter(matcher.charAt(offset))
+                ) {
                     return -1;
                 }
-
-                if (offset == 0) {
-                    if (Characters.IS_POSIX_ALNUM.evaluate(matcher.charAt(0))) return -1;
-                    return this.successor.matches(matcher, 0);
-                }
-
-                if (
-                    Characters.IS_POSIX_ALNUM.evaluate(matcher.charAt(offset - 1))
-                    ^ Characters.IS_POSIX_ALNUM.evaluate(matcher.charAt(offset))
-                ) return -1;
 
                 return this.successor.matches(matcher, offset);
             }
@@ -1563,7 +1593,7 @@ class Pattern {
     public static final CharacterClass
     ccIsWord() {
         return new CharacterClass() {
-            @Override public boolean evaluate(Character subject) { return Characters.IS_POSIX_ALNUM.evaluate(subject); }
+            @Override public boolean evaluate(Character subject) { return Pattern.isWordCharacter(subject); }
             @Override public String  toString()                  { return "\\w";                                       }
         };
     }
@@ -1592,7 +1622,7 @@ class Pattern {
 
             @Override public int
             matches(MatcherImpl matcher, int offset) {
-                return matcher.end == End.ANY || offset == matcher.length() ? offset : -1;
+                return matcher.end == End.ANY || offset >= matcher.regionEnd ? offset : -1;
             }
 
             @Override public void
@@ -1610,6 +1640,11 @@ class Pattern {
 
         this.sequence   = sequence;
         this.groupCount = groupCount;
+    }
+
+    public static
+    boolean isWordCharacter(char c) {
+        return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_';
     }
 
     private static String
@@ -1852,11 +1887,11 @@ class Pattern {
             @Override public int
             matches(MatcherImpl matcher, int offset) {
 
-                if (offset >= matcher.length()) return -1;
+                if (offset >= matcher.regionEnd) return -1;
 
                 char c = matcher.charAt(offset);
 
-                if (c == '\r' && offset < matcher.length() - 1 && matcher.charAt(offset + 1) == '\n') {
+                if (c == '\r' && offset < matcher.regionEnd - 1 && matcher.charAt(offset + 1) == '\n') {
                     return this.successor.matches(matcher, offset + 2);
                 }
 
@@ -2448,7 +2483,21 @@ class Pattern {
 
                             @Override public int
                             matches(MatcherImpl matcher, int offset) {
-                                return op.matches(matcher, offset) == -1 ? -1 : offset;
+
+                                boolean lookaheadMatches;
+
+                                End savedEnd       = matcher.end;
+                                int savedRegionEnd = matcher.regionEnd;
+                                {
+                                    matcher.end = End.ANY;
+                                    matcher.regionEnd = matcher.transparentRegionEnd;
+
+                                    lookaheadMatches = op.matches(matcher, offset) != -1;
+                                }
+                                matcher.end       = savedEnd;
+                                matcher.regionEnd = savedRegionEnd;
+
+                                return lookaheadMatches ? this.successor.matches(matcher, offset) : -1;
                             }
                         };
                     }
@@ -2461,7 +2510,21 @@ class Pattern {
 
                             @Override public int
                             matches(MatcherImpl matcher, int offset) {
-                                return op.matches(matcher, offset) == -1 ? offset : -1;
+
+                                boolean lookaheadMatches;
+
+                                End savedEnd       = matcher.end;
+                                int savedRegionEnd = matcher.regionEnd;
+                                {
+                                    matcher.end = End.ANY;
+                                    matcher.regionEnd = matcher.transparentRegionEnd;
+
+                                    lookaheadMatches = op.matches(matcher, offset) != -1;
+                                }
+                                matcher.end       = savedEnd;
+                                matcher.regionEnd = savedRegionEnd;
+
+                                return lookaheadMatches ? -1 : this.successor.matches(matcher, offset);
                             }
                         };
                     }
@@ -2477,16 +2540,23 @@ class Pattern {
 
                                 int l1 = matcher.subject.length();
 
-                                boolean savedHitEnd = matcher.hitEnd; // We want to ignore the lookbehind's HITEND.
-                                End     savedEnd    = matcher.end;
                                 boolean lookbehindMatches;
 
-                                matcher.reverse();
+                                boolean savedHitEnd = matcher.hitEnd; // We want to ignore the lookbehind's HITEND.
+                                End     savedEnd    = matcher.end;
                                 {
-                                    matcher.end = End.ANY;
-                                    lookbehindMatches = op.matches(matcher, l1 - offset) != -1;
+                                    matcher.reverse();
+                                    {
+                                        int savedRegionEnd = matcher.regionEnd;
+                                        {
+                                            matcher.regionEnd = matcher.transparentRegionEnd;
+                                            matcher.end = End.ANY;
+                                            lookbehindMatches = op.matches(matcher, l1 - offset) != -1;
+                                        }
+                                        matcher.regionEnd = savedRegionEnd;
+                                    }
+                                    matcher.reverse();
                                 }
-                                matcher.reverse();
 
                                 matcher.hitEnd = savedHitEnd;
                                 matcher.end    = savedEnd;
@@ -2513,8 +2583,14 @@ class Pattern {
 
                                 matcher.reverse();
                                 {
-                                    matcher.end = End.ANY;
-                                    lookbehindMatches = op.matches(matcher, l1 - offset) != -1;
+                                    int savedRegionEnd = matcher.regionEnd;
+                                    {
+                                        matcher.regionEnd = matcher.transparentRegionEnd;
+
+                                        matcher.end = End.ANY;
+                                        lookbehindMatches = op.matches(matcher, l1 - offset) != -1;
+                                    }
+                                    matcher.regionEnd = savedRegionEnd;
                                 }
                                 matcher.reverse();
 

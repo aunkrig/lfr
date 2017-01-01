@@ -30,6 +30,8 @@ import java.util.Locale;
 
 import org.junit.Assert;
 
+import de.unkrig.commons.nullanalysis.Nullable;
+
 public final
 class OracleEssentials {
 
@@ -51,23 +53,61 @@ class OracleEssentials {
 
     static void
     harness(String regex, String subject, int flags) {
+        OracleEssentials.harness(regex, subject, flags, null, 0, null, null);
+    }
+
+    static void
+    harness(String regex, String subject, int flags, int regionStart, int regionEnd) {
+        OracleEssentials.harness(regex, subject, flags, regionStart, regionEnd, null, null);
+    }
+
+    static void
+    harness(String regex, String subject, int flags, int regionStart, int regionEnd, boolean transparentBounds) {
+        OracleEssentials.harness(regex, subject, flags, regionStart, regionEnd, transparentBounds, null);
+    }
+
+    static void
+    harness(
+        String            regex,
+        String            subject,
+        int               flags,
+        @Nullable Integer regionStart,
+        int               regionEnd,
+        @Nullable Boolean transparentBounds,
+        @Nullable Boolean anchoringBounds
+    ) {
 
         java.util.regex.Pattern    pattern1 = java.util.regex.Pattern.compile(regex, flags);
         de.unkrig.lfr.core.Pattern pattern2 = de.unkrig.lfr.core.Pattern.compile(regex, flags);
 
         String message = "regex=\"" + regex + "\", subject=\"" + subject + "\"";
 
+        // FUNCTIONAL tests (as opposed to PERFORMANCE testing).
         {
+
+            // Set up the matchers.
             java.util.regex.Matcher            matcher1 = pattern1.matcher(subject);
             de.unkrig.lfr.core.Pattern.Matcher matcher2 = pattern2.matcher(subject);
 
+            if (transparentBounds != null) {
+                matcher1.useTransparentBounds(transparentBounds);
+                matcher2.useTransparentBounds(transparentBounds);
+            }
+
+            if (anchoringBounds != null) {
+                matcher1.useAnchoringBounds(anchoringBounds);
+                matcher2.useAnchoringBounds(anchoringBounds);
+            }
+
+            // Test "Matcher.lookingAt().
             {
+                if (regionStart != null) {
+                    matcher1.region(regionStart, regionEnd);
+                    matcher2.region(regionStart, regionEnd);
+                }
+
                 boolean lookingAt1 = matcher1.lookingAt();
                 boolean lookingAt2 = matcher2.lookingAt();
-                if (lookingAt1) {
-                    String s = matcher1.group();
-                    s.hashCode();
-                }
                 Assert.assertEquals(message + ", lookingAt()", lookingAt1, lookingAt2);
 
                 if (lookingAt1) {
@@ -80,7 +120,13 @@ class OracleEssentials {
                 matcher2.reset();
             }
 
+            // Test "Matcher.matches().
             {
+                if (regionStart != null) {
+                    matcher1.region(regionStart, regionEnd);
+                    matcher2.region(regionStart, regionEnd);
+                }
+
                 boolean matches1 = matcher1.matches();
                 boolean matches2 = matcher2.matches();
                 Assert.assertEquals(message + ", matches()", matches1, matches2);
@@ -95,20 +141,28 @@ class OracleEssentials {
                 matcher2.reset();
             }
 
-            int matchCount;
-            for (matchCount = 0;; matchCount++) {
-                String message2 = message + ", Match #" + (matchCount + 1);
+            // Test "Matcher.find().
+            {
+                if (regionStart != null) {
+                    matcher1.region(regionStart, regionEnd);
+                    matcher2.region(regionStart, regionEnd);
+                }
 
-                boolean found1 = matcher1.find();
-                boolean found2 = matcher2.find();
-                Assert.assertEquals(message2 + ", find()", found1, found2);
+                int matchCount;
+                for (matchCount = 0;; matchCount++) {
+                    String message2 = message + ", Match #" + (matchCount + 1);
 
-                if (!found1 || !found2) break;
+                    boolean found1 = matcher1.find();
+                    boolean found2 = matcher2.find();
+                    Assert.assertEquals(message2 + ", find()", found1, found2);
 
-                OracleEssentials.assertEqualStateAfterMatch(message2, matcher1, matcher2);
+                    if (!found1 || !found2) break;
+
+                    OracleEssentials.assertEqualStateAfterMatch(message2, matcher1, matcher2);
+                }
+
+                OracleEssentials.assertEqualState(message + ", after " + matchCount + " matches", matcher1, matcher2);
             }
-
-            OracleEssentials.assertEqualState(message + ", after " + matchCount + " matches", matcher1, matcher2);
         }
 
         if (OracleEssentials.ALSO_COMPARE_PERFORMANCE) {
