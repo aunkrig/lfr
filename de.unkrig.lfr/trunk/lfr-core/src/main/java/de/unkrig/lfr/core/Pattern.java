@@ -285,46 +285,57 @@ class Pattern {
 //         * @see java.util.regex.Matcher#replaceFirst(String)
 //         */
 //        String replaceFirst(String replacement);
-//
-//        /**
-//         * @see java.util.regex.Matcher#region(int, int)
-//         */
-//        Matcher region(int start, int end);
-//
-//        /**
-//         * @see java.util.regex.Matcher#regionStart()
-//         */
-//        int regionStart();
-//
-//        /**
-//         * @see java.util.regex.Matcher#regionEnd()
-//         */
-//        int regionEnd();
-//
-//        /**
-//         * @see java.util.regex.Matcher#hasTransparentBounds()
-//         */
-//        boolean hasTransparentBounds();
-//
-//        /**
-//         * @see java.util.regex.Matcher#useTransparentBounds(boolean)
-//         */
-//        Matcher useTransparentBounds(boolean b);
-//
-//        /**
-//         * @see java.util.regex.Matcher#hasAnchoringBounds()
-//         */
-//        boolean hasAnchoringBounds();
-//
-//        /**
-//         * @see java.util.regex.Matcher#useAnchoringBounds(boolean)
-//         */
-//        Matcher useAnchoringBounds(boolean b);
+
+        /**
+         * @see java.util.regex.Matcher#region(int, int)
+         */
+        Matcher region(int start, int end);
+
+        /**
+         * @see java.util.regex.Matcher#regionStart()
+         */
+        int regionStart();
+
+        /**
+         * @see java.util.regex.Matcher#regionEnd()
+         */
+        int regionEnd();
+
+        /**
+         * @see java.util.regex.Matcher#hasTransparentBounds()
+         */
+        boolean hasTransparentBounds();
+
+        /**
+         * @see java.util.regex.Matcher#useTransparentBounds(boolean)
+         */
+        Matcher useTransparentBounds(boolean b);
+
+        /**
+         * @see java.util.regex.Matcher#hasAnchoringBounds()
+         */
+        boolean hasAnchoringBounds();
+
+        /**
+         * @see java.util.regex.Matcher#useAnchoringBounds(boolean)
+         */
+        Matcher useAnchoringBounds(boolean b);
 
         /**
          * @see java.util.regex.Matcher#toString()
          */
         @Override String toString();
+
+        /**
+         * Returns {@code true} iff the start of input was hit by the search engine in the last match operation
+         * performed by this matcher; this can only happen if the pattern starts with a boundary matcher or contains
+         * lookbehind constructs.
+         * <p>
+         *   When this method returns {@code true}, then it is possible that more input <em>before</em> the capturing
+         *   region would have changed the result of the last search.
+         * </p>
+         */
+        boolean hitStart();
 
         /**
          * @see java.util.regex.Matcher#hitEnd()
@@ -344,17 +355,26 @@ class Pattern {
         Pattern      pattern;
         CharSequence subject;
 
+        int regionStart, regionEnd;
+
+        boolean hasTransparentBounds;
+        int     transparentRegionStart, transparentRegionEnd;
+
+        boolean hasAnchoringBounds = true;
+        int     anchoringRegionStart, anchoringRegionEnd;
+
         // STATE
         int[]           groups, initialGroups;
-        private boolean hitEnd;
+        private boolean hitStart, hitEnd;
         boolean         hadMatch;
 
         @Nullable End end;
 
         MatcherImpl(Pattern pattern, CharSequence subject) {
-            this.pattern = pattern;
-            this.subject = subject;
-            this.groups  = (this.initialGroups = new int[2 + 2 * pattern.groupCount]);
+            this.pattern   = pattern;
+            this.subject   = subject;
+            this.regionEnd = (this.anchoringRegionEnd = (this.transparentRegionEnd = subject.length()));
+            this.groups    = (this.initialGroups = new int[2 + 2 * pattern.groupCount]);
             Arrays.fill(this.groups, -1);
         }
 
@@ -371,17 +391,21 @@ class Pattern {
 
         @Override public Matcher
         reset() {
+            this.regionStart = 0;
+            this.regionEnd   = this.subject.length();
+            this.updateTransparentBounds();
+            this.updateAnchoringBounds();
+
             this.hadMatch = false;
+            this.hitStart = false;
             this.hitEnd   = false;
             return this;
         }
 
         @Override public Matcher
         reset(CharSequence input) {
-            this.subject  = input;
-            this.hadMatch = false;
-            this.hitEnd   = false;
-            return this;
+            this.subject = input;
+            return this.reset();
         }
 
         @Override public int
@@ -455,53 +479,146 @@ class Pattern {
         @Override public int              end()        { return this.end(0);               }
         @Override @Nullable public String group()      { return this.group(0);             }
         @Override public int              groupCount() { return this.pattern().groupCount; }
+        @Override public boolean          hitStart()   { return this.hitStart;             }
         @Override public boolean          hitEnd()     { return this.hitEnd;               }
 
         @Override public boolean
-        matches() { return this.matches(0, End.END_OF_SUBJECT); }
+        matches() {
 
-        @Override public boolean
-        lookingAt() {
+            this.groups = this.initialGroups;
             this.hitEnd = false;
-            return this.matches(0, End.ANY);
+
+            this.end = End.END_OF_SUBJECT;
+            int newOffset = this.pattern.sequence.matches(this, 0);
+
+            if (newOffset == -1) {
+                this.hadMatch = false;
+                return false;
+            }
+
+            this.groups[0] = 0;
+            this.groups[1] = newOffset;
+            this.hadMatch  = true;
+
+            return true;
         }
 
         @Override public boolean
-        find() { return this.pattern.sequence.find(this, this.hadMatch ? this.groups[1] : 0); }
+        lookingAt() {
+
+            this.groups = this.initialGroups;
+            this.hitEnd = false;
+
+            this.end = End.ANY;
+            int newOffset = this.pattern.sequence.matches(this, 0);
+
+            if (newOffset == -1) {
+                this.hadMatch = false;
+                return false;
+            }
+
+            this.groups[0] = 0;
+            this.groups[1] = newOffset;
+            this.hadMatch  = true;
+
+            return true;
+        }
 
         @Override public boolean
-        find(int start) { return this.pattern.sequence.find(this, start); }
+        find() { return this.find(this.hadMatch ? this.groups[1] : 0); }
 
-        // =====================================
+        @Override public boolean
+        find(int start) {
 
-        private boolean
-        matches(int offset, End end) {
+            this.groups = this.initialGroups;
+            this.hitEnd = false;
 
-            if (this.hadMatch && offset == this.groups[1] && offset == this.groups[0]) {
-                if (offset >= this.length()) {
+            if (this.hadMatch && this.groups[1] == start && this.groups[0] == start) {
+                if (start >= this.length()) {
                     this.hadMatch = false;
                     this.hitEnd   = true;
                     return false;
                 }
-                offset++;
+                start++;
             }
 
-            this.groups = this.initialGroups;
-            this.end    = end;
-
-            int newOffset = this.pattern.sequence.matches(this, offset);
-            if (newOffset != -1) {
-
-                this.groups[0] = offset;
-                this.groups[1] = newOffset;
+            this.end = End.ANY;
+            if (this.pattern.sequence.find(this, start)) {
                 this.hadMatch  = true;
-
                 return true;
             }
 
             this.hadMatch = false;
-
             return false;
+        }
+
+        // REGION GETTERS
+
+        @Override public int regionStart() { return this.regionStart; }
+        @Override public int regionEnd()   { return this.regionEnd;   }
+
+        // BOUNDS GETTERS
+
+        @Override public boolean hasTransparentBounds() { return this.hasTransparentBounds; }
+        @Override public boolean hasAnchoringBounds()   { return this.hasAnchoringBounds;   }
+
+        // REGION/BOUNDS SETTERS
+
+        @Override public Matcher
+        region(int start, int end) {
+
+            this.regionStart = start;
+            this.regionEnd   = end;
+
+            if (this.hasAnchoringBounds) {
+                this.anchoringRegionStart = start;
+                this.anchoringRegionEnd   = end;
+            }
+
+            if (!this.hasTransparentBounds) {
+                this.transparentRegionStart = start;
+                this.transparentRegionEnd   = end;
+            }
+
+            return this;
+        }
+
+        @Override public Matcher
+        useTransparentBounds(boolean b) {
+            this.hasTransparentBounds = b;
+            this.updateTransparentBounds();
+            return this;
+        }
+
+        @Override public Matcher
+        useAnchoringBounds(boolean b) {
+            this.hasAnchoringBounds = b;
+            this.updateAnchoringBounds();
+            return this;
+        }
+
+        // =====================================
+
+        private void
+        updateTransparentBounds() {
+            if (this.hasTransparentBounds) {
+                this.transparentRegionStart = 0;
+                this.transparentRegionEnd   = this.subject.length();
+            } else {
+                this.transparentRegionStart = this.regionStart;
+                this.transparentRegionEnd   = this.regionEnd;
+            }
+        }
+
+        private void
+        updateAnchoringBounds() {
+            if (this.hasAnchoringBounds) {
+                this.anchoringRegionStart = this.regionStart;
+                this.anchoringRegionEnd   = this.regionEnd;
+            } else {
+                this.anchoringRegionStart = 0;
+                this.anchoringRegionEnd   = this.subject.length();
+            }
         }
 
         /**
@@ -780,7 +897,8 @@ class Pattern {
         matches(MatcherImpl matcher, int offset);
 
         /**
-         * Implements {@link Matcher#find()} and {@link Matcher#find(int)}.
+         * Searches for the next occurrence, and, iff it finds one, updates {@code groups[0]} and {@code groups[1]},
+         * and returns {@code true}.
          */
         boolean
         find(MatcherImpl matcherImpl, int start);
@@ -829,11 +947,17 @@ class Pattern {
             matcher.hitEnd = false;
 
             for (; start <= matcher.length(); start++) {
-                if (matcher.matches(start, End.ANY)) return true;
+
+                int newOffset = this.matches(matcher, start);
+
+                if (newOffset != -1) {
+                    matcher.groups[0] = start;
+                    matcher.groups[1] = newOffset;
+                    return true;
+                }
             }
 
             matcher.hitEnd = true;
-
             return false;
         }
     }
@@ -1055,8 +1179,15 @@ class Pattern {
             // Override "AbstractSequence.find()" such that we give the match only one shot.
             @Override public boolean
             find(MatcherImpl matcher, int start) {
-                matcher.hitEnd = false;
-                return matcher.matches(start, End.ANY);
+
+                int newOffset = this.matches(matcher, start);
+                if (newOffset != -1) {
+                    matcher.groups[0] = start;
+                    matcher.groups[1] = newOffset;
+                    return true;
+                }
+
+                return false;
             }
 
             @Override public String
