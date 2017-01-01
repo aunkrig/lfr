@@ -219,6 +219,37 @@ class PatternTest {
         OracleEssentials.harness("(?<!(b))a", " a aba abba a");
     }
 
+    @Test public void
+    testRegion() {
+        OracleEssentials.harness("a", "__a__ a aba abba __a__", 0, 5, 17);
+        OracleEssentials.harness("^", "__a__ a aba abba __a__", 0, 5, 17);
+        OracleEssentials.harness("^", "__a__ a aba abba __a__", 0, 5, 17, false, false);
+        OracleEssentials.harness("^", "__a__ a aba abba __a__", 0, 5, 17, false, true);
+        OracleEssentials.harness("^", "__a__ a aba abba __a__", 0, 5, 17, true,  false);
+        OracleEssentials.harness("^", "__a__ a aba abba __a__", 0, 5, 17, true,  true);
+    }
+
+    @Test public void
+    testTransparentBounds() {
+
+        // The nineth "find()" fails, and for jur "hitEnd()" returns "false"!?
+//        OracleEssentials.harness("\\b",     "__a__ a aba abba __a__", 0, 5, 17, true);
+
+        // Lookahead.
+        OracleEssentials.harness(" (?=_)",  "__a__ a aba abba __a__", 0, 5, 17, true);
+        OracleEssentials.harness(" (?!_)",  "__a__ a aba abba __a__", 0, 5, 17, true);
+
+        // Lookbehind.
+        OracleEssentials.harness("(?<=_) ", "__a__ a aba abba __a__", 0, 5, 17, true);
+        OracleEssentials.harness("(?<!_) ", "__a__ a aba abba __a__", 0, 5, 17, true);
+    }
+
+    @Test public void
+    testAnchoringBounds() {
+        OracleEssentials.harness("^",  "__a__ a aba abba __a__", 0, 5, 17, null, false);
+        OracleEssentials.harness("$",  "__a__ a aba abba __a__", 0, 5, 17, null, false);
+    }
+
     // ===================================
 
     private void
