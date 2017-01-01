@@ -2111,7 +2111,15 @@ class Pattern {
             int currentFlags = flags;
 
             public Sequence
-            parse() throws ParseException { return this.parseAlternatives(); }
+            parse() throws ParseException {
+
+                Sequence result = this.parseAlternatives();
+
+                // Check for trailing garbage.
+                this.read(new Object[1]);
+
+                return result;
+            }
 
             private Sequence
             parseAlternatives() throws ParseException {

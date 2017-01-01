@@ -178,7 +178,7 @@ class PatternTest {
 
     @Test public void
     testNamedCapturingGroups() {
-        OracleEssentials.harness("(<xxx>a+)", " a aa aaa");
+        OracleEssentials.harness("(?<xxx>a+)", " a aa aaa");
 
         de.unkrig.lfr.core.Pattern.Matcher
         matcher = de.unkrig.lfr.core.Pattern.compile("(?<xxx>a+)").matcher(" a aa aaa");
