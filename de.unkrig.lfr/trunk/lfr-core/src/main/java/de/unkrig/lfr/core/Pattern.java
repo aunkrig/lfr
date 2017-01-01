@@ -1364,39 +1364,6 @@ class Pattern {
     }
 
     public static Sequence
-    nonWordBoundary() {
-
-        return new AbstractSequence() {
-
-            @Override public int
-            matches(MatcherImpl matcher, int offset) {
-
-                if (offset >= matcher.transparentRegionEnd) {
-                    matcher.hitEnd = true;
-                    if (
-                        offset <= matcher.transparentRegionStart
-                        || Pattern.isWordCharacter(matcher.charAt(offset - 1))
-                    ) return -1;
-                } else
-                if (offset <= matcher.transparentRegionStart) {
-                    if (Pattern.isWordCharacter(matcher.charAt(offset))) return -1;
-                } else
-                if (
-                    Pattern.isWordCharacter(matcher.charAt(offset - 1))
-                    != Pattern.isWordCharacter(matcher.charAt(offset))
-                ) {
-                    return -1;
-                }
-
-                return this.successor.matches(matcher, offset);
-            }
-
-            @Override public String
-            toString() { return "^"; }
-        };
-    }
-
-    public static Sequence
     endOfPreviousMatch() {
 
         return new AbstractSequence() {
@@ -1415,6 +1382,67 @@ class Pattern {
 
             @Override public String
             toString() { return "^"; }
+        };
+    }
+
+    public static AbstractSequence
+    positiveLookahead(final Sequence op) {
+        return new AbstractSequence() {
+
+            @Override public int
+            matches(MatcherImpl matcher, int offset) {
+
+                boolean lookaheadMatches;
+
+                End savedEnd       = matcher.end;
+                int savedRegionEnd = matcher.regionEnd;
+                {
+                    matcher.end = End.ANY;
+                    matcher.regionEnd = matcher.transparentRegionEnd;
+
+                    lookaheadMatches = op.matches(matcher, offset) != -1;
+                }
+                matcher.end       = savedEnd;
+                matcher.regionEnd = savedRegionEnd;
+
+                return lookaheadMatches ? this.successor.matches(matcher, offset) : -1;
+            }
+        };
+    }
+
+    public static AbstractSequence
+    positiveLookbehind(final Sequence op) {
+
+        return new AbstractSequence() {
+
+            @Override public int
+            matches(MatcherImpl matcher, int offset) {
+
+                int l1 = matcher.subject.length();
+
+                boolean lookbehindMatches;
+
+                boolean savedHitEnd = matcher.hitEnd; // We want to ignore the lookbehind's HITEND.
+                End     savedEnd    = matcher.end;
+                {
+                    matcher.reverse();
+                    {
+                        int savedRegionEnd = matcher.regionEnd;
+                        {
+                            matcher.regionEnd = matcher.transparentRegionEnd;
+                            matcher.end = End.ANY;
+                            lookbehindMatches = op.matches(matcher, l1 - offset) != -1;
+                        }
+                        matcher.regionEnd = savedRegionEnd;
+                    }
+                    matcher.reverse();
+                }
+
+                matcher.hitEnd = savedHitEnd;
+                matcher.end    = savedEnd;
+
+                return lookbehindMatches ? this.successor.matches(matcher, offset) : -1;
+            }
         };
     }
 
@@ -1545,6 +1573,33 @@ class Pattern {
 
             @Override public String
             toString() { return toString; }
+        };
+    }
+
+    /**
+     * Creates and returns a sequence that produces a zero-width match iff the <var>op</var> does <em>not</em> match,
+     * and otherwise (iff the <var>op</var> <em>does</em> match) does <em>not</em> match.
+     */
+    public static AbstractSequence
+    negate(final Sequence op) {
+
+        return new AbstractSequence() {
+
+            @Override public int
+            matches(MatcherImpl matcher, int offset) {
+
+                boolean operandMatches;
+
+                End savedEnd = matcher.end;
+                {
+                    matcher.end = End.ANY;
+
+                    operandMatches = op.matches(matcher, offset) != -1;
+                }
+                matcher.end       = savedEnd;
+
+                return operandMatches ? -1 : this.successor.matches(matcher, offset);
+            }
         };
     }
 
@@ -2430,7 +2485,7 @@ class Pattern {
                     return Pattern.wordBoundary();
 
                 case NON_WORD_BOUNDARY:
-                    return Pattern.nonWordBoundary();
+                    return Pattern.negate(Pattern.wordBoundary());
 
                 case BEGINNING_OF_INPUT:
                     return Pattern.beginningOfInput();
@@ -2479,127 +2534,28 @@ class Pattern {
                     {
                         final Sequence op = this.parseAlternatives();
                         this.read(TokenType.END_GROUP);
-                        return new AbstractSequence() {
-
-                            @Override public int
-                            matches(MatcherImpl matcher, int offset) {
-
-                                boolean lookaheadMatches;
-
-                                End savedEnd       = matcher.end;
-                                int savedRegionEnd = matcher.regionEnd;
-                                {
-                                    matcher.end = End.ANY;
-                                    matcher.regionEnd = matcher.transparentRegionEnd;
-
-                                    lookaheadMatches = op.matches(matcher, offset) != -1;
-                                }
-                                matcher.end       = savedEnd;
-                                matcher.regionEnd = savedRegionEnd;
-
-                                return lookaheadMatches ? this.successor.matches(matcher, offset) : -1;
-                            }
-                        };
+                        return Pattern.positiveLookahead(op);
                     }
 
                 case NEGATIVE_LOOKAHEAD:
                     {
                         final Sequence op = this.parseAlternatives();
                         this.read(TokenType.END_GROUP);
-                        return new AbstractSequence() {
-
-                            @Override public int
-                            matches(MatcherImpl matcher, int offset) {
-
-                                boolean lookaheadMatches;
-
-                                End savedEnd       = matcher.end;
-                                int savedRegionEnd = matcher.regionEnd;
-                                {
-                                    matcher.end = End.ANY;
-                                    matcher.regionEnd = matcher.transparentRegionEnd;
-
-                                    lookaheadMatches = op.matches(matcher, offset) != -1;
-                                }
-                                matcher.end       = savedEnd;
-                                matcher.regionEnd = savedRegionEnd;
-
-                                return lookaheadMatches ? -1 : this.successor.matches(matcher, offset);
-                            }
-                        };
+                        return Pattern.negate(Pattern.positiveLookahead(op));
                     }
 
                 case POSITIVE_LOOKBEHIND:
                     {
                         final Sequence op = this.parseAlternatives().reverse();
                         this.read(TokenType.END_GROUP);
-                        return new AbstractSequence() {
-
-                            @Override public int
-                            matches(MatcherImpl matcher, int offset) {
-
-                                int l1 = matcher.subject.length();
-
-                                boolean lookbehindMatches;
-
-                                boolean savedHitEnd = matcher.hitEnd; // We want to ignore the lookbehind's HITEND.
-                                End     savedEnd    = matcher.end;
-                                {
-                                    matcher.reverse();
-                                    {
-                                        int savedRegionEnd = matcher.regionEnd;
-                                        {
-                                            matcher.regionEnd = matcher.transparentRegionEnd;
-                                            matcher.end = End.ANY;
-                                            lookbehindMatches = op.matches(matcher, l1 - offset) != -1;
-                                        }
-                                        matcher.regionEnd = savedRegionEnd;
-                                    }
-                                    matcher.reverse();
-                                }
-
-                                matcher.hitEnd = savedHitEnd;
-                                matcher.end    = savedEnd;
-
-                                return lookbehindMatches ? this.successor.matches(matcher, offset) : -1;
-                            }
-                        };
+                        return Pattern.positiveLookbehind(op);
                     }
 
                 case NEGATIVE_LOOKBEHIND:
                     {
                         final Sequence op = this.parseAlternatives().reverse();
                         this.read(TokenType.END_GROUP);
-                        return new AbstractSequence() {
-
-                            @Override public int
-                            matches(MatcherImpl matcher, int offset) {
-
-                                int l1 = matcher.subject.length();
-
-                                boolean savedHitEnd = matcher.hitEnd; // We want to ignore the lookbehind's HITEND.
-                                End     savedEnd    = matcher.end;
-                                boolean lookbehindMatches;
-
-                                matcher.reverse();
-                                {
-                                    int savedRegionEnd = matcher.regionEnd;
-                                    {
-                                        matcher.regionEnd = matcher.transparentRegionEnd;
-
-                                        matcher.end = End.ANY;
-                                        lookbehindMatches = op.matches(matcher, l1 - offset) != -1;
-                                    }
-                                    matcher.regionEnd = savedRegionEnd;
-                                }
-                                matcher.reverse();
-
-                                matcher.hitEnd = savedHitEnd;
-                                matcher.end    = savedEnd;
-
-                                return lookbehindMatches ? -1 : this.successor.matches(matcher, offset);
-                            }
-                        };
+                        return Pattern.negate(Pattern.positiveLookbehind(op));
                     }
 
                 case INDEPENDENT_NON_CAPTURING_GROUP:
