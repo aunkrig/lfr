@@ -141,7 +141,7 @@ class Pattern {
         | Pattern.LITERAL
         | Pattern.MULTILINE
         | Pattern.UNICODE_CASE
-//        | Pattern.UNIX_LINES
+        | Pattern.UNIX_LINES
 //        | Pattern.UNICODE_CHARACTER_CLASS
     );
 

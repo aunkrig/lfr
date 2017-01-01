@@ -250,6 +250,14 @@ class PatternTest {
         OracleEssentials.harness("$",  "__a__ a aba abba __a__", 0, 5, 17, null, false);
     }
 
+    @Test public void
+    testUnixLines() {
+        OracleEssentials.harness("\\R",  "  \n  \r\n \u2028 ");
+        OracleEssentials.harness("\\R",  "  \n  \r\n \u2028 ", de.unkrig.lfr.core.Pattern.UNIX_LINES);
+        OracleEssentials.harness("^",    "  \n  \r\n \u2028 ");
+        OracleEssentials.harness("^",    "  \n  \r\n \u2028 ", de.unkrig.lfr.core.Pattern.UNIX_LINES);
+    }
+
     // ===================================
 
     private void
