@@ -258,7 +258,66 @@ class PatternTest {
         OracleEssentials.harness("^",    "  \n  \r\n \u2028 ", de.unkrig.lfr.core.Pattern.UNIX_LINES);
     }
 
+    @Test public void
+    testQuantifiers() {
+
+        OracleEssentials.harness("a?",  " aaa ");
+//        OracleEssentials.harness("a??", " aaa "); // JRE says !hinEnd after the 7th, failed, match!?
+        OracleEssentials.harness("a?+", " aaa ");
+
+        OracleEssentials.harness("a*",  " aaa ");
+//        OracleEssentials.harness("a*?", " aaa "); // JRE says !hinEnd after the 7th, failed, match!?
+        OracleEssentials.harness("a*+", " aaa ");
+
+        OracleEssentials.harness("a+",  " aaa ");
+        OracleEssentials.harness("a+?", " aaa ");
+        OracleEssentials.harness("a++", " aaa ");
+
+//        OracleEssentials.harness("a{0}",  " aaa "); // JRE says !hinEnd after the 7th, failed, match!?
+//        OracleEssentials.harness("a{0}?", " aaa "); // JRE says !hinEnd after the 7th, failed, match!?
+//        OracleEssentials.harness("a{0}+", " aaa "); // JRE says !hinEnd after the 7th, failed, match!?
+
+        OracleEssentials.harness("a{1}",  " aaa ");
+        OracleEssentials.harness("a{1}?", " aaa ");
+        OracleEssentials.harness("a{1}+", " aaa ");
+
+        OracleEssentials.harness("a{2}",  " aaa ");
+        OracleEssentials.harness("a{2}?", " aaa ");
+        OracleEssentials.harness("a{2}+", " aaa ");
+
+        OracleEssentials.harness("a{0,}",  " aaa ");
+//        OracleEssentials.harness("a{0,}?", " aaa ");
+        OracleEssentials.harness("a{0,}+", " aaa ");
+    }
+
+    @Test public void
+    testSurrogates() {
+        int    clef              = 0x1d120;
+        char   clefHighSurrogate = PatternTest.highSurrogateOf(clef);
+        char   clefLowSurrogate  = PatternTest.lowSurrogateOf(clef);
+        String clefUnicode       = "" + clefHighSurrogate + clefLowSurrogate;
+
+        OracleEssentials.harness(clefUnicode,       clefUnicode);
+        OracleEssentials.harness(clefUnicode + "?", "");
+        OracleEssentials.harness(clefUnicode + "?", "" + clefHighSurrogate);
+        OracleEssentials.harness(clefUnicode + "?", "" + clefLowSurrogate);
+        OracleEssentials.harness(clefUnicode + "?", "" + clefHighSurrogate + clefLowSurrogate);
+        OracleEssentials.harness(clefUnicode + "?", "" + clefLowSurrogate + clefHighSurrogate);
+    }
+
     // ===================================
+
+    private static char
+    highSurrogateOf(int codepoint) {
+        if (codepoint < 0x10000 || codepoint > 0x10FFFF) throw new IllegalArgumentException();
+        return (char) (((codepoint - 0x10000) >> 10) + 0xD800);
+    }
+
+    private static char
+    lowSurrogateOf(int codepoint) {
+        if (codepoint < 0x10000 || codepoint > 0x10FFFF) throw new IllegalArgumentException();
+        return (char) (((codepoint - 0x10000) & 0x3ff) + 0xDC00);
+    }
 
     private void
     verifyLookingAt(String regex, String subject) {
