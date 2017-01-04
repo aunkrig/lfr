@@ -86,8 +86,8 @@ class OracleEssentials {
         {
 
             // Set up the matchers.
-            java.util.regex.Matcher            matcher1 = pattern1.matcher(subject);
-            de.unkrig.lfr.core.Pattern.Matcher matcher2 = pattern2.matcher(subject);
+            java.util.regex.Matcher    matcher1 = pattern1.matcher(subject);
+            de.unkrig.lfr.core.Matcher matcher2 = pattern2.matcher(subject);
 
             if (transparentBounds != null) {
                 matcher1.useTransparentBounds(transparentBounds);
@@ -190,7 +190,7 @@ class OracleEssentials {
                 long start = System.nanoTime();
                 for (int i = 0; i < OracleEssentials.CHUNK_SIZE; i++) {
 
-                    for (de.unkrig.lfr.core.Pattern.Matcher m = pattern2.matcher(subject); m.find();) {
+                    for (de.unkrig.lfr.core.Matcher m = pattern2.matcher(subject); m.find();) {
                         m.group();
                         m.start();
                         m.end();
@@ -245,7 +245,7 @@ class OracleEssentials {
     }
 
     static void
-    assertEqualState(String message, java.util.regex.Matcher matcher1, de.unkrig.lfr.core.Pattern.Matcher matcher2) {
+    assertEqualState(String message, java.util.regex.Matcher matcher1, de.unkrig.lfr.core.Matcher matcher2) {
 
         boolean hitEnd1 = matcher1.hitEnd();
         boolean hitEnd2 = matcher2.hitEnd();
@@ -254,9 +254,9 @@ class OracleEssentials {
 
     static void
     assertEqualStateAfterMatch(
-        String                             message,
-        java.util.regex.Matcher            matcher1,
-        de.unkrig.lfr.core.Pattern.Matcher matcher2
+        String                     message,
+        java.util.regex.Matcher    matcher1,
+        de.unkrig.lfr.core.Matcher matcher2
     ) {
 
         Assert.assertEquals(message + ", groupCount()", matcher1.groupCount(), matcher2.groupCount());
