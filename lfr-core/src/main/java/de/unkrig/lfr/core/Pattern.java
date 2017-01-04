@@ -999,7 +999,7 @@ class Pattern {
     }
 
     abstract static
-    class CharacterClass extends AbstractSequence implements Predicate<Character> {
+    class CharacterClass extends AbstractSequence implements IntPredicate {
 
         @Override public int
         matches(MatcherImpl matcher, int offset) {
@@ -1009,18 +1009,31 @@ class Pattern {
                 return -1;
             }
 
-            if (!this.evaluate(matcher.charAt(offset))) return -1;
+            char c = matcher.charAt(offset);
 
-            return this.successor.matches(matcher, offset + 1);
+            // Special handling for UTF-16 surrogates.
+            if (Character.isHighSurrogate(c)) {
+                if (offset + 2 > matcher.regionEnd) return -1;
+                char c2 = matcher.charAt(offset + 1);
+                if (Character.isLowSurrogate(c2)) {
+                    return (
+                        this.evaluate(Character.toCodePoint(c, c2))
+                        ? this.successor.matches(matcher, offset + 2)
+                        : -1
+                    );
+                }
+            }
+
+            return this.evaluate(c) ? this.successor.matches(matcher, offset + 1) : -1;
         }
     }
 
     public static CharacterClass
-    characterClass(final Predicate<Character> predicate, final String toString) {
+    characterClass(final Predicate<Integer> predicate, final String toString) {
 
         return new CharacterClass() {
-            @Override public boolean evaluate(Character subject) { return predicate.evaluate(subject); }
-            @Override public String  toString()                  { return toString;                    }
+            @Override public boolean evaluate(int subject) { return predicate.evaluate(subject); }
+            @Override public String  toString()            { return toString;                    }
         };
     }
 
@@ -1030,7 +1043,7 @@ class Pattern {
         return new CharacterClass() {
 
             @Override public boolean
-            evaluate(Character subject) { return Character.UnicodeBlock.of(subject) == block; }
+            evaluate(int subject) { return Character.UnicodeBlock.of(subject) == block; }
         };
     }
 
@@ -1043,26 +1056,26 @@ class Pattern {
         return new CharacterClass() {
 
             @Override public boolean
-            evaluate(Character subject) { return Character.getType(subject) == generalCategory; }
+            evaluate(int subject) { return Character.getType(subject) == generalCategory; }
         };
     }
 
     /**
-     * Representation of literal characters like "a" or "\.".
+     * Representation of a literal character, like "a" or "\.".
      */
     public static
     class CcLiteralCharacter extends CharacterClass {
 
-        private char c;
+        private int c;
 
         public
-        CcLiteralCharacter(char c) { this.c = c; }
+        CcLiteralCharacter(int c) { this.c = c; }
 
         @Override public boolean
-        evaluate(Character subject) { return subject == this.c; }
+        evaluate(int subject) { return subject == this.c; }
 
         @Override public String
-        toString() { return new String(new char[] { this.c }); }
+        toString() { return new String(Character.toChars(this.c)); }
     }
 
     /**
@@ -1452,18 +1465,18 @@ class Pattern {
      * Representation of literal characters like "a" or "\.".
      */
     public static CharacterClass
-    ccLiteralCharacter(char c) { return new CcLiteralCharacter(c); }
+    ccLiteralCharacter(int c) { return new CcLiteralCharacter(c); }
 
     /**
      * Representation of a two-characters union, e.g. "[oO]".
      */
     public static CharacterClass
-    ccOneOf(final char c1, final char c2) {
+    ccOneOf(final int c1, final int c2) {
 
         return new CharacterClass() {
 
             @Override public boolean
-            evaluate(Character subject) { return subject == c1 || subject == c2; }
+            evaluate(int subject) { return subject == c1 || subject == c2; }
 
             @Override public String
             toString() { return "[" + c1 + c2 + ']'; }
@@ -1476,7 +1489,7 @@ class Pattern {
         return new CharacterClass() {
 
             @Override public boolean
-            evaluate(Character subject) { return chars.indexOf(subject) != -1; }
+            evaluate(int subject) { return chars.indexOf(subject) != -1; }
 
             @Override public String
             toString() { return '[' + chars + ']'; }
@@ -1487,9 +1500,9 @@ class Pattern {
      * Representation of an (ASCII-)case-insensitive literal character.
      */
     public static CharacterClass
-    ccCaseInsensitiveLiteralCharacter(final char c) {
-        if (c >= 'A' && c <= 'Z') return Pattern.ccOneOf(c, (char) (c + 32));
-        if (c >= 'a' && c <= 'z') return Pattern.ccOneOf(c, (char) (c - 32));
+    ccCaseInsensitiveLiteralCharacter(final int c) {
+        if (c >= 'A' && c <= 'Z') return Pattern.ccOneOf(c, c + 32);
+        if (c >= 'a' && c <= 'z') return Pattern.ccOneOf(c, c - 32);
         return Pattern.ccLiteralCharacter(c);
     }
 
@@ -1497,7 +1510,7 @@ class Pattern {
      * Representation of a (UNICODE-)case-insensitive literal character.
      */
     public static CharacterClass
-    ccUnicodeCaseInsensitiveLiteralCharacter(final char c) {
+    ccUnicodeCaseInsensitiveLiteralCharacter(final int c) {
         if (Character.isLowerCase(c)) return Pattern.ccOneOf(c, Character.toUpperCase(c));
         if (Character.isUpperCase(c)) return Pattern.ccOneOf(c, Character.toLowerCase(c));
         return Pattern.ccLiteralCharacter(c);
@@ -1507,12 +1520,12 @@ class Pattern {
      * Representation of a character class intersection like {@code "\w&&[^abc]"}.
      */
     public static CharacterClass
-    ccIntersection(final Predicate<Character> lhs, final Predicate<Character> rhs) {
+    ccIntersection(final IntPredicate lhs, final IntPredicate rhs) {
 
         return new CharacterClass() {
 
             @Override public boolean
-            evaluate(Character subject) { return lhs.evaluate(subject) && rhs.evaluate(subject); }
+            evaluate(int subject) { return lhs.evaluate(subject) && rhs.evaluate(subject); }
 
             @Override public String
             toString() { return lhs + "&&" + rhs; }
@@ -1523,12 +1536,12 @@ class Pattern {
      * Representation of a character class union like {@code "ab"}.
      */
     public static CharacterClass
-    ccUnion(final Predicate<Character> lhs, final Predicate<Character> rhs) {
+    ccUnion(final IntPredicate lhs, final IntPredicate rhs) {
 
         return new CharacterClass() {
 
             @Override public boolean
-            evaluate(Character subject) { return lhs.evaluate(subject) || rhs.evaluate(subject); }
+            evaluate(int subject) { return lhs.evaluate(subject) || rhs.evaluate(subject); }
 
             @Override public String
             toString() { return lhs.toString() + rhs; }
@@ -1539,12 +1552,12 @@ class Pattern {
      * Representation of a character class range like {@code "a-k"}.
      */
     public static CharacterClass
-    ccRange(final char lhs, final char rhs) {
+    ccRange(final int lhs, final int rhs) {
 
         return new CharacterClass() {
 
             @Override public boolean
-            evaluate(Character subject) { return subject >= lhs && subject <= rhs; }
+            evaluate(int subject) { return subject >= lhs && subject <= rhs; }
 
             @Override public String
             toString() { return lhs + "-" + rhs; }
@@ -1555,8 +1568,8 @@ class Pattern {
     public static final CharacterClass
     ccIsDigit() {
         return new CharacterClass() {
-            @Override public boolean evaluate(Character subject) { char c = subject; return c >= '0' && c <= '9'; }
-            @Override public String  toString()                  { return "\\d"; }
+            @Override public boolean evaluate(int subject) { return subject >= '0' && subject <= '9'; }
+            @Override public String  toString()            { return "\\d"; }
         };
     }
 
@@ -1569,7 +1582,7 @@ class Pattern {
         return new CharacterClass() {
 
             @Override public boolean
-            evaluate(Character subject) { return !delegate.evaluate(subject); }
+            evaluate(int subject) { return !delegate.evaluate(subject); }
 
             @Override public String
             toString() { return toString; }
@@ -1610,7 +1623,7 @@ class Pattern {
         return new CharacterClass() {
 
             @Override public boolean
-            evaluate(Character subject) {
+            evaluate(int subject) {
                 return (
                     "\t\u00A0\u1680\u180e\u202f\u205f\u3000".indexOf(subject) != -1
                     || (subject >= '\u2000' && subject <= '\u200a')
@@ -1648,8 +1661,8 @@ class Pattern {
     public static final CharacterClass
     ccIsWord() {
         return new CharacterClass() {
-            @Override public boolean evaluate(Character subject) { return Pattern.isWordCharacter(subject); }
-            @Override public String  toString()                  { return "\\w";                                       }
+            @Override public boolean evaluate(int subject) { return Pattern.isWordCharacter(subject); }
+            @Override public String  toString()            { return "\\w";                                       }
         };
     }
 
@@ -1660,8 +1673,8 @@ class Pattern {
     public static final CharacterClass
     ccAnyChar() {
         return new CharacterClass() {
-            @Override public boolean evaluate(Character subject) { return true; }
-            @Override public String  toString()                  { return ".";  }
+            @Override public boolean evaluate(int subject) { return true; }
+            @Override public String  toString()            { return ".";  }
         };
     }
 
@@ -1698,8 +1711,13 @@ class Pattern {
     }
 
     public static
-    boolean isWordCharacter(char c) {
-        return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_';
+    boolean isWordCharacter(int c) {
+        return (
+            (c >= 'a' && c <= 'z')
+            || (c >= 'A' && c <= 'Z')
+            || (c >= '0' && c <= '9')
+            || c == '_'
+        );
     }
 
     private static String
@@ -2178,18 +2196,25 @@ class Pattern {
             merge(Sequence s1, Sequence s2) {
 
                 if (s1 instanceof CcLiteralCharacter && s2 instanceof CcLiteralCharacter) {
-                    return Pattern.literalString(new String(new char[] {
-                        ((CcLiteralCharacter) s1).c,
-                        ((CcLiteralCharacter) s2).c,
-                    }));
+                    int c1 = ((CcLiteralCharacter) s1).c;
+                    int c2 = ((CcLiteralCharacter) s2).c;
+                    return Pattern.literalString(
+                        new StringBuilder(4).appendCodePoint(c1).appendCodePoint(c2).toString()
+                    );
                 }
 
                 if (s1 instanceof LiteralString && s2 instanceof CcLiteralCharacter) {
-                    return Pattern.literalString(((LiteralString) s1).s + ((CcLiteralCharacter) s2).c);
+                    String lhs = ((LiteralString)      s1).s;
+                    int    rhs = ((CcLiteralCharacter) s2).c;
+                    return Pattern.literalString(new StringBuilder(lhs).appendCodePoint(rhs).toString());
                 }
 
                 if (s1 instanceof CcLiteralCharacter && s2 instanceof LiteralString) {
-                    return Pattern.literalString(((CcLiteralCharacter) s1).c + ((LiteralString) s2).s);
+                    int    lhs = ((CcLiteralCharacter) s1).c;
+                    String rhs = ((LiteralString)      s2).s;
+                    return Pattern.literalString(
+                        new StringBuilder(rhs.length() + 2).appendCodePoint(lhs).append(rhs).toString()
+                    );
                 }
 
                 if (s1 instanceof LiteralString && s2 instanceof LiteralString) {
@@ -2256,38 +2281,43 @@ class Pattern {
                             @Override public int
                             matches(MatcherImpl matcher, int offset) {
 
+                                // The operand MUST match (min) times;
                                 for (int i = 0; i < min; i++) {
                                     offset = op.matches(matcher, offset);
                                     if (offset == -1) return -1;
                                 }
 
-                                int   longestMatchOffset = 0;
-                                int[] longestMatchGroups = null;
+                                // Now try to match the operand (max-min-1) more times.
+                                int     limit       = max - min;
+                                int[]   savedOffset = new int[Math.min(limit, 20)];
+                                int[][] savedGroups = new int[savedOffset.length][];
 
-                                final int limit = max - min;
+                                for (int i = 0; i < limit; i++) {
 
-                                for (int i = 0;; i++) {
-
-                                    final int[] savedGroups = matcher.groups;
-                                    {
-                                        int offset2 = this.successor.matches(matcher, offset);
-                                        if (offset2 != -1) {
-                                            longestMatchOffset = offset2;
-                                            longestMatchGroups = matcher.groups;
-                                        }
+                                    if (i >= savedOffset.length) {
+                                        savedOffset = Arrays.copyOf(savedOffset, 2 * i);
+                                        savedGroups = Arrays.copyOf(savedGroups, 2 * i);
                                     }
-                                    matcher.groups = savedGroups;
 
-                                    if (i >= limit) break;
+                                    savedOffset[i] = offset;
+                                    savedGroups[i] = matcher.groups;
 
                                     offset = op.matches(matcher, offset);
-                                    if (offset == -1) break;
+
+                                    if (offset == -1) {
+                                        for (; i >= 0; i--) {
+
+                                            offset         = savedOffset[i];
+                                            matcher.groups = savedGroups[i];
+
+                                            offset = this.successor.matches(matcher, offset);
+                                            if (offset != -1) return offset;
+                                        }
+                                        return -1;
+                                    }
                                 }
 
-                                if (longestMatchGroups == null) return -1;
-
-                                matcher.groups = longestMatchGroups;
-                                return longestMatchOffset;
+                                return this.successor.matches(matcher, offset);
                             }
 
                             @Override public String
@@ -2300,14 +2330,14 @@ class Pattern {
                             @Override public int
                             matches(MatcherImpl matcher, int offset) {
 
+                                // The operand MUST match min times;
                                 for (int i = 0; i < min; i++) {
                                     offset = op.matches(matcher, offset);
                                     if (offset == -1) return -1;
                                 }
 
-                                final int limit = max - min;
-
-                                for (int i = 0;; i++) {
+                                // Now try to match the operand (max-min-1) more times.
+                                for (int i = min;; i++) {
 
                                     final int[] savedGroups = matcher.groups;
                                     {
@@ -2316,13 +2346,11 @@ class Pattern {
                                     }
                                     matcher.groups = savedGroups;
 
-                                    if (i >= limit) break;
+                                    if (i >= max) return -1;
 
                                     offset = op.matches(matcher, offset);
                                     if (offset == -1) return -1;
                                 }
-
-                                return -1;
                             }
 
                             @Override public String
@@ -2419,7 +2447,7 @@ class Pattern {
                     );
 
                 case QUOTED_CHARACTER:
-                    return Pattern.ccLiteralCharacter(t.text.charAt(1));
+                    return Pattern.ccLiteralCharacter(t.text.codePointAt(1));
 
                 case QUOTATION_BEGIN:
                     {
@@ -2469,10 +2497,10 @@ class Pattern {
 
                 case BEGINNING_OF_LINE:
                     return (
-                        (flags & Pattern.MULTILINE) == 0
+                        (this.currentFlags & Pattern.MULTILINE) == 0
                         ? Pattern.beginningOfInput()
                         : Pattern.beginningOfLine(
-                            (flags & Pattern.UNIX_LINES) != 0
+                            (this.currentFlags & Pattern.UNIX_LINES) != 0
                             ? Pattern.UNIX_LINE_BREAK_CHARACTERS
                             : Pattern.LINE_BREAK_CHARACTERS
                         )
@@ -2480,10 +2508,10 @@ class Pattern {
 
                 case END_OF_LINE:
                     return (
-                        (flags & Pattern.MULTILINE) == 0
+                        (this.currentFlags & Pattern.MULTILINE) == 0
                         ? Pattern.endOfInput()
                         : Pattern.endOfLine(
-                            (flags & Pattern.UNIX_LINES) != 0
+                            (this.currentFlags & Pattern.UNIX_LINES) != 0
                             ? Pattern.UNIX_LINE_BREAK_CHARACTERS
                             : Pattern.LINE_BREAK_CHARACTERS
                         )
@@ -2643,7 +2671,7 @@ class Pattern {
                 switch (t.type) {
 
                 case LITERAL_CHARACTER:
-                    char c = t.text.charAt(0);
+                    int c = t.text.codePointAt(0);
                     return (
                         (this.currentFlags & Pattern.CASE_INSENSITIVE) == 0
                         ? Pattern.ccLiteralCharacter(c)
@@ -2661,14 +2689,14 @@ class Pattern {
                     }
 
                 case LITERAL_HEXADECIMAL:
-                    return Pattern.ccLiteralCharacter((char) Integer.parseInt(
+                    return Pattern.ccLiteralCharacter(Integer.parseInt(
                         t.text.charAt(2) == '{'
                         ? t.text.substring(3, t.text.length() - 1)
                         : t.text.substring(2)
                     ));
 
                 case LITERAL_OCTAL:
-                    return Pattern.ccLiteralCharacter((char) Integer.parseInt(t.text.substring(2, 8)));
+                    return Pattern.ccLiteralCharacter(Integer.parseInt(t.text.substring(2, 8)));
 
                 case LEFT_BRACKET:
                     {
@@ -2698,7 +2726,7 @@ class Pattern {
                 case CC_POSIX:
                     {
                         String ccName = t.text.substring(3, t.text.length() - 1);
-                        Predicate<Character> result = (
+                        Predicate<Integer> result = (
                             "Lower".equals(ccName)  ? Characters.IS_POSIX_LOWER  :
                             "Upper".equals(ccName)  ? Characters.IS_POSIX_UPPER  :
                             "ASCII".equals(ccName)  ? Characters.IS_POSIX_ASCII  :
@@ -2724,7 +2752,7 @@ class Pattern {
                 case CC_JAVA:
                     {
                         String ccName = t.text.substring(3, t.text.length() - 1);
-                        Predicate<Character> result = (
+                        Predicate<Integer> result = (
                             "javaLowerCase".equals(ccName)  ? Characters.IS_LOWER_CASE :
                             "javaUpperCase".equals(ccName)  ? Characters.IS_UPPER_CASE :
                             "javaWhitespace".equals(ccName) ? Characters.IS_WHITESPACE :
@@ -2799,11 +2827,17 @@ class Pattern {
 
             private CharacterClass
             parseCcRange() throws ParseException {
+
                 String lhs = this.peekRead(LITERAL_CHARACTER);
                 if (lhs == null) return this.parseCharacterClass();
-                if (!this.peekRead("-")) return Pattern.ccLiteralCharacter(lhs.charAt(0));
-                String rhs = this.read(LITERAL_CHARACTER);
-                return Pattern.ccRange(lhs.charAt(0), rhs.charAt(0));
+
+                int lhsCp = lhs.codePointAt(0);
+
+                if (!this.peekRead("-")) return Pattern.ccLiteralCharacter(lhsCp);
+
+                int rhsCp = this.read(LITERAL_CHARACTER).codePointAt(0);
+
+                return Pattern.ccRange(lhsCp, rhsCp);
             }
         }.parse();
     }
