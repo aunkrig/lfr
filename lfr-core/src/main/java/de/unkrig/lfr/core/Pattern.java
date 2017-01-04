@@ -1143,15 +1143,10 @@ class Pattern {
             @Override public int
             matches(MatcherImpl matcher, int offset) {
 
-                final int[] savedGroups = matcher.groups;
-
                 int result = alternatives[0].matches(matcher, offset);
                 if (result != -1) return result;
 
                 for (int i = 1; i < alternatives.length; i++) {
-
-                    matcher.groups = savedGroups;
-
                     result = alternatives[i].matches(matcher, offset);
                     if (result != -1) return result;
                 }
@@ -1590,27 +1585,18 @@ class Pattern {
                 // Now try to match the operand (max-min-1) more times.
                 int     limit       = max - min;
                 int[]   savedOffset = new int[Math.min(limit, 20)];
-                int[][] savedGroups = new int[savedOffset.length][];
 
                 for (int i = 0; i < limit; i++) {
 
-                    if (i >= savedOffset.length) {
-                        savedOffset = Arrays.copyOf(savedOffset, 2 * i);
-                        savedGroups = Arrays.copyOf(savedGroups, 2 * i);
-                    }
+                    if (i >= savedOffset.length) savedOffset = Arrays.copyOf(savedOffset, 2 * i);
 
                     savedOffset[i] = offset;
-                    savedGroups[i] = matcher.groups;
 
                     offset = op.matches(matcher, offset);
 
                     if (offset == -1) {
                         for (; i >= 0; i--) {
-
-                            offset         = savedOffset[i];
-                            matcher.groups = savedGroups[i];
-
-                            offset = this.successor.matches(matcher, offset);
+                            offset = this.successor.matches(matcher, savedOffset[i]);
                             if (offset != -1) return offset;
                         }
                         return -1;
@@ -1726,12 +1712,8 @@ class Pattern {
                 // Now try to match the operand (max-min) more times.
                 for (;; i++) {
 
-                    final int[] savedGroups = matcher.groups;
-                    {
-                        int offset2 = this.successor.matches(matcher, offset);
-                        if (offset2 != -1) return offset2;
-                    }
-                    matcher.groups = savedGroups;
+                    int offset2 = this.successor.matches(matcher, offset);
+                    if (offset2 != -1) return offset2;
 
                     if (i >= max) return -1;
 
@@ -1761,12 +1743,10 @@ class Pattern {
 
                 for (; i < max; i++) {
 
-                    final int[] savedGroups = matcher.groups;
                     int offset2 = op.matches(matcher, offset);
-                    if (offset2 == -1) {
-                        matcher.groups = savedGroups;
-                        return this.successor.matches(matcher, offset);
-                    }
+
+                    if (offset2 == -1) return this.successor.matches(matcher, offset);
+
                     offset = offset2;
                 }
 
@@ -1922,15 +1902,13 @@ class Pattern {
 
                 boolean operandMatches;
 
-                End   savedEnd    = matcher.end;
-//                int[] savedGroups = matcher.groups;
+                End savedEnd = matcher.end;
                 {
                     matcher.end = End.ANY;
 
                     operandMatches = op.matches(matcher, offset) != -1;
                 }
-                matcher.end    = savedEnd;
-//                matcher.groups = savedGroups;
+                matcher.end = savedEnd;
 
                 return operandMatches ? -1 : this.successor.matches(matcher, offset);
             }
