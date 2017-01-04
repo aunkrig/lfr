@@ -213,7 +213,7 @@ class OracleEssentials {
 
             System.out.printf(
                 OracleEssentials.LOCALE,
-                "%-15s %-21s %,8.1f %,8.1f %4.0f%%%n",
+                "%-20s %-24s %,8.1f %,8.1f %4.0f%%%n",
                 OracleEssentials.asJavaLiteral(regex),
                 OracleEssentials.asJavaLiteral(subject),
                 ns1 / cs,
@@ -232,7 +232,11 @@ class OracleEssentials {
             int idx;
             if ((idx = "\r\n\b\t\\".indexOf(c)) != -1) {
                 sb.append('\\').append("rnbt\\".charAt(idx));
-            } else {
+            } else
+            if (c > 255) {
+                sb.append(String.format("\\u%04x", (int) c));
+            } else
+            {
                 sb.append(c);
             }
         }
@@ -281,8 +285,8 @@ class OracleEssentials {
         if (!OracleEssentials.ALSO_COMPARE_PERFORMANCE) return;
 
         Assert.assertEquals(-1, OracleEssentials.totalCount);
-        System.out.println("Regex           Subject                jur[ns] dulc[ns]  Performance gain");
-        System.out.println("-------------------------------------------------------------------------");
+        System.out.println("Regex                Subject                   jur[ns] dulc[ns]  Performance gain");
+        System.out.println("---------------------------------------------------------------------------------");
         OracleEssentials.totalNs1    = 0;
         OracleEssentials.totalNs2    = 0;
         OracleEssentials.gainSum     = 0;
@@ -296,10 +300,10 @@ class OracleEssentials {
         if (!OracleEssentials.ALSO_COMPARE_PERFORMANCE) return;
 
         Assert.assertNotEquals(-1, OracleEssentials.totalCount);
-        System.out.println("-------------------------------------------------------------------------");
+        System.out.println("---------------------------------------------------------------------------------");
         System.out.printf(
             OracleEssentials.LOCALE,
-            "                                      %,8.1f %,8.1f%n",
+            "                                              %,8.1f %,8.1f%n",
             OracleEssentials.totalNs1 / (double) OracleEssentials.CHUNK_SIZE,
             OracleEssentials.totalNs2 / (double) OracleEssentials.CHUNK_SIZE
         );
