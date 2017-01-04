@@ -173,7 +173,7 @@ class PatternTest {
         OracleEssentials.harness("\\p{Lu}",            " a B c ä Ä ");
         OracleEssentials.harness("\\P{Lu}",            " a B c ä Ä ");
 
-//        OracleEssentials.harness("\\p{IsAlphabetic}",  " a B c ä Ä ");  Unicode binary properties are not implementd
+//        OracleEssentials.harness("\\p{IsAlphabetic}",  " a B c ä Ä ");  Unicode binary properties are not implemented
     }
 
     @Test public void
@@ -209,8 +209,11 @@ class PatternTest {
 
     @Test public void
     testPositiveLookbehind() {
-        OracleEssentials.harness("(?<=b)a",   " a aba abba a");
-        OracleEssentials.harness("(?<=(b))a", " a aba abba a");
+        OracleEssentials.harness("(?<=b)a",    " a aba abba a");
+        OracleEssentials.harness("(?<=(b))a",  " a aba abba a");
+        OracleEssentials.harness("(?<=\\R )a", " \r\n a ");
+        OracleEssentials.harness("(?<=\\R )a", " \r a ");
+        OracleEssentials.harness("(?<=\\R )a", " \n a ");
     }
 
     @Test public void
@@ -232,7 +235,7 @@ class PatternTest {
     @Test public void
     testTransparentBounds() {
 
-        // The nineth "find()" fails, and for jur "hitEnd()" returns "false"!?
+        // The for the nineth, failed, match, jur returns "false" for "hitEnd()"!?
 //        OracleEssentials.harness("\\b",     "__a__ a aba abba __a__", 0, 5, 17, true);
 
         // Lookahead.
@@ -303,6 +306,24 @@ class PatternTest {
         OracleEssentials.harness(clefUnicode + "?", "" + clefLowSurrogate);
         OracleEssentials.harness(clefUnicode + "?", "" + clefHighSurrogate + clefLowSurrogate);
         OracleEssentials.harness(clefUnicode + "?", "" + clefLowSurrogate + clefHighSurrogate);
+    }
+
+    @Test public void
+    testPreviousMatchBoundary() {
+
+        // From: http://stackoverflow.com/questions/2708833
+        OracleEssentials.harness(
+            "(?<=\\G\\d{3})(?=\\d)" + "|" + "(?<=^-?\\d{1,3})(?=(?:\\d{3})+(?!\\d))",
+            "-1234567890.1234567890"
+        );
+    }
+
+    @Test public void
+    testAtomicGroups() {
+        OracleEssentials.harness("a(bc|b)c",   "abc");
+        OracleEssentials.harness("a(bc|b)c",   "abbc");
+        OracleEssentials.harness("a(?>bc|b)c", "abc");
+        OracleEssentials.harness("a(?>bc|b)c", "abbc");
     }
 
     // ===================================
