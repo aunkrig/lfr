@@ -264,7 +264,8 @@ class OracleEssentials {
             Assert.assertEquals(message + ", start(" + i + ")", start1, start2);
 
             int end1 = matcher1.end(i);
-            Assert.assertEquals(message + ", end(" + i + ")", end1, matcher2.end(i));
+            int end2 = matcher2.end(i);
+            Assert.assertEquals(message + ", end(" + i + ")", end1, end2);
 
             String group1 = matcher1.group(i);
             String group2 = matcher2.group(i);
