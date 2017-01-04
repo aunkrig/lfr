@@ -926,16 +926,27 @@ class Pattern {
     interface Sequence {
 
         /**
-         * Checks whether the subject of the <var>matcher</var>, starting at the <var>offset</var>, matches.
+         * Checks whether this sequence matches the subject of the <var>matcher</var>, starting at the
+         * <var>offset</var>.
          * <p>
          *   If this sequence matches, then the method returns the offset of the first character <em>after</em> the
-         *   match, and the <var>matcher</var> reflects the final state (in its {@link MatcherImpl#groups} and {@link
-         *   MatcherImpl#hitEnd} fields).
+         *   match, and <var>matcher</var>.{@link MatcherImpl#groups groups} is replaced with an array that reflects
+         *   the groups after the match.
          * </p>
          * <p>
-         *   Otherwise, if this sequence does <em>not</em> match, then this method returns {@code -1}, and the state
-         *   of the <var>matcher</var> is undefined.
+         *   Otherwise, if this sequence does <em>not</em> match, then the method returns {@code -1}, and the
+         *   <var>matcher</var>.{@link MatcherImpl#groups groups} remain unchanged.
          * </p>
+         * <p>
+         *   In both cases, <var>matcher</var>.{@link MatcherImpl#hitEnd hitEnd} is set to {@code true} iff an attempt
+         *   was made to peek past the <var>matcher</var>'s region, and <var>matcher</var>.{@link MatcherImpl#hitStart
+         *   hitStart} is set to {@code true} iff an attempt was made to peek <em>before</em> the <var>matcher</var>'s
+         *   region.
+         * </p>
+         *
+         * @see Matcher#region(int, int)
+         * @see MatcherImpl#groups
+         * @see MatcherImpl#hitEnd
          */
         int
         matches(MatcherImpl matcher, int offset);
@@ -1196,7 +1207,8 @@ class Pattern {
     }
 
     public static Sequence
-    storeGroupStart(final int groupNumber) {
+    capturingGroupStart(final int groupNumber) {
+
         return new AbstractSequence() {
 
             @Override public int
@@ -1221,7 +1233,7 @@ class Pattern {
             @Override public Sequence
             reverse() {
                 Sequence result = this.successor.reverse();
-                result.append(Pattern.storeGroupEnd(groupNumber));
+                result.append(Pattern.capturingGroupEnd(groupNumber));
                 return result;
             }
 
@@ -1231,7 +1243,8 @@ class Pattern {
     }
 
     public static Sequence
-    storeGroupEnd(final int groupNumber) {
+    capturingGroupEnd(final int groupNumber) {
+
         return new AbstractSequence() {
 
             @Override public int
@@ -1245,10 +1258,10 @@ class Pattern {
             @Override public Sequence
             reverse() {
                 if (this.successor == Pattern.TERMINAL) {
-                    return Pattern.storeGroupStart(groupNumber);
+                    return Pattern.capturingGroupStart(groupNumber);
                 }
                 Sequence result = this.successor.reverse();
-                result.append(Pattern.storeGroupStart(groupNumber));
+                result.append(Pattern.capturingGroupStart(groupNumber));
                 return result;
             }
 
@@ -2711,9 +2724,9 @@ class Pattern {
                 case CAPTURING_GROUP:
                     {
                         int groupNumber = ++rs.groupCount;
-                        Sequence result = Pattern.storeGroupStart(groupNumber);
+                        Sequence result = Pattern.capturingGroupStart(groupNumber);
                         result.append(this.parseAlternatives());
-                        result.append(Pattern.storeGroupEnd(groupNumber));
+                        result.append(Pattern.capturingGroupEnd(groupNumber));
                         this.read(")");
                         return result;
                     }
