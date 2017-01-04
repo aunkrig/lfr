@@ -796,8 +796,9 @@ class Pattern {
 
         return new CharSequence() {
             @Override public CharSequence subSequence(int start, int end) { return Pattern.subsequence(this, start, end); }
-            @Override public int length()                                 { return end - start;                   }
-            @Override public char charAt(int index)                       { return subject.charAt(start + index); }
+            @Override public int          length()                        { return end - start;                           }
+            @Override public char         charAt(int index)               { return subject.charAt(start + index);         }
+            @Override public String       toString()                      { return new StringBuilder(this).toString();    }
         };
     }
 
@@ -1083,7 +1084,7 @@ class Pattern {
         evaluate(int subject) { return subject == this.c; }
 
         @Override public String
-        toString() { return new String(Character.toChars(this.c)); }
+        toString() { return new String(Character.toChars(this.c)) + this.successor; }
     }
 
     /**
@@ -1112,7 +1113,7 @@ class Pattern {
         }
 
         @Override public String
-        toString() { return this.s; }
+        toString() { return this.s + this.successor; }
     }
 
     // ============================================== Sequences ================================================
@@ -1135,9 +1136,19 @@ class Pattern {
 
         return new AbstractSequence() {
 
+            boolean successorAppended;
+
             @Override public void
             append(Sequence that) {
-                for (Sequence s : alternatives) s.append(that);
+
+                // On the first invocation, we append "that" to all alternatives. On esubsequent invocations, we append
+                // "that" only to ONE alternative, because otherwise it would be added N times.
+                if (this.successorAppended) {
+                    alternatives[0].append(that);
+                } else {
+                    for (Sequence s : alternatives) s.append(that);
+                    this.successorAppended = true;
+                }
             }
 
             @Override public int
@@ -1156,6 +1167,31 @@ class Pattern {
 
             @Override public String
             toString() { return Pattern.join(alternatives, '|'); }
+        };
+    }
+
+    public static Sequence
+    independenNonCapturingGroup(final Sequence[] alternatives) {
+
+        if (alternatives.length == 0) return Pattern.emptyStringSequence();
+
+        if (alternatives.length == 1) return alternatives[0];
+
+        return new AbstractSequence() {
+
+            @Override public int
+            matches(MatcherImpl matcher, int offset) {
+
+                for (Sequence a : alternatives) {
+                    int result = a.matches(matcher, offset);
+                    if (result != -1) return this.successor.matches(matcher, result);
+                }
+
+                return -1;
+            }
+
+            @Override public String
+            toString() { return "(?>" + Pattern.join(alternatives, '|') + ')'; }
         };
     }
 
@@ -1188,6 +1224,9 @@ class Pattern {
                 result.append(Pattern.storeGroupEnd(groupNumber));
                 return result;
             }
+
+            @Override public String
+            toString() { return "(" + this.successor; }
         };
     }
 
@@ -1212,6 +1251,9 @@ class Pattern {
                 result.append(Pattern.storeGroupStart(groupNumber));
                 return result;
             }
+
+            @Override public String
+            toString() { return ")" + this.successor; }
         };
     }
 
@@ -2316,6 +2358,9 @@ class Pattern {
 
         @Override public Sequence
         reverse() { return this; }
+
+        @Override public String
+        toString() { return "[TERM]"; }
     };
 
     /**
@@ -2680,6 +2725,19 @@ class Pattern {
                         return result;
                     }
 
+                case INDEPENDENT_NON_CAPTURING_GROUP:
+                    {
+                        List<Sequence> alternatives = new ArrayList<Sequence>();
+                        alternatives.add(this.parseSequence());
+                        while (this.peekRead(EITHER_OR) != null) alternatives.add(this.parseSequence());
+
+                        this.read(")");
+
+                        return Pattern.independenNonCapturingGroup(
+                            alternatives.toArray(new Sequence[alternatives.size()])
+                        );
+                    }
+
                 case MATCH_FLAGS_NON_CAPTURING_GROUP:
                     {
                         int savedFlags = this.currentFlags;
@@ -2803,9 +2861,6 @@ class Pattern {
                         this.read(TokenType.END_GROUP);
                         return Pattern.negate(Pattern.positiveLookbehind(op));
                     }
-
-                case INDEPENDENT_NON_CAPTURING_GROUP:
-                    throw new ParseException("\"" + t + "\" (" + t.type + ") is not yet implemented");
 
                 case CC_NEGATION:
                 case CC_RANGE:

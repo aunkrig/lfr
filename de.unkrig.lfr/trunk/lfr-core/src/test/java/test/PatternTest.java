@@ -320,10 +320,10 @@ class PatternTest {
 
     @Test public void
     testAtomicGroups() {
-        OracleEssentials.harness("a(bc|b)c",   "abc");
-        OracleEssentials.harness("a(bc|b)c",   "abbc");
-        OracleEssentials.harness("a(?>bc|b)c", "abc");
-        OracleEssentials.harness("a(?>bc|b)c", "abbc");
+        OracleEssentials.harness("^a(bc|b)c$",   "abc");
+        OracleEssentials.harness("^a(bc|b)c$",   "abcc");
+        OracleEssentials.harness("^a(?>bc|b)c$", "abc");
+        OracleEssentials.harness("^a(?>bc|b)c$", "abcc");
     }
 
     // ===================================
