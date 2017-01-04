@@ -1164,6 +1164,62 @@ class Pattern {
         };
     }
 
+    public static Sequence
+    storeGroupStart(final int groupNumber) {
+        return new AbstractSequence() {
+
+            @Override public int
+            matches(MatcherImpl matcher, int offset) {
+
+                int[] newGroups = Arrays.copyOf(matcher.groups, matcher.groups.length);
+
+                int[] savedGroups = matcher.groups;
+                newGroups[2 * groupNumber] = offset;
+                matcher.groups = newGroups;
+
+                int result = this.successor.matches(matcher, offset);
+
+                if (result == -1) {
+                    matcher.groups = savedGroups;
+                    return -1;
+                }
+
+                return result;
+            }
+
+            @Override public Sequence
+            reverse() {
+                Sequence result = this.successor.reverse();
+                result.append(Pattern.storeGroupEnd(groupNumber));
+                return result;
+            }
+        };
+    }
+
+    public static Sequence
+    storeGroupEnd(final int groupNumber) {
+        return new AbstractSequence() {
+
+            @Override public int
+            matches(MatcherImpl matcher, int offset) {
+
+                matcher.groups[2 * groupNumber + 1] = offset;
+
+                return this.successor.matches(matcher, offset);
+            }
+
+            @Override public Sequence
+            reverse() {
+                if (this.successor == Pattern.TERMINAL) {
+                    return Pattern.storeGroupStart(groupNumber);
+                }
+                Sequence result = this.successor.reverse();
+                result.append(Pattern.storeGroupStart(groupNumber));
+                return result;
+            }
+        };
+    }
+
     /**
      * @param groupNumber 1...<var>groupCount</var>
      */
@@ -1866,13 +1922,15 @@ class Pattern {
 
                 boolean operandMatches;
 
-                End savedEnd = matcher.end;
+                End   savedEnd    = matcher.end;
+//                int[] savedGroups = matcher.groups;
                 {
                     matcher.end = End.ANY;
 
                     operandMatches = op.matches(matcher, offset) != -1;
                 }
-                matcher.end = savedEnd;
+                matcher.end    = savedEnd;
+//                matcher.groups = savedGroups;
 
                 return operandMatches ? -1 : this.successor.matches(matcher, offset);
             }
@@ -2629,7 +2687,10 @@ class Pattern {
 
                 case CAPTURING_GROUP:
                     {
-                        Sequence result = Pattern.capturingGroup(++rs.groupCount, this.parseAlternatives());
+                        int groupNumber = ++rs.groupCount;
+                        Sequence result = Pattern.storeGroupStart(groupNumber);
+                        result.append(this.parseAlternatives());
+                        result.append(Pattern.storeGroupEnd(groupNumber));
                         this.read(")");
                         return result;
                     }
