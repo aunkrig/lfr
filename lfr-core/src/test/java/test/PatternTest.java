@@ -59,8 +59,8 @@ class PatternTest {
 
         String message = "regex=\"" + regex + "\", subject=\"" + subject + "\"";
 
-        java.util.regex.Matcher            matcher1 = java.util.regex.Pattern.compile(regex).matcher(subject);
-        de.unkrig.lfr.core.Pattern.Matcher matcher2 = de.unkrig.lfr.core.Pattern.compile(regex).matcher(subject);
+        java.util.regex.Matcher    matcher1 = java.util.regex.Pattern.compile(regex).matcher(subject);
+        de.unkrig.lfr.core.Matcher matcher2 = de.unkrig.lfr.core.Pattern.compile(regex).matcher(subject);
 
         boolean m1Matches = matcher1.matches();
         boolean m2Matches = matcher2.matches();
@@ -180,8 +180,7 @@ class PatternTest {
     testNamedCapturingGroups() {
         OracleEssentials.harness("(?<xxx>a+)", " a aa aaa");
 
-        de.unkrig.lfr.core.Pattern.Matcher
-        matcher = de.unkrig.lfr.core.Pattern.compile("(?<xxx>a+)").matcher(" a aa aaa");
+        de.unkrig.lfr.core.Matcher matcher = de.unkrig.lfr.core.Pattern.compile("(?<xxx>a+)").matcher(" a aa aaa");
 
         Assert.assertTrue(matcher.find());
         Assert.assertEquals("a", matcher.group("xxx"));
@@ -343,7 +342,7 @@ class PatternTest {
     private void
     verifyLookingAt(String regex, String subject) {
         java.util.regex.Matcher            m1 = java.util.regex.Pattern.compile(regex).matcher(subject);
-        de.unkrig.lfr.core.Pattern.Matcher m2 = de.unkrig.lfr.core.Pattern.compile(regex).matcher(subject);
+        de.unkrig.lfr.core.Matcher m2 = de.unkrig.lfr.core.Pattern.compile(regex).matcher(subject);
         Assert.assertEquals(m1.lookingAt(), m2.lookingAt());
         OracleEssentials.assertEqualState("regex=\"" + regex + "\", subject=\"" + subject + "\"", m1, m2);
     }
