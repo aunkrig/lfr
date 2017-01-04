@@ -1459,6 +1459,172 @@ class Pattern {
         };
     }
 
+    public static AbstractSequence
+    greedyQuantifierSequence(final Sequence op, final int min, final int max) {
+
+        if (op instanceof CharacterClass) {
+
+            // Character class cannot have groups, so optimize when the operand is a character class.
+            final CharacterClass cc = (CharacterClass) op;
+
+            return new AbstractSequence() {
+
+                @Override public int
+                matches(MatcherImpl matcher, int offset) {
+
+                    // The operand MUST match (min) times;
+                    for (int i = 0; i < min; i++) {
+                        offset = cc.matches(matcher, offset);
+                        if (offset == -1) return -1;
+                    }
+
+                    // Now try to match the operand (max-min-1) more times.
+                    int   limit       = max - min;
+                    int[] savedOffset = new int[Math.min(limit, 20)];
+
+                    for (int i = 0; i < limit; i++) {
+
+                        if (i >= savedOffset.length) savedOffset = Arrays.copyOf(savedOffset, 2 * i);
+
+                        savedOffset[i] = offset;
+
+                        offset = cc.matches(matcher, offset);
+
+                        if (offset == -1) {
+                            for (; i >= 0; i--) {
+                                offset = this.successor.matches(matcher, savedOffset[i]);
+                                if (offset != -1) return offset;
+                            }
+                            return -1;
+                        }
+                    }
+
+                    return this.successor.matches(matcher, offset);
+                }
+
+                @Override public String
+                toString() { return cc + "{" + min + "," + max + "}"; }
+            };
+        }
+
+        return new AbstractSequence() {
+
+            @Override public int
+            matches(MatcherImpl matcher, int offset) {
+
+                // The operand MUST match (min) times;
+                for (int i = 0; i < min; i++) {
+                    offset = op.matches(matcher, offset);
+                    if (offset == -1) return -1;
+                }
+
+                // Now try to match the operand (max-min-1) more times.
+                int     limit       = max - min;
+                int[]   savedOffset = new int[Math.min(limit, 20)];
+                int[][] savedGroups = new int[savedOffset.length][];
+
+                for (int i = 0; i < limit; i++) {
+
+                    if (i >= savedOffset.length) {
+                        savedOffset = Arrays.copyOf(savedOffset, 2 * i);
+                        savedGroups = Arrays.copyOf(savedGroups, 2 * i);
+                    }
+
+                    savedOffset[i] = offset;
+                    savedGroups[i] = matcher.groups;
+
+                    offset = op.matches(matcher, offset);
+
+                    if (offset == -1) {
+                        for (; i >= 0; i--) {
+
+                            offset         = savedOffset[i];
+                            matcher.groups = savedGroups[i];
+
+                            offset = this.successor.matches(matcher, offset);
+                            if (offset != -1) return offset;
+                        }
+                        return -1;
+                    }
+                }
+
+                return this.successor.matches(matcher, offset);
+            }
+
+            @Override public String
+            toString() { return op + "{" + min + "," + max + "}"; }
+        };
+    }
+
+    public static AbstractSequence
+    reluctantQuantifierSequence(final Sequence op, final int min, final int max) {
+
+        return new AbstractSequence() {
+
+            @Override public int
+            matches(MatcherImpl matcher, int offset) {
+
+                // The operand MUST match min times;
+                for (int i = 0; i < min; i++) {
+                    offset = op.matches(matcher, offset);
+                    if (offset == -1) return -1;
+                }
+
+                // Now try to match the operand (max-min-1) more times.
+                for (int i = min;; i++) {
+
+                    final int[] savedGroups = matcher.groups;
+                    {
+                        int offset2 = this.successor.matches(matcher, offset);
+                        if (offset2 != -1) return offset2;
+                    }
+                    matcher.groups = savedGroups;
+
+                    if (i >= max) return -1;
+
+                    offset = op.matches(matcher, offset);
+                    if (offset == -1) return -1;
+                }
+            }
+
+            @Override public String
+            toString() { return op + "{" + min + "," + max + "}?"; }
+        };
+    }
+
+    public static AbstractSequence
+    possessiveQuantifierSequence(final Sequence op, final int min, final int max) {
+
+        return new AbstractSequence() {
+
+            @Override public int
+            matches(MatcherImpl matcher, int offset) {
+
+                for (int i = 0; i < min; i++) {
+                    offset = op.matches(matcher, offset);
+                    if (offset == -1) return -1;
+                }
+
+                int limit = max - min;
+                for (int i = 0; i < limit; i++) {
+
+                    final int[] savedGroups = matcher.groups;
+                    int offset2 = op.matches(matcher, offset);
+                    if (offset2 == -1) {
+                        matcher.groups = savedGroups;
+                        return this.successor.matches(matcher, offset);
+                    }
+                    offset = offset2;
+                }
+
+                return this.successor.matches(matcher, offset);
+            }
+
+            @Override public String
+            toString() { return op + "{" + min + "," + max + "}+"; }
+        };
+    }
+
     // ====================================== Character classes ===========================================
 
     /**
@@ -2276,116 +2442,13 @@ class Pattern {
                     switch (t.type) {
 
                     case GREEDY_QUANTIFIER:
-                        return new AbstractSequence() {
-
-                            @Override public int
-                            matches(MatcherImpl matcher, int offset) {
-
-                                // The operand MUST match (min) times;
-                                for (int i = 0; i < min; i++) {
-                                    offset = op.matches(matcher, offset);
-                                    if (offset == -1) return -1;
-                                }
-
-                                // Now try to match the operand (max-min-1) more times.
-                                int     limit       = max - min;
-                                int[]   savedOffset = new int[Math.min(limit, 20)];
-                                int[][] savedGroups = new int[savedOffset.length][];
-
-                                for (int i = 0; i < limit; i++) {
-
-                                    if (i >= savedOffset.length) {
-                                        savedOffset = Arrays.copyOf(savedOffset, 2 * i);
-                                        savedGroups = Arrays.copyOf(savedGroups, 2 * i);
-                                    }
-
-                                    savedOffset[i] = offset;
-                                    savedGroups[i] = matcher.groups;
-
-                                    offset = op.matches(matcher, offset);
-
-                                    if (offset == -1) {
-                                        for (; i >= 0; i--) {
-
-                                            offset         = savedOffset[i];
-                                            matcher.groups = savedGroups[i];
-
-                                            offset = this.successor.matches(matcher, offset);
-                                            if (offset != -1) return offset;
-                                        }
-                                        return -1;
-                                    }
-                                }
-
-                                return this.successor.matches(matcher, offset);
-                            }
-
-                            @Override public String
-                            toString() { return op + "{" + min + "," + max + "}"; }
-                        };
+                        return Pattern.greedyQuantifierSequence(op, min, max);
 
                     case RELUCTANT_QUANTIFIER:
-                        return new AbstractSequence() {
-
-                            @Override public int
-                            matches(MatcherImpl matcher, int offset) {
-
-                                // The operand MUST match min times;
-                                for (int i = 0; i < min; i++) {
-                                    offset = op.matches(matcher, offset);
-                                    if (offset == -1) return -1;
-                                }
-
-                                // Now try to match the operand (max-min-1) more times.
-                                for (int i = min;; i++) {
-
-                                    final int[] savedGroups = matcher.groups;
-                                    {
-                                        int offset2 = this.successor.matches(matcher, offset);
-                                        if (offset2 != -1) return offset2;
-                                    }
-                                    matcher.groups = savedGroups;
-
-                                    if (i >= max) return -1;
-
-                                    offset = op.matches(matcher, offset);
-                                    if (offset == -1) return -1;
-                                }
-                            }
-
-                            @Override public String
-                            toString() { return op + "{" + min + "," + max + "}?"; }
-                        };
+                        return Pattern.reluctantQuantifierSequence(op, min, max);
 
                     case POSSESSIVE_QUANTIFIER:
-                        return new AbstractSequence() {
-
-                            @Override public int
-                            matches(MatcherImpl matcher, int offset) {
-
-                                for (int i = 0; i < min; i++) {
-                                    offset = op.matches(matcher, offset);
-                                    if (offset == -1) return -1;
-                                }
-
-                                int limit = max - min;
-                                for (int i = 0; i < limit; i++) {
-
-                                    final int[] savedGroups = matcher.groups;
-                                    int offset2 = op.matches(matcher, offset);
-                                    if (offset2 == -1) {
-                                        matcher.groups = savedGroups;
-                                        return this.successor.matches(matcher, offset);
-                                    }
-                                    offset = offset2;
-                                }
-
-                                return this.successor.matches(matcher, offset);
-                            }
-
-                            @Override public String
-                            toString() { return op + "{" + min + "," + max + "}+"; }
-                        };
+                        return Pattern.possessiveQuantifierSequence(op, min, max);
 
                     default:
                         throw new AssertionError(t);
