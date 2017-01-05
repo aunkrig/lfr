@@ -336,7 +336,8 @@ class Sequences {
             matches(MatcherImpl matcher, int offset) {
 
                 if (offset >= matcher.anchoringRegionEnd) {
-                    matcher.hitEnd = true;
+                    matcher.hitEnd     = true;
+                    matcher.requireEnd = true;
                     return this.successor.matches(matcher, offset);
                 }
 
@@ -344,7 +345,8 @@ class Sequences {
                 if (Pattern.LINE_BREAK_CHARACTERS.indexOf(c) == -1) return -1;
 
                 if (offset == matcher.anchoringRegionEnd - 1) {
-                    matcher.hitEnd = true;
+                    matcher.hitEnd     = true;
+                    matcher.requireEnd = true;
                     return this.successor.matches(matcher, offset);
                 }
 
@@ -380,7 +382,8 @@ class Sequences {
 
                 if (offset < matcher.anchoringRegionEnd) return -1;
 
-                matcher.hitEnd = true;
+                matcher.hitEnd     = true;
+                matcher.requireEnd = true;
 
                 return this.successor.matches(matcher, offset);
             }
@@ -406,7 +409,8 @@ class Sequences {
             matches(MatcherImpl matcher, int offset) {
 
                 if (offset == matcher.anchoringRegionEnd) {
-                    matcher.hitEnd = true;
+                    matcher.hitEnd     = true;
+                    matcher.requireEnd = true;
                     return this.successor.matches(matcher, offset);
                 }
 
@@ -436,7 +440,8 @@ class Sequences {
             matches(MatcherImpl matcher, int offset) {
 
                 if (offset >= matcher.transparentRegionEnd) {
-                    matcher.hitEnd = true;
+                    matcher.hitEnd     = true;
+                    matcher.requireEnd = true;
                     if (offset == matcher.transparentRegionStart) return -1; // Zero-length region.
                     if (!Pattern.isWordCharacter(matcher.charAt(offset - 1))) return -1;
                 } else
@@ -500,12 +505,13 @@ class Sequences {
                 boolean lookaheadMatches;
 
                 Pattern.End savedEnd       = matcher.end;
-                int savedRegionEnd = matcher.regionEnd;
+                int         savedRegionEnd = matcher.regionEnd;
                 {
-                    matcher.end = Pattern.End.ANY;
+                    matcher.end       = Pattern.End.ANY;
                     matcher.regionEnd = matcher.transparentRegionEnd;
 
                     lookaheadMatches = op.matches(matcher, offset) != -1;
+                    matcher.requireEnd = matcher.hitEnd;
                 }
                 matcher.end       = savedEnd;
                 matcher.regionEnd = savedRegionEnd;
@@ -527,24 +533,26 @@ class Sequences {
 
                 boolean lookbehindMatches;
 
-                boolean savedHitEnd = matcher.hitEnd; // We want to ignore the lookbehind's HITEND.
-                Pattern.End     savedEnd    = matcher.end;
+                Pattern.End savedEnd          = matcher.end;
+                boolean     savedHitStart     = matcher.hitStart;
+                boolean     savedRequireStart = matcher.requireStart;
+                int         savedRegionStart  = matcher.regionStart;
                 {
                     matcher.reverse();
                     {
-                        int savedRegionEnd = matcher.regionEnd;
-                        {
-                            matcher.regionEnd = matcher.transparentRegionEnd;
-                            matcher.end = Pattern.End.ANY;
-                            lookbehindMatches = op.matches(matcher, l1 - offset) != -1;
-                        }
-                        matcher.regionEnd = savedRegionEnd;
+                        matcher.end        = Pattern.End.ANY;
+                        matcher.hitEnd     = false;
+                        matcher.regionEnd  = matcher.transparentRegionEnd;
+                        lookbehindMatches  = op.matches(matcher, l1 - offset) != -1;
+                        matcher.requireEnd = matcher.hitEnd;
                     }
                     matcher.reverse();
                 }
 
-                matcher.hitEnd = savedHitEnd;
-                matcher.end    = savedEnd;
+                matcher.end          = savedEnd;
+                matcher.hitStart     = savedHitStart;
+                matcher.requireStart = savedRequireStart;
+                matcher.regionStart  = savedRegionStart;
 
                 return lookbehindMatches ? this.successor.matches(matcher, offset) : -1;
             }
