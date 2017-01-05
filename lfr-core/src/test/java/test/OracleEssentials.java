@@ -276,6 +276,8 @@ class OracleEssentials {
             Assert.assertEquals(message + ", group(" + i + ")", group1, group2);
         }
 
+        Assert.assertEquals(message + ", requireEnd()", matcher1.requireEnd(), matcher2.requireEnd());
+
         OracleEssentials.assertEqualState(message, matcher1, matcher2);
     }
 
