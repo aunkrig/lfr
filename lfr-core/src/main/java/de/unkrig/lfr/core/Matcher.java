@@ -26,23 +26,25 @@
 
 package de.unkrig.lfr.core;
 
+import java.util.regex.MatchResult;
+
 import de.unkrig.commons.nullanalysis.Nullable;
 
 /**
  * A drop-in replacement for {@link java.util.regex.Matcher}.
  */
 public
-interface Matcher {
+interface Matcher extends MatchResult {
 
     /**
      * @see java.util.regex.Matcher#pattern()
      */
     Pattern pattern();
 
-//    /**
-//     * @see java.util.regex.Matcher#toMatchResult()
-//     */
-//    MatchResult toMatchResult();
+    /**
+     * @see java.util.regex.Matcher#toMatchResult()
+     */
+    MatchResult toMatchResult();
 
     /**
      * @see java.util.regex.Matcher#usePattern(java.util.regex.Pattern)
@@ -60,9 +62,10 @@ interface Matcher {
     Matcher reset(CharSequence input);
 
     /**
+     * @see MatchResult#start()
      * @see java.util.regex.Matcher#start()
      */
-    int start();
+    @Override int start();
 
     /**
      * @see java.util.regex.Matcher#start(String)
@@ -70,19 +73,22 @@ interface Matcher {
     int start(String name);
 
     /**
+     * @see MatchResult#start(int)
      * @see java.util.regex.Matcher#start(int)
      */
-    int start(int group);
+    @Override int start(int group);
 
     /**
+     * @see MatchResult#end()
      * @see java.util.regex.Matcher#end()
      */
-    int end();
+    @Override int end();
 
     /**
+     * @see MatchResult#end(int)
      * @see java.util.regex.Matcher#end(int)
      */
-    int end(int group);
+    @Override int end(int group);
 
     /**
      * @see java.util.regex.Matcher#end(String)
@@ -90,14 +96,16 @@ interface Matcher {
     int end(String name);
 
     /**
+     * @see MatchResult#group()
      * @see java.util.regex.Matcher#group()
      */
-    @Nullable String group();
+    @Override @Nullable String group();
 
     /**
+     * @see MatchResult#group(int)
      * @see java.util.regex.Matcher#group(int)
      */
-    @Nullable String group(int group);
+    @Override @Nullable String group(int group);
 
     /**
      * @see java.util.regex.Matcher#group(String)
@@ -105,9 +113,10 @@ interface Matcher {
     @Nullable String group(String name);
 
     /**
+     * @see MatchResult#groupCount()
      * @see java.util.regex.Matcher#groupCount()
      */
-    int groupCount();
+    @Override int groupCount();
 
     /**
      * @see java.util.regex.Matcher#matches()
