@@ -325,6 +325,21 @@ class PatternTest {
         OracleEssentials.harness("^a(?>bc|b)c$", "abcc");
     }
 
+    /**
+     * @see <a href="http://stackoverflow.com/questions/17618812">Clarification about requireEnd Matcher's method</a>
+     */
+    @Test public void
+    testRequireEnd() {
+        OracleEssentials.harness("cat$", "I have a cat");
+        OracleEssentials.harness("cat$", "I have a catflap");
+        OracleEssentials.harness("cat",  "I have a cat");
+        OracleEssentials.harness("cat",  "I have a catflap");
+
+        OracleEssentials.harness("\\d+\\b|[><]=?", "1234");
+        OracleEssentials.harness("\\d+\\b|[><]=?", ">=");
+        OracleEssentials.harness("\\d+\\b|[><]=?", "<");
+    }
+
     // ===================================
 
     private static char
