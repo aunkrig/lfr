@@ -27,6 +27,7 @@
 package de.unkrig.lfr.core;
 
 import java.util.Arrays;
+import java.util.regex.MatchResult;
 
 import de.unkrig.commons.lang.protocol.Predicate;
 import de.unkrig.commons.nullanalysis.Nullable;
@@ -95,6 +96,9 @@ class MatcherImpl implements Matcher {
         this.groups    = (this.initialGroups = new int[2 + 2 * pattern.groupCount]);
         Arrays.fill(this.groups, -1);
     }
+
+    @Override public MatchResult
+    toMatchResult() { return this; }
 
     @Override public Pattern
     pattern() { return this.pattern; }
