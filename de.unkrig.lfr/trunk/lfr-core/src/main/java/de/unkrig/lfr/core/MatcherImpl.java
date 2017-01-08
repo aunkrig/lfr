@@ -44,6 +44,7 @@ class MatcherImpl implements Matcher {
     Pattern      pattern;
 
     CharSequence subject;
+    boolean      reverseSubject;
 
     int          regionStart, regionEnd;
 
@@ -413,7 +414,9 @@ class MatcherImpl implements Matcher {
     }
 
     final char
-    charAt(int offset) { return this.subject.charAt(offset); }
+    charAt(int offset) {
+        return this.subject.charAt(this.reverseSubject ? this.subject.length() - 1 - offset : offset);
+    }
 
     @Override public String
     toString() {
@@ -449,7 +452,8 @@ class MatcherImpl implements Matcher {
     void
     reverse() {
 
-        this.subject = Pattern.asReverse(this.subject);
+        // Reverse the subject.
+        this.reverseSubject = !this.reverseSubject;
 
         int l = this.subject.length();
 
@@ -490,14 +494,24 @@ class MatcherImpl implements Matcher {
 
         // Reverse the groups.
         {
-            int[] tmp = new int[this.groups.length];
-            for (int i = 0; i < tmp.length;) {
-                tmp[i] = this.groups[i + 1] == -1 ? -1 : l - this.groups[i + 1];
-                i++;
-                tmp[i] = this.groups[i - 1] == -1 ? -1 : l - this.groups[i - 1];
-                i++;
+            int[] gs  = this.groups;
+            if (gs.length > 2) {
+                int   gsl = gs.length;
+                int i = 2;
+                do {
+
+                    int tmp = gs[i];
+                    if (tmp == -1) {
+                        i += 2;
+                        continue;
+                    }
+
+                    gs[i] = l - gs[i + 1];
+                    i++;
+                    gs[i] = l - tmp;
+                    i++;
+                } while (i < gsl);
             }
-            this.groups = tmp;
         }
 
         // Reverse the "endOfPreviousMatch".

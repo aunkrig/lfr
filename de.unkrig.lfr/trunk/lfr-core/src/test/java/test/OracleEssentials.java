@@ -26,20 +26,23 @@
 
 package test;
 
+import java.util.Arrays;
 import java.util.Locale;
 
 import org.junit.Assert;
 
 import de.unkrig.commons.nullanalysis.Nullable;
+import test.Sampler.CallTree;
 
 public final
 class OracleEssentials {
 
     private OracleEssentials() {}
 
-    private static final boolean ALSO_COMPARE_PERFORMANCE = false;
-    private static final int     CHUNK_COUNT              = 50;
-    private static final int     CHUNK_SIZE               = 5000;
+    private static final boolean ALSO_COMPARE_PERFORMANCE = true;
+    private static final boolean ALSO_DO_PROFILING        = true;
+    private static final int     CHUNK_COUNT              = 100;
+    private static final int     CHUNK_SIZE               = 1000;
 
     private static final Locale LOCALE = Locale.US;
 
@@ -69,7 +72,7 @@ class OracleEssentials {
     static void
     harness(
         String            regex,
-        String            subject,
+        final String      subject,
         int               flags,
         @Nullable Integer regionStart,
         int               regionEnd,
@@ -77,8 +80,8 @@ class OracleEssentials {
         @Nullable Boolean anchoringBounds
     ) {
 
-        java.util.regex.Pattern    pattern1 = java.util.regex.Pattern.compile(regex, flags);
-        de.unkrig.lfr.core.Pattern pattern2 = de.unkrig.lfr.core.Pattern.compile(regex, flags);
+        final java.util.regex.Pattern    pattern1 = java.util.regex.Pattern.compile(regex, flags);
+        final de.unkrig.lfr.core.Pattern pattern2 = de.unkrig.lfr.core.Pattern.compile(regex, flags);
 
         String message = "regex=\"" + regex + "\", subject=\"" + subject + "\"";
 
@@ -167,39 +170,38 @@ class OracleEssentials {
 
         if (OracleEssentials.ALSO_COMPARE_PERFORMANCE) {
 
-            long ns1 = Long.MAX_VALUE;
-            for (int j = 0; j < OracleEssentials.CHUNK_COUNT; j++) {
+            Runnable r1 = new Runnable() {
 
-                long start = System.nanoTime();
-                for (int i = 0; i < OracleEssentials.CHUNK_SIZE; i++) {
+                @Override public void
+                run() {
 
-                    for (java.util.regex.Matcher m = pattern1.matcher(subject); m.find();) {
+                    java.util.regex.Matcher m = pattern1.matcher(subject);
+
+                    for (; m.find();) {
                         m.group();
                         m.start();
                         m.end();
                     }
                 }
-                long ns = System.nanoTime() - start;
+            };
 
-                if (ns < ns1) ns1 = ns;
-            }
+            Runnable r2 = new Runnable() {
 
-            long ns2 = Long.MAX_VALUE;
-            for (int j = 0; j < OracleEssentials.CHUNK_COUNT; j++) {
+                @Override public void
+                run() {
 
-                long start = System.nanoTime();
-                for (int i = 0; i < OracleEssentials.CHUNK_SIZE; i++) {
+                    de.unkrig.lfr.core.Matcher m = pattern2.matcher(subject);
 
-                    for (de.unkrig.lfr.core.Matcher m = pattern2.matcher(subject); m.find();) {
+                    for (; m.find();) {
                         m.group();
                         m.start();
                         m.end();
                     }
                 }
-                long ns = System.nanoTime() - start;
+            };
 
-                if (ns < ns2) ns2 = ns;
-            }
+            long ns1 = OracleEssentials.measure(r1);
+            long ns2 = OracleEssentials.measure(r2);
 
             final double gain = (double) ns1 / ns2;
 
@@ -221,6 +223,74 @@ class OracleEssentials {
                 100 * gain
             );
         }
+
+        if (OracleEssentials.ALSO_DO_PROFILING) {
+
+            Runnable r2 = new Runnable() {
+
+                @Override public void
+                run() {
+
+                    de.unkrig.lfr.core.Matcher m = pattern2.matcher(subject);
+
+                    for (; m.find();) {
+                        m.group();
+                        m.start();
+                        m.end();
+                    }
+                }
+            };
+
+            Sampler.startSampling(OracleEssentials.class.getName(), "harness");
+            for (int i = 0; i < 10000000; i++) {
+                r2.run();
+            }
+            CallTree t;
+            try {
+                t = Sampler.stopSampling();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+                return;
+            }
+            Sampler.printCallTree(t);
+        }
+    }
+
+    public static long
+    measure(Runnable r) {
+
+        for (;;) {
+
+            long[] realNs = new long[OracleEssentials.CHUNK_COUNT];
+            for (int j = 0; j < OracleEssentials.CHUNK_COUNT; j++) {
+
+                long startRealTime = System.nanoTime();
+                {
+                    for (int i = 0; i < OracleEssentials.CHUNK_SIZE; i++) {
+                        r.run();
+                    }
+                }
+                long endRealTime = System.nanoTime();
+
+                realNs[j] = endRealTime - startRealTime;
+            }
+
+            Arrays.sort(realNs);
+
+//            for (long x : realNs) {
+//                System.out.printf("%8d %s%n", x, StringUtil.repeat((int) (10 * Math.log10(x)), '#'));
+//            }
+
+            double divergence = 100 * ((double) realNs[10] / realNs[0] - 1);
+//            System.out.printf("Divergence: %6.1f%%%n", divergence);
+//            return realNs[0];
+            if (divergence <= 1) return realNs[0];
+        }
+//        long result = Long.MAX_VALUE;
+//        for (long x : realNs) {
+//            if (x < result) result = x;
+//        }
+//        return result;
     }
 
     private static String
