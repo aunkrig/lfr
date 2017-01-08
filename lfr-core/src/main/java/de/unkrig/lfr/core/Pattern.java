@@ -159,55 +159,6 @@ class Pattern {
     final int                  groupCount;
     final Map<String, Integer> namedGroups;
 
-    static CharSequence
-    asReverse(final CharSequence subject) {
-
-        class ReverseCharSequence implements CharSequence {
-
-            final CharSequence original;
-            final int          l1;
-
-            public
-            ReverseCharSequence(CharSequence subject) {
-                this.original = subject;
-                this.l1       = subject.length() - 1;
-            }
-
-            @Override public int
-            length() { return this.original.length(); }
-
-            @Override public char
-            charAt(int index) { return this.original.charAt(this.l1 - index); }
-
-            @Override public CharSequence
-            subSequence(int start, int end) { return Pattern.subsequence(this.original, start, end); }
-
-            @Override public String
-            toString() { return new StringBuilder(this).toString(); }
-        }
-
-        return (
-            subject instanceof ReverseCharSequence
-            ? ((ReverseCharSequence) subject).original
-            : new ReverseCharSequence(subject)
-        );
-    }
-
-    static CharSequence
-    subsequence(final CharSequence subject, final int start, final int end) {
-
-        if (start < 0)                throw new IndexOutOfBoundsException();
-        if (end < start)              throw new IndexOutOfBoundsException();
-        if (start > subject.length()) throw new IndexOutOfBoundsException();
-
-        return new CharSequence() {
-            @Override public CharSequence subSequence(int start, int end) { return Pattern.subsequence(this, start, end); }
-            @Override public int          length()                        { return end - start;                           }
-            @Override public char         charAt(int index)               { return subject.charAt(start + index);         }
-            @Override public String       toString()                      { return new StringBuilder(this).toString();    }
-        };
-    }
-
     enum End { END_OF_SUBJECT, ANY }
 
     // SUPPRESS CHECKSTYLE JavadocVariable:59
@@ -356,7 +307,8 @@ class Pattern {
 
             matcher.hitEnd = false;
 
-            for (; start <= matcher.regionEnd; start++) {
+            final int re = matcher.regionEnd;
+            for (; start <= re; start++) {
 
                 int newOffset = this.matches(matcher, start);
 
