@@ -278,7 +278,7 @@ class MatcherImpl implements Matcher {
         this.hitEnd       = false;
         this.requireEnd   = false;
 
-        if (this.endOfPreviousMatch != -1 && start == this.groups[1] && start == this.groups[0]) {
+        if (this.endOfPreviousMatch != -1 && start == this.groups[0]) {
 
             // The previous match is a zero-length match. To prevent an endless series of these matches, advance
             // start position by one.
@@ -380,7 +380,7 @@ class MatcherImpl implements Matcher {
      *
      * @return The offset after the match, or -1 if <var>cs</var> does not match
      */
-    public int
+    int
     peekRead(int offset, CharSequence cs) {
 
         int csLength = cs.length();
@@ -393,10 +393,11 @@ class MatcherImpl implements Matcher {
         }
 
         for (int i = 0; i < csLength; i++) {
-            if (this.charAt(offset + i) != cs.charAt(i)) return -1;
+            if (this.charAt(offset) != cs.charAt(i)) return -1;
+            offset++;
         }
 
-        return offset + csLength;
+        return offset;
     }
 
     /**

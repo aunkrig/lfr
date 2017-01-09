@@ -342,7 +342,11 @@ class Sequences {
                 }
 
                 char c = matcher.charAt(offset);
-                if (Pattern.LINE_BREAK_CHARACTERS.indexOf(c) == -1) return -1;
+                if (!(
+                    (c <= 0x0d && c >= 0x0a)
+                    || c == 0x85
+                    || (c >= 0x2028 && c <= 0x2029)
+                )) return -1;
 
                 if (offset == matcher.anchoringRegionEnd - 1) {
                     matcher.hitEnd     = true;

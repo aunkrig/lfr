@@ -216,20 +216,31 @@ class Pattern {
         CC_UNICODE_CATEGORY,
 
         // Matchers.
-        /** {@code ^ $ \b \B \A \G \Z \z} */
+        /** {@code ^} */
         BEGINNING_OF_LINE,
+        /** {@code $} */
         END_OF_LINE,
+        /** {@code \b} */
         WORD_BOUNDARY,
+        /** {@code \B} */
         NON_WORD_BOUNDARY,
+        /** {@code \A} */
         BEGINNING_OF_INPUT,
+        /** {@code \G} */
         END_OF_PREVIOUS_MATCH,
+        /** {@code \Z} */
         END_OF_INPUT_BUT_FINAL_TERMINATOR,
+        /** {@code \z} */
         END_OF_INPUT,
+        /** {@code \R} */
         LINEBREAK_MATCHER,
 
         // Quantifiers.
+        /** <code>X? X* X+ X{n} X{min,} X{min,max}</code> */
         GREEDY_QUANTIFIER,
+        /** <code>X?? X*? X+? X{n}? X{min,}? X{min,max}?</code> */
         RELUCTANT_QUANTIFIER,
+        /** <code>X?+ X*+ X++ X{n}+ X{min,}+ X{min,max}+</code> */
         POSSESSIVE_QUANTIFIER,
 
         // Logical operators.
@@ -631,11 +642,15 @@ class Pattern {
 
                 char c = matcher.charAt(offset);
 
-                if (c == this.c1 && offset < matcher.regionEnd - 1 && matcher.charAt(offset + 1) == this.c2) {
-                    return this.successor.matches(matcher, offset + 2);
+                // Check for LInebreAK characters in a highly optimized manner.
+                if (c <= 0x0d) {
+                    if (c == this.c1 && offset < matcher.regionEnd - 1 && matcher.charAt(offset + 1) == this.c2) {
+                        return this.successor.matches(matcher, offset + 2);
+                    }
+                    return c >= 0x0a ? this.successor.matches(matcher, offset + 1) : -1;
                 }
 
-                if (Pattern.LINE_BREAK_CHARACTERS.indexOf(c) != -1) {
+                if (c == 0x85 || (c >= 0x2028 && c <= 0x2029)) {
                     return this.successor.matches(matcher, offset + 1);
                 }
 
@@ -1017,13 +1032,15 @@ class Pattern {
 
                 case CC_ANY:
                     return (
-                        (this.currentFlags & Pattern.DOTALL)     != 0 ? CharacterClasses.anyCharacter()                                       : // SUPPRESS CHECKSTYLE LineLength:2
-                        (this.currentFlags & Pattern.UNIX_LINES) != 0 ? CharacterClasses.negate(CharacterClasses.literalCharacter('\n'), ".") :
-                        CharacterClasses.negate(CharacterClasses.oneOf(Pattern.LINE_BREAK_CHARACTERS), ".")
+                        (this.currentFlags & Pattern.DOTALL) != 0
+                        ? CharacterClasses.anyCharacter()
+                        : (this.currentFlags & Pattern.UNIX_LINES) != 0
+                        ? CharacterClasses.negate(CharacterClasses.literalCharacter('\n', "?"), ".")
+                        : CharacterClasses.negate(CharacterClasses.lineBreakCharacter(), ".")
                     );
 
                 case QUOTED_CHARACTER:
-                    return CharacterClasses.literalCharacter(t.text.codePointAt(1));
+                    return CharacterClasses.literalCharacter(t.text.codePointAt(1), t.text);
 
                 case QUOTATION_BEGIN:
                     {
@@ -1263,7 +1280,7 @@ class Pattern {
                     int c = t.text.codePointAt(0);
                     return (
                         (this.currentFlags & Pattern.CASE_INSENSITIVE) == 0
-                        ? CharacterClasses.literalCharacter(c)
+                        ? CharacterClasses.literalCharacter(c, t.text)
                         : (this.currentFlags & Pattern.UNICODE_CASE) == 0
                         ? CharacterClasses.caseInsensitiveLiteralCharacter(c)
                         : CharacterClasses.unicodeCaseInsensitiveLiteralCharacter(c)
@@ -1273,8 +1290,8 @@ class Pattern {
                     {
                         int idx = "ctnrfae".indexOf(t.text.charAt(1));
                         assert idx != -1;
-                        if (idx == 0) return CharacterClasses.literalCharacter((char) (t.text.charAt(2) & 0x1f));
-                        return CharacterClasses.literalCharacter("c\t\n\r\f\u0007\u001b".charAt(idx));
+                        if (idx == 0) return CharacterClasses.literalCharacter((char) (t.text.charAt(2) & 0x1f), t.text);
+                        return CharacterClasses.literalCharacter("c\t\n\r\f\u0007\u001b".charAt(idx), t.text);
                     }
 
                 case LITERAL_HEXADECIMAL:
@@ -1282,10 +1299,10 @@ class Pattern {
                         t.text.charAt(2) == '{'
                         ? t.text.substring(3, t.text.length() - 1)
                         : t.text.substring(2)
-                    ));
+                    ), t.text);
 
                 case LITERAL_OCTAL:
-                    return CharacterClasses.literalCharacter(Integer.parseInt(t.text.substring(2, 8)));
+                    return CharacterClasses.literalCharacter(Integer.parseInt(t.text.substring(2, 8)), t.text);
 
                 case LEFT_BRACKET:
                     {
@@ -1432,7 +1449,7 @@ class Pattern {
 
                 int lhsCp = lhs.codePointAt(0);
 
-                if (!this.peekRead("-")) return CharacterClasses.literalCharacter(lhsCp);
+                if (!this.peekRead("-")) return CharacterClasses.literalCharacter(lhsCp, lhs);
 
                 int rhsCp = this.read(LITERAL_CHARACTER).codePointAt(0);
 

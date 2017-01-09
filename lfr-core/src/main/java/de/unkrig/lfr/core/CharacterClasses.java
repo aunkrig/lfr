@@ -40,16 +40,20 @@ class CharacterClasses {
     public static
     class LiteralCharacter extends Pattern.CharacterClass {
 
-        int c;
+        int    c;
+        String toString;
 
         public
-        LiteralCharacter(int c) { this.c = c; }
+        LiteralCharacter(int c, String toString) {
+            this.c        = c;
+            this.toString = toString;
+        }
 
         @Override public boolean
         evaluate(int subject) { return subject == this.c; }
 
         @Override public String
-        toString() { return new String(Character.toChars(this.c)) + this.successor; }
+        toString() { return this.toString + this.successor; }
     }
 
     /**
@@ -98,7 +102,7 @@ class CharacterClasses {
      * Checks whether a code point equals the given <var>codePoint</var>
      */
     public static Pattern.CharacterClass
-    literalCharacter(int codePoint) { return new LiteralCharacter(codePoint); }
+    literalCharacter(int codePoint, String toString) { return new LiteralCharacter(codePoint, toString); }
 
     /**
      * Representation of a two-characters union, e.g. "[oO]".
@@ -139,7 +143,7 @@ class CharacterClasses {
     caseInsensitiveLiteralCharacter(final int c) {
         if (c >= 'A' && c <= 'Z') return CharacterClasses.oneOf(c, c + 32);
         if (c >= 'a' && c <= 'z') return CharacterClasses.oneOf(c, c - 32);
-        return CharacterClasses.literalCharacter(c);
+        return CharacterClasses.literalCharacter(c, new String(new int[] { c }, 0, 1));
     }
 
     /**
@@ -149,7 +153,7 @@ class CharacterClasses {
     unicodeCaseInsensitiveLiteralCharacter(final int c) {
         if (Character.isLowerCase(c)) return CharacterClasses.oneOf(c, Character.toUpperCase(c));
         if (Character.isUpperCase(c)) return CharacterClasses.oneOf(c, Character.toLowerCase(c));
-        return CharacterClasses.literalCharacter(c);
+        return CharacterClasses.literalCharacter(c, new String(new int[] { c }, 0, 1));
     }
 
     /**
@@ -258,6 +262,22 @@ class CharacterClasses {
         return new Pattern.CharacterClass() {
             @Override public boolean evaluate(int subject) { return Pattern.isWordCharacter(subject); }
             @Override public String  toString()            { return "\\w";                                       }
+        };
+    }
+
+    public static CharacterClass
+    lineBreakCharacter() {
+
+        return new Pattern.CharacterClass() {
+
+            @Override public boolean
+            evaluate(int subject) {
+                return (
+                    (subject <= 0x0d && subject >= 0x0a)
+                    || subject == 0x85
+                    || (subject >= 0x2028 && subject <= 0x2029)
+                );
+            }
         };
     }
 
