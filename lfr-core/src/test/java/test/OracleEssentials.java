@@ -40,7 +40,7 @@ class OracleEssentials {
     private OracleEssentials() {}
 
     private static final boolean ALSO_COMPARE_PERFORMANCE = true;
-    private static final boolean ALSO_DO_PROFILING        = true;
+    private static final boolean ALSO_DO_PROFILING        = false;
     private static final int     CHUNK_COUNT              = 100;
     private static final int     CHUNK_SIZE               = 1000;
 
@@ -177,7 +177,7 @@ class OracleEssentials {
 
                     java.util.regex.Matcher m = pattern1.matcher(subject);
 
-                    for (; m.find();) {
+                    while (m.find()) {
                         m.group();
                         m.start();
                         m.end();
@@ -192,7 +192,7 @@ class OracleEssentials {
 
                     de.unkrig.lfr.core.Matcher m = pattern2.matcher(subject);
 
-                    for (; m.find();) {
+                    while (m.find()) {
                         m.group();
                         m.start();
                         m.end();
@@ -233,7 +233,7 @@ class OracleEssentials {
 
                     de.unkrig.lfr.core.Matcher m = pattern2.matcher(subject);
 
-                    for (; m.find();) {
+                    while (m.find()) {
                         m.group();
                         m.start();
                         m.end();
@@ -241,10 +241,13 @@ class OracleEssentials {
                 }
             };
 
+            long end = System.nanoTime() + 1000000000;
             Sampler.startSampling(OracleEssentials.class.getName(), "harness");
-            for (int i = 0; i < 10000000; i++) {
-                r2.run();
-            }
+
+            do {
+                for (int i = 0; i < 10000; i++) r2.run();
+            } while (System.nanoTime() < end);
+
             CallTree t;
             try {
                 t = Sampler.stopSampling();
