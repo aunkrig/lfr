@@ -356,7 +356,7 @@ class PatternTest {
 
     private void
     verifyLookingAt(String regex, String subject) {
-        java.util.regex.Matcher            m1 = java.util.regex.Pattern.compile(regex).matcher(subject);
+        java.util.regex.Matcher    m1 = java.util.regex.Pattern.compile(regex).matcher(subject);
         de.unkrig.lfr.core.Matcher m2 = de.unkrig.lfr.core.Pattern.compile(regex).matcher(subject);
         Assert.assertEquals(m1.lookingAt(), m2.lookingAt());
         OracleEssentials.assertEqualState("regex=\"" + regex + "\", subject=\"" + subject + "\"", m1, m2);

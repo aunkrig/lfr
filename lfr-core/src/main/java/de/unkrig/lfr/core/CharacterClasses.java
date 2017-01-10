@@ -32,7 +32,10 @@ import de.unkrig.lfr.core.Pattern.CharacterClass;
 /**
  * Classes and utility methods related to {@link CharacterClass}es.
  */
+final
 class CharacterClasses {
+
+    private CharacterClasses() {}
 
     /**
      * Representation of a literal character, like "a" or "\.".
@@ -43,7 +46,6 @@ class CharacterClasses {
         int    c;
         String toString;
 
-        public
         LiteralCharacter(int c, String toString) {
             this.c        = c;
             this.toString = toString;
@@ -205,7 +207,7 @@ class CharacterClasses {
     }
 
     /**  An (ASCII) digit: [0-9] */
-    public static final Pattern.CharacterClass
+    public static Pattern.CharacterClass
     isDigit() {
         return new Pattern.CharacterClass() {
             @Override public boolean evaluate(int subject) { return subject >= '0' && subject <= '9'; }
@@ -230,7 +232,7 @@ class CharacterClasses {
      * A horizontal whitespace character:
      * <code>[ \t\xA0&#92;u1680&#92;u180e&#92;u2000-&#92;u200a&#92;u202f&#92;u205f&#92;u3000]</code>
      */
-    public static final Pattern.CharacterClass
+    public static Pattern.CharacterClass
     isHorizontalWhitespace() {
 
         return new Pattern.CharacterClass() {
@@ -249,15 +251,15 @@ class CharacterClasses {
     }
 
     /**  A whitespace character: [ \t\n\x0B\f\r] */
-    public static final Pattern.CharacterClass
+    public static Pattern.CharacterClass
     isWhitespace() { return CharacterClasses.oneOf(Pattern.WHITESPACE_CHARACTERS); }
 
     /**  A vertical whitespace character: [\n\x0B\f\r\x85/u2028/u2029] */
-    public static final Pattern.CharacterClass
+    public static Pattern.CharacterClass
     isVerticalWhitespace() { return CharacterClasses.oneOf(Pattern.VERTICAL_WHITESPACE_CHARACTERS); }
 
     /**  A word character: [a-zA-Z_0-9] */
-    public static final Pattern.CharacterClass
+    public static Pattern.CharacterClass
     isWord() {
         return new Pattern.CharacterClass() {
             @Override public boolean evaluate(int subject) { return Pattern.isWordCharacter(subject); }
@@ -282,7 +284,7 @@ class CharacterClasses {
     }
 
     /** Matches <em>any</em> character. */
-    public static final Pattern.CharacterClass
+    public static Pattern.CharacterClass
     anyCharacter() {
         return new Pattern.CharacterClass() {
             @Override public boolean evaluate(int subject) { return true; }

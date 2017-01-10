@@ -414,7 +414,7 @@ class MatcherImpl implements Matcher {
         return predicate.evaluate(this.charAt(offset));
     }
 
-    final char
+    char
     charAt(int offset) {
         return this.subject.charAt(this.reverseSubject ? this.subject.length() - 1 - offset : offset);
     }
@@ -497,8 +497,8 @@ class MatcherImpl implements Matcher {
         {
             int[] gs  = this.groups;
             if (gs.length > 2) {
-                int   gsl = gs.length;
-                int i = 2;
+                int gsl = gs.length;
+                int i   = 2;
                 do {
 
                     int tmp = gs[i];
