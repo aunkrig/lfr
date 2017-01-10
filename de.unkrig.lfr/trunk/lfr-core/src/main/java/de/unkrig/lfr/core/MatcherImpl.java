@@ -291,7 +291,7 @@ class MatcherImpl implements Matcher {
         }
 
         this.groups = this.initialGroups;
-        this.end = End.ANY;
+        this.end    = End.ANY;
         if (this.pattern.sequence.find(this, start)) {
             this.endOfPreviousMatch = this.groups[1];
             return true;
