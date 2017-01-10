@@ -344,7 +344,7 @@ class PatternTest {
 
     @Test public void
     testComments() {
-        OracleEssentials.harness(" a# comment \nb ", " ab a# comment \nb", de.unkrig.lfr.core.Pattern.COMMENTS);
+        OracleEssentials.harness(" a# comment \nb ",    " ab a# comment \nb", de.unkrig.lfr.core.Pattern.COMMENTS);
         OracleEssentials.harness("(?x)  a  ",           " a ");
         OracleEssentials.harness("(?x)  a  (?-x) b",    " ab ");
         OracleEssentials.harness("(?x)  a  (?-x) b",    " a b ");
