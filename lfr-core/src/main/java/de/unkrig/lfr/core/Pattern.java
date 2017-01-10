@@ -316,8 +316,6 @@ class Pattern {
         @Override public boolean
         find(MatcherImpl matcher, int start) {
 
-            matcher.hitEnd = false;
-
             final int re = matcher.regionEnd;
             for (; start <= re; start++) {
 
@@ -398,8 +396,8 @@ class Pattern {
         this.groupCount = groupCount;
     }
 
-    public static
-    boolean isWordCharacter(int c) {
+    public static boolean
+    isWordCharacter(int c) {
         return (
             (c >= 'a' && c <= 'z')
             || (c >= 'A' && c <= 'Z')
@@ -411,8 +409,8 @@ class Pattern {
     static
     class RegexScanner extends StatefulScanner<TokenType, ScannerState> {
 
-        int                                  groupCount;
-        final protected Map<String, Integer> namedGroups = new HashMap<String, Integer>();
+        int                        groupCount;
+        final Map<String, Integer> namedGroups = new HashMap<String, Integer>();
 
         RegexScanner()                  { super(ScannerState.class); }
         RegexScanner(RegexScanner that) { super(that);        }
