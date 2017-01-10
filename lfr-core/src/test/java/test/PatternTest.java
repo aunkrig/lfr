@@ -352,6 +352,14 @@ class PatternTest {
         OracleEssentials.harness("(?x)  a#\n  (?-x) b", " a b ");
     }
 
+    @Test public void
+    testUnicodeCharacterClasses() {
+        OracleEssentials.harness("\\p{Lower}",     " abc äöü ");
+        OracleEssentials.harness("(?U)\\p{Lower}", " abc äöü ");
+        OracleEssentials.harness("\\w",            " abc äöü ");
+        OracleEssentials.harness("(?U)\\w",        " abc äöü ");
+    }
+
     // ===================================
 
     private static char

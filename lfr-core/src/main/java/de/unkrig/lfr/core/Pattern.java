@@ -141,7 +141,7 @@ class Pattern {
         | Pattern.MULTILINE
         | Pattern.UNICODE_CASE
         | Pattern.UNIX_LINES
-//        | Pattern.UNICODE_CHARACTER_CLASS
+        | Pattern.UNICODE_CHARACTER_CLASS
     );
 
     private static final EnumSet<ScannerState>
@@ -1418,13 +1418,15 @@ class Pattern {
 
                 case CC_PREDEFINED:
                     {
+                        boolean u = (this.currentFlags & Pattern.UNICODE_CHARACTER_CLASS) != 0;
+
                         CharacterClass result;
                         switch (t.text.charAt(1)) {
-                        case 'd': case 'D': result = CharacterClasses.isDigit();                break;
+                        case 'd': case 'D': result = CharacterClasses.isDigit(u);               break;
                         case 'h': case 'H': result = CharacterClasses.isHorizontalWhitespace(); break;
-                        case 's': case 'S': result = CharacterClasses.isWhitespace();           break;
+                        case 's': case 'S': result = CharacterClasses.isWhitespace(u);          break;
                         case 'v': case 'V': result = CharacterClasses.isVerticalWhitespace();   break;
-                        case 'w': case 'W': result = CharacterClasses.isWord();                 break;
+                        case 'w': case 'W': result = CharacterClasses.isWord(u);                break;
                         default:            throw new AssertionError(t);
                         }
 
@@ -1435,21 +1437,23 @@ class Pattern {
 
                 case CC_POSIX:
                     {
-                        String             ccName             = t.text.substring(3, t.text.length() - 1);
+                        String  ccName = t.text.substring(3, t.text.length() - 1);
+                        boolean u      = (this.currentFlags & Pattern.UNICODE_CHARACTER_CLASS) != 0;
+
                         Predicate<Integer> codePointPredicate = (
-                            "Lower".equals(ccName)  ? Characters.IS_POSIX_LOWER  :
-                            "Upper".equals(ccName)  ? Characters.IS_POSIX_UPPER  :
-                            "ASCII".equals(ccName)  ? Characters.IS_POSIX_ASCII  :
-                            "Alpha".equals(ccName)  ? Characters.IS_POSIX_ALPHA  :
-                            "Digit".equals(ccName)  ? Characters.IS_POSIX_DIGIT  :
-                            "Alnum".equals(ccName)  ? Characters.IS_POSIX_ALNUM  :
-                            "Punct".equals(ccName)  ? Characters.IS_POSIX_PUNCT  :
-                            "Graph".equals(ccName)  ? Characters.IS_POSIX_GRAPH  :
-                            "Print".equals(ccName)  ? Characters.IS_POSIX_PRINT  :
-                            "Blank".equals(ccName)  ? Characters.IS_POSIX_BLANK  :
-                            "Cntrl".equals(ccName)  ? Characters.IS_POSIX_CNTRL  :
-                            "XDigit".equals(ccName) ? Characters.IS_POSIX_XDIGIT :
-                            "Space".equals(ccName)  ? Characters.IS_POSIX_SPACE  :
+                            "Lower".equals(ccName)  ? (u ? Characters.IS_UNICODE_LOWER       : Characters.IS_POSIX_LOWER)  :
+                            "Upper".equals(ccName)  ? (u ? Characters.IS_UNICODE_UPPER       : Characters.IS_POSIX_UPPER)  :
+                            "ASCII".equals(ccName)  ? Characters.IS_POSIX_ASCII                                            :
+                            "Alpha".equals(ccName)  ? (u ? Characters.IS_UNICODE_ALPHA       : Characters.IS_POSIX_ALPHA)  :
+                            "Digit".equals(ccName)  ? (u ? Characters.IS_UNICODE_DIGIT       : Characters.IS_POSIX_DIGIT)  :
+                            "Alnum".equals(ccName)  ? (u ? Characters.IS_UNICODE_ALNUM       : Characters.IS_POSIX_ALNUM)  :
+                            "Punct".equals(ccName)  ? (u ? Characters.IS_UNICODE_PUNCT       : Characters.IS_POSIX_PUNCT)  :
+                            "Graph".equals(ccName)  ? (u ? Characters.IS_UNICODE_GRAPH       : Characters.IS_POSIX_GRAPH)  :
+                            "Print".equals(ccName)  ? (u ? Characters.IS_UNICODE_PRINT       : Characters.IS_POSIX_PRINT)  :
+                            "Blank".equals(ccName)  ? (u ? Characters.IS_UNICODE_BLANK       : Characters.IS_POSIX_BLANK)  :
+                            "Cntrl".equals(ccName)  ? (u ? Characters.IS_UNICODE_CNTRL       : Characters.IS_POSIX_CNTRL)  :
+                            "XDigit".equals(ccName) ? (u ? Characters.IS_UNICODE_HEX_DIGIT   : Characters.IS_POSIX_XDIGIT) :
+                            "Space".equals(ccName)  ? (u ? Characters.IS_UNICODE_WHITE_SPACE : Characters.IS_POSIX_SPACE)  :
                             null
                         );
                         assert codePointPredicate != null;
