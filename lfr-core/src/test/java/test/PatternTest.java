@@ -120,6 +120,8 @@ class PatternTest {
     testLiteralRegex() {
         OracleEssentials.harness("$\\*", "$\\*xxx$\\*xxx", de.unkrig.lfr.core.Pattern.LITERAL);
         OracleEssentials.harness("a\\", "a\\xxxA\\xxx",    de.unkrig.lfr.core.Pattern.LITERAL | de.unkrig.lfr.core.Pattern.CASE_INSENSITIVE); // SUPPRESS CHECKSTYLE LineLength
+        OracleEssentials.harness(".\\Q.\\E.", " ___ ");
+        OracleEssentials.harness(".\\Q.\\E.", " _._ ");
     }
 
     @Test public void
