@@ -26,6 +26,7 @@
 
 package de.unkrig.lfr.core;
 
+import de.unkrig.commons.lang.Characters;
 import de.unkrig.commons.lang.protocol.Predicate;
 import de.unkrig.lfr.core.Pattern.CharacterClass;
 
@@ -66,7 +67,7 @@ class CharacterClasses {
 
         return new Pattern.CharacterClass() {
             @Override public boolean evaluate(int subject) { return predicate.evaluate(subject); }
-            @Override public String  toString()            { return toString;                    }
+            @Override public String  toString()            { return toString + this.successor;   }
         };
     }
 
@@ -208,7 +209,10 @@ class CharacterClasses {
 
     /**  An (ASCII) digit: [0-9] */
     public static Pattern.CharacterClass
-    isDigit() {
+    isDigit(boolean unicode) {
+
+        if (unicode) return CharacterClasses.characterClass(Characters.IS_UNICODE_DIGIT, "\\d");
+
         return new Pattern.CharacterClass() {
             @Override public boolean evaluate(int subject) { return subject >= '0' && subject <= '9'; }
             @Override public String  toString()            { return "\\d" + this.successor;           }
@@ -252,7 +256,12 @@ class CharacterClasses {
 
     /**  A whitespace character: [ \t\n\x0B\f\r] */
     public static Pattern.CharacterClass
-    isWhitespace() { return CharacterClasses.oneOf(Pattern.WHITESPACE_CHARACTERS); }
+    isWhitespace(boolean unicode) {
+
+        if (unicode) return CharacterClasses.characterClass(Characters.IS_UNICODE_WHITE_SPACE, "\\s");
+
+        return CharacterClasses.oneOf(Pattern.WHITESPACE_CHARACTERS);
+    }
 
     /**  A vertical whitespace character: [\n\x0B\f\r\x85/u2028/u2029] */
     public static Pattern.CharacterClass
@@ -260,10 +269,36 @@ class CharacterClasses {
 
     /**  A word character: [a-zA-Z_0-9] */
     public static Pattern.CharacterClass
-    isWord() {
+    isWord(final boolean unicode) {
+
         return new Pattern.CharacterClass() {
-            @Override public boolean evaluate(int subject) { return Pattern.isWordCharacter(subject); }
-            @Override public String  toString()            { return "\\w";                                       }
+
+            @Override public boolean
+            evaluate(int subject) {
+
+                if (unicode) {
+                    int type = Character.getType(subject);
+                    return (
+                        type == Character.UPPERCASE_LETTER
+                        || type == Character.LOWERCASE_LETTER
+                        || type == Character.TITLECASE_LETTER
+                        || type == Character.MODIFIER_LETTER
+                        || type == Character.OTHER_LETTER
+                        || type == Character.LETTER_NUMBER
+                        || type == Character.NON_SPACING_MARK
+                        || type == Character.ENCLOSING_MARK
+                        || type == Character.COMBINING_SPACING_MARK
+                        || Character.isDigit(subject)
+                        || type == Character.CONNECTOR_PUNCTUATION
+                        // || join_control  -- What is that??
+                    );
+                }
+
+                return Pattern.isWordCharacter(subject);
+            }
+
+            @Override public String
+            toString() { return "\\w";  }
         };
     }
 
