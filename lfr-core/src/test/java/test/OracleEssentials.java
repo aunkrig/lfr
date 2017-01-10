@@ -39,7 +39,7 @@ class OracleEssentials {
 
     private OracleEssentials() {}
 
-    private static final boolean ALSO_COMPARE_PERFORMANCE = true;
+    private static final boolean ALSO_COMPARE_PERFORMANCE = false;
     private static final boolean ALSO_DO_PROFILING        = false;
     private static final int     CHUNK_COUNT              = 100;
     private static final int     CHUNK_SIZE               = 1000;

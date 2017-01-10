@@ -145,10 +145,22 @@ class Pattern {
     );
 
     private static final EnumSet<ScannerState>
+    DEFAULT_STATES = EnumSet.of(
+        ScannerState.DEFAULT,
+        ScannerState.DEFAULT_
+    );
+    private static final EnumSet<ScannerState>
     IN_CHAR_CLASS = EnumSet.of(
         ScannerState.CHAR_CLASS1,
         ScannerState.CHAR_CLASS2,
         ScannerState.CHAR_CLASS3,
+        ScannerState.CHAR_CLASS1_,
+        ScannerState.CHAR_CLASS2_,
+        ScannerState.CHAR_CLASS3_
+    );
+    private static final EnumSet<ScannerState>
+    IN_COMMENTS_MODE = EnumSet.of(
+        ScannerState.DEFAULT_,
         ScannerState.CHAR_CLASS1_,
         ScannerState.CHAR_CLASS2_,
         ScannerState.CHAR_CLASS3_
@@ -291,12 +303,14 @@ class Pattern {
         POSITIVE_LOOKBEHIND,
         /** {@code (?<!} */
         NEGATIVE_LOOKBEHIND,
+
+        COMMENT,
     }
 
     enum ScannerState {
 
         // Allow char classes ("[...]") nested up three levels.
-        CHAR_CLASS1, CHAR_CLASS2, CHAR_CLASS3, IN_QUOTATION,
+        DEFAULT, CHAR_CLASS1, CHAR_CLASS2, CHAR_CLASS3, IN_QUOTATION,
 
         // Scanner states if "comments" are enabled (Pattern.COMMENTS or "(?x)").
         DEFAULT_, CHAR_CLASS1_, CHAR_CLASS2_, CHAR_CLASS3_, IN_QUOTATION_,
@@ -426,8 +440,12 @@ class Pattern {
         int                        groupCount;
         final Map<String, Integer> namedGroups = new HashMap<String, Integer>();
 
-        RegexScanner()                  { super(ScannerState.class); }
-        RegexScanner(RegexScanner that) { super(that);        }
+        RegexScanner() { super(ScannerState.class); }
+
+        RegexScanner(RegexScanner that) {
+            super(that);
+            this.setCurrentState(ScannerState.DEFAULT);
+        }
     }
 
     /**
@@ -438,59 +456,63 @@ class Pattern {
     static {
         StatefulScanner<TokenType, ScannerState> ss = Pattern.REGEX_SCANNER;
 
+        // Ignore "#..." comments and whitespace in "comments mode".
+        ss.addRule(Pattern.IN_COMMENTS_MODE, "#\\V*", TokenType.COMMENT, ss.REMAIN);
+        ss.addRule(Pattern.IN_COMMENTS_MODE, "\\s+",  TokenType.COMMENT, ss.REMAIN);
+
         // Characters
         // x         The character x
         // See below: +++
         // \\        The backslash character
-        ss.addRule(ss.ANY_STATE, "\\\\\\\\",                              QUOTED_CHARACTER,    null);
+        ss.addRule(ss.ANY_STATE, "\\\\\\\\",                              QUOTED_CHARACTER,    ss.REMAIN);
         // \0n       The character with octal value 0n (0 <= n <= 7)
         // \0nn      The character with octal value 0nn (0 <= n <= 7)
         // \0mnn     The character with octal value 0mnn (0 <= m <= 3, 0 <= n <= 7)
-        ss.addRule(ss.ANY_STATE, "\\\\0(?:0[0-3][0-8][0-7]|[0-7][0-7]?)", LITERAL_OCTAL,       null);
+        ss.addRule(ss.ANY_STATE, "\\\\0(?:0[0-3][0-8][0-7]|[0-7][0-7]?)", LITERAL_OCTAL,       ss.REMAIN);
         // \xhh      The character with hexadecimal value 0xhh
-        ss.addRule(ss.ANY_STATE, "\\\\u[0-9a-fA-F]{4}",                   LITERAL_HEXADECIMAL, null);
+        ss.addRule(ss.ANY_STATE, "\\\\u[0-9a-fA-F]{4}",                   LITERAL_HEXADECIMAL, ss.REMAIN);
         // /uhhhh    The character with hexadecimal value 0xhhhh
-        ss.addRule(ss.ANY_STATE, "\\\\x[0-9a-fA-F]{2}",                   LITERAL_HEXADECIMAL, null);
+        ss.addRule(ss.ANY_STATE, "\\\\x[0-9a-fA-F]{2}",                   LITERAL_HEXADECIMAL, ss.REMAIN);
         // \x{h...h} The character with hexadecimal value 0xh...h
         //                                    (Character.MIN_CODE_POINT  <= 0xh...h <=  Character.MAX_CODE_POINT)
-        ss.addRule(ss.ANY_STATE, "\\\\x\\{[0-9a-fA-F]+}",                 LITERAL_HEXADECIMAL, null);
+        ss.addRule(ss.ANY_STATE, "\\\\x\\{[0-9a-fA-F]+}",                 LITERAL_HEXADECIMAL, ss.REMAIN);
         // \t        The tab character ('/u0009')
         // \n        The newline (line feed) character ('/u000A')
         // \r        The carriage-return character ('/u000D')
         // \f        The form-feed character ('/u000C')
         // \a        The alert (bell) character ('/u0007')
         // \e        The escape character ('/u001B')
-        ss.addRule(ss.ANY_STATE, "\\\\[tnrfae]",                          LITERAL_CONTROL,     null);
+        ss.addRule(ss.ANY_STATE, "\\\\[tnrfae]",                          LITERAL_CONTROL,     ss.REMAIN);
         // \cx The control character corresponding to x
-        ss.addRule(ss.ANY_STATE, "\\\\c[A-Za-z]",                         LITERAL_CONTROL,     null);
+        ss.addRule(ss.ANY_STATE, "\\\\c[A-Za-z]",                         LITERAL_CONTROL,     ss.REMAIN);
 
         // Character classes
         // [abc]       a, b, or c (simple class)
-        ss.addRule("\\[",                            LEFT_BRACKET,  ScannerState.CHAR_CLASS1);
-        ss.addRule(ScannerState.DEFAULT_, "\\[",     LEFT_BRACKET,  ScannerState.CHAR_CLASS1_);
-        ss.addRule(ScannerState.CHAR_CLASS1, "\\[",  LEFT_BRACKET,  ScannerState.CHAR_CLASS2);
-        ss.addRule(ScannerState.CHAR_CLASS1_, "\\[", LEFT_BRACKET,  ScannerState.CHAR_CLASS2_);
-        ss.addRule(ScannerState.CHAR_CLASS2, "\\[",  LEFT_BRACKET,  ScannerState.CHAR_CLASS3);
-        ss.addRule(ScannerState.CHAR_CLASS2_, "\\[", LEFT_BRACKET,  ScannerState.CHAR_CLASS3_);
-        ss.addRule(ScannerState.CHAR_CLASS3, "]",    RIGHT_BRACKET, ScannerState.CHAR_CLASS2);
-        ss.addRule(ScannerState.CHAR_CLASS3_, "]",   RIGHT_BRACKET, ScannerState.CHAR_CLASS2_);
-        ss.addRule(ScannerState.CHAR_CLASS2, "]",    RIGHT_BRACKET, ScannerState.CHAR_CLASS1);
-        ss.addRule(ScannerState.CHAR_CLASS2_, "]",   RIGHT_BRACKET, ScannerState.CHAR_CLASS1_);
-        ss.addRule(ScannerState.CHAR_CLASS1, "]",    RIGHT_BRACKET);
-        ss.addRule(ScannerState.CHAR_CLASS1_, "]",   RIGHT_BRACKET, ScannerState.DEFAULT_);
+        ss.addRule(ScannerState.DEFAULT,      "\\[", LEFT_BRACKET,    ScannerState.CHAR_CLASS1);
+        ss.addRule(ScannerState.CHAR_CLASS1,  "\\[", LEFT_BRACKET,    ScannerState.CHAR_CLASS2);
+        ss.addRule(ScannerState.CHAR_CLASS2,  "\\[", LEFT_BRACKET,    ScannerState.CHAR_CLASS3);
+        ss.addRule(ScannerState.CHAR_CLASS3,  "]",   RIGHT_BRACKET,   ScannerState.CHAR_CLASS2);
+        ss.addRule(ScannerState.CHAR_CLASS2,  "]",   RIGHT_BRACKET,   ScannerState.CHAR_CLASS1);
+        ss.addRule(ScannerState.CHAR_CLASS1,  "]",   RIGHT_BRACKET,   ScannerState.DEFAULT);
+        ss.addRule(ScannerState.DEFAULT_,     "\\[", LEFT_BRACKET,    ScannerState.CHAR_CLASS1_);
+        ss.addRule(ScannerState.CHAR_CLASS1_, "\\[", LEFT_BRACKET,    ScannerState.CHAR_CLASS2_);
+        ss.addRule(ScannerState.CHAR_CLASS2_, "\\[", LEFT_BRACKET,    ScannerState.CHAR_CLASS3_);
+        ss.addRule(ScannerState.CHAR_CLASS3_, "]",   RIGHT_BRACKET,   ScannerState.CHAR_CLASS2_);
+        ss.addRule(ScannerState.CHAR_CLASS2_, "]",   RIGHT_BRACKET,   ScannerState.CHAR_CLASS1_);
+        ss.addRule(ScannerState.CHAR_CLASS1_, "]",   RIGHT_BRACKET,   ScannerState.DEFAULT_);
         // [^abc]      Any character except a, b, or c (negation)
-        ss.addRule(Pattern.IN_CHAR_CLASS, "\\^", CC_NEGATION, null);
+        ss.addRule(Pattern.IN_CHAR_CLASS,     "\\^", CC_NEGATION,     ss.REMAIN);
         // [a-zA-Z]    a through z or A through Z, inclusive (range)
-        ss.addRule(Pattern.IN_CHAR_CLASS, "-", CC_RANGE, null);
+        ss.addRule(Pattern.IN_CHAR_CLASS,     "-",   CC_RANGE,        ss.REMAIN);
         // [a-d[m-p]]  a through d, or m through p: [a-dm-p] (union)
         // [a-z&&[def]]    d, e, or f (intersection)
         // [a-z&&[^bc]]    a through z, except for b and c: [ad-z] (subtraction)
         // [a-z&&[^m-p]]   a through z, and not m through p: [a-lq-z] (subtraction)
-        ss.addRule(Pattern.IN_CHAR_CLASS, "&&", CC_INTERSECTION, null);
+        ss.addRule(Pattern.IN_CHAR_CLASS,     "&&",  CC_INTERSECTION, ss.REMAIN);
 
         // Predefined character classes
         // .   Any character (may or may not match line terminators)
-        ss.addRule("\\.", CC_ANY);
+        ss.addRule(Pattern.DEFAULT_STATES, "\\.",    CC_ANY,        ss.REMAIN);
         // \d  A digit: [0-9]
         // \D  A non-digit: [^0-9]
         // \h  A horizontal whitespace character: [ \t\xA0/u1680/u180e/u2000-/u200a/u202f/u205f/u3000]
@@ -501,7 +523,7 @@ class Pattern {
         // \V  A non-vertical whitespace character: [^\v]
         // \w  A word character: [a-zA-Z_0-9]
         // \W  A non-word character: [^\w]
-        ss.addRule(ss.ANY_STATE, "\\\\[dDhHsSvVwW]", CC_PREDEFINED, null);
+        ss.addRule(ss.ANY_STATE, "\\\\[dDhHsSvVwW]", CC_PREDEFINED, ss.REMAIN);
 
         // POSIX character classes (US-ASCII only)
         // \p{Lower}   A lower-case alphabetic character: [a-z]
@@ -517,49 +539,59 @@ class Pattern {
         // \p{Cntrl}   A control character: [\x00-\x1F\x7F]
         // \p{XDigit}  A hexadecimal digit: [0-9a-fA-F]
         // \p{Space}   A whitespace character: [ \t\n\x0B\f\r]
-        ss.addRule(ss.ANY_STATE, "\\\\[pP]\\{(?:Lower|Upper|ASCII|Alpha|Digit|Alnum|Punct|Graph|Print|Blank|Cntrl|XDigit|Space)}", CC_POSIX, null); // SUPPRESS CHECKSTYLE LineLength
+        ss.addRule(
+            ss.ANY_STATE,
+            "\\\\[pP]\\{(?:Lower|Upper|ASCII|Alpha|Digit|Alnum|Punct|Graph|Print|Blank|Cntrl|XDigit|Space)}",
+            CC_POSIX,
+            ss.REMAIN
+        );
 
         // java.lang.Character classes (simple java character type)
         // \p{javaLowerCase}   Equivalent to java.lang.Character.isLowerCase()
         // \p{javaUpperCase}   Equivalent to java.lang.Character.isUpperCase()
         // \p{javaWhitespace}  Equivalent to java.lang.Character.isWhitespace()
         // \p{javaMirrored}    Equivalent to java.lang.Character.isMirrored()
-        ss.addRule(ss.ANY_STATE, "\\\\[pP]\\{(?:javaLowerCase|javaUpperCase|javaWhitespace|javaMirrored)}", CC_JAVA, null); // SUPPRESS CHECKSTYLE LineLength
+        ss.addRule(
+            ss.ANY_STATE,
+            "\\\\[pP]\\{(?:javaLowerCase|javaUpperCase|javaWhitespace|javaMirrored)}",
+            CC_JAVA,
+            ss.REMAIN
+        );
 
         // Classes for Unicode scripts, blocks, categories and binary properties
         // \p{IsLatin}        A Latin script character (script)
         // \p{IsAlphabetic}   An alphabetic character (binary property)
-        ss.addRule(ss.ANY_STATE, "\\\\[pP]\\{Is\\w+}", CC_UNICODE_SCRIPT_OR_BINARY_PROPERTY, null);
+        ss.addRule(ss.ANY_STATE, "\\\\[pP]\\{Is\\w+}", CC_UNICODE_SCRIPT_OR_BINARY_PROPERTY, ss.REMAIN);
         // \p{InGreek}        A character in the Greek block (block)
-        ss.addRule(ss.ANY_STATE, "\\\\[pP]\\{In\\w+}", CC_UNICODE_BLOCK, null);
+        ss.addRule(ss.ANY_STATE, "\\\\[pP]\\{In\\w+}", CC_UNICODE_BLOCK,                     ss.REMAIN);
         // \p{Lu}             An uppercase letter (category)
         // \p{Sc}             A currency symbol
-        ss.addRule(ss.ANY_STATE, "\\\\[pP]\\{\\w\\w}", CC_UNICODE_CATEGORY, null);
+        ss.addRule(ss.ANY_STATE, "\\\\[pP]\\{\\w\\w}", CC_UNICODE_CATEGORY,                  ss.REMAIN);
         // \P{InGreek}        Any character except one in the Greek block (negation)
         // [\p{L}&&[^\p{Lu}]] Any letter except an uppercase letter (subtraction)
 
         // Boundary matchers
         // ^   The beginning of a line
-        ss.addRule("\\^",   BEGINNING_OF_LINE);
+        ss.addRule(Pattern.DEFAULT_STATES, "\\^",   BEGINNING_OF_LINE,                 ss.REMAIN);
         // $   The end of a line
-        ss.addRule("\\$",   END_OF_LINE);
+        ss.addRule(Pattern.DEFAULT_STATES, "\\$",   END_OF_LINE,                       ss.REMAIN);
         // \b  A word boundary
-        ss.addRule("\\\\b", WORD_BOUNDARY);
+        ss.addRule(Pattern.DEFAULT_STATES, "\\\\b", WORD_BOUNDARY,                     ss.REMAIN);
         // \B  A non-word boundary
-        ss.addRule("\\\\B", NON_WORD_BOUNDARY);
+        ss.addRule(Pattern.DEFAULT_STATES, "\\\\B", NON_WORD_BOUNDARY,                 ss.REMAIN);
         // \A  The beginning of the input
-        ss.addRule("\\\\A", BEGINNING_OF_INPUT);
+        ss.addRule(Pattern.DEFAULT_STATES, "\\\\A", BEGINNING_OF_INPUT,                ss.REMAIN);
         // \G  The end of the previous match
-        ss.addRule("\\\\G", END_OF_PREVIOUS_MATCH);
+        ss.addRule(Pattern.DEFAULT_STATES, "\\\\G", END_OF_PREVIOUS_MATCH,             ss.REMAIN);
         // \Z  The end of the input but for the final terminator, if any
-        ss.addRule("\\\\Z", END_OF_INPUT_BUT_FINAL_TERMINATOR);
+        ss.addRule(Pattern.DEFAULT_STATES, "\\\\Z", END_OF_INPUT_BUT_FINAL_TERMINATOR, ss.REMAIN);
         // \z  The end of the input
-        ss.addRule("\\\\z", END_OF_INPUT);
+        ss.addRule(Pattern.DEFAULT_STATES, "\\\\z", END_OF_INPUT,                      ss.REMAIN);
 
         // Linebreak matcher
         // \R  Any Unicode linebreak sequence, is equivalent to
         //                          /u000D/u000A|[/u000A/u000B/u000C/u000D/u0085/u2028/u2029]
-        ss.addRule("\\\\R", LINEBREAK_MATCHER);
+        ss.addRule(Pattern.DEFAULT_STATES, "\\\\R", LINEBREAK_MATCHER, ss.REMAIN);
 
         // Greedy quantifiers
         // X?         X, once or not at all
@@ -568,7 +600,12 @@ class Pattern {
         // X{n}       X, exactly n times
         // X{min,}    X, at least n times
         // X{min,max} X, at least n but not more than m times
-        ss.addRule("(?:\\?|\\*|\\+|\\{\\d+(?:,(?:\\d+)?)?})(?![?+])", GREEDY_QUANTIFIER);
+        ss.addRule(
+            Pattern.DEFAULT_STATES,
+            "(?:\\?|\\*|\\+|\\{\\d+(?:,(?:\\d+)?)?})(?![?+])",
+            GREEDY_QUANTIFIER,
+            ss.REMAIN
+        );
 
         // Reluctant quantifiers
         // X??     X, once or not at all
@@ -577,7 +614,12 @@ class Pattern {
         // X{n}?   X, exactly n times
         // X{n,}?  X, at least n times
         // X{n,m}? X, at least n but not more than m times
-        ss.addRule("(?:\\?|\\*|\\+|\\{\\d+(?:,(?:\\d+)?)?})\\?", RELUCTANT_QUANTIFIER);
+        ss.addRule(
+            Pattern.DEFAULT_STATES,
+            "(?:\\?|\\*|\\+|\\{\\d+(?:,(?:\\d+)?)?})\\?",
+            RELUCTANT_QUANTIFIER,
+            ss.REMAIN
+        );
 
         // Possessive quantifiers
         // X?+     X, once or not at all
@@ -586,55 +628,60 @@ class Pattern {
         // X{n}+   X, exactly n times
         // X{n,}+  X, at least n times
         // X{n,m}+ X, at least n but not more than m times
-        ss.addRule("(?:\\?|\\*|\\+|\\{\\d+(?:,(?:\\d+)?)?})\\+", POSSESSIVE_QUANTIFIER);
+        ss.addRule(
+            Pattern.DEFAULT_STATES,
+            "(?:\\?|\\*|\\+|\\{\\d+(?:,(?:\\d+)?)?})\\+",
+            POSSESSIVE_QUANTIFIER,
+            ss.REMAIN
+        );
 
         // Logical operators
         // XY  X followed by Y
         // X|Y Either X or Y
-        ss.addRule("\\|",           EITHER_OR);
+        ss.addRule(Pattern.DEFAULT_STATES, "\\|",           EITHER_OR,       ss.REMAIN);
         // (X) X, as a capturing group
-        ss.addRule("\\((?![\\?<])", CAPTURING_GROUP);
-        ss.addRule("\\)",           END_GROUP);
+        ss.addRule(Pattern.DEFAULT_STATES, "\\((?![\\?<])", CAPTURING_GROUP, ss.REMAIN);
+        ss.addRule(Pattern.DEFAULT_STATES, "\\)",           END_GROUP,       ss.REMAIN);
 
         // Back references
         // \n       Whatever the nth capturing group matched
-        ss.addRule("\\\\\\d",     CAPTURING_GROUP_BACK_REFERENCE);
+        ss.addRule(Pattern.DEFAULT_STATES, "\\\\\\d",     CAPTURING_GROUP_BACK_REFERENCE,       ss.REMAIN);
         // \k<name> Whatever the named-capturing group "name" matched
-        ss.addRule("\\\\k<\\w+>", NAMED_CAPTURING_GROUP_BACK_REFERENCE);
+        ss.addRule(Pattern.DEFAULT_STATES, "\\\\k<\\w+>", NAMED_CAPTURING_GROUP_BACK_REFERENCE, ss.REMAIN);
 
         // Quotation
         // \   Nothing, but quotes the following character
         // \Q  Nothing, but quotes all characters until \E
         // \E  Nothing, but ends quoting started by \Q
         ss.addRule(ss.ANY_STATE,               "\\\\[^0-9A-Za-z]", QUOTED_CHARACTER,  ss.REMAIN);
-        ss.addRule("\\\\Q",                                        QUOTATION_BEGIN,   ScannerState.IN_QUOTATION);
+        ss.addRule(ScannerState.DEFAULT,       "\\\\Q",            QUOTATION_BEGIN,   ScannerState.IN_QUOTATION);
         ss.addRule(ScannerState.DEFAULT_,      "\\\\Q",            QUOTATION_BEGIN,   ScannerState.IN_QUOTATION_);
-        ss.addRule(ScannerState.IN_QUOTATION,  "\\\\E",            QUOTATION_END);
+        ss.addRule(ScannerState.IN_QUOTATION,  "\\\\E",            QUOTATION_END,     ScannerState.DEFAULT);
         ss.addRule(ScannerState.IN_QUOTATION_, "\\\\E",            QUOTATION_END,     ScannerState.DEFAULT_);
         ss.addRule(ScannerState.IN_QUOTATION,  ".",                LITERAL_CHARACTER, ScannerState.IN_QUOTATION);
         ss.addRule(ScannerState.IN_QUOTATION_, ".",                LITERAL_CHARACTER, ScannerState.IN_QUOTATION_);
 
         // Special constructs (named-capturing and non-capturing)
         // (?<name>X)          X, as a named-capturing group
-        ss.addRule("\\(\\?<\\w+>",                        NAMED_CAPTURING_GROUP);
+        ss.addRule(Pattern.DEFAULT_STATES, "\\(\\?<\\w+>",                        NAMED_CAPTURING_GROUP,           ss.REMAIN);
         // (?:X)               X, as a non-capturing group
-        ss.addRule("\\(\\?:",                             NON_CAPTURING_GROUP);
+        ss.addRule(Pattern.DEFAULT_STATES, "\\(\\?:",                             NON_CAPTURING_GROUP,             ss.REMAIN);
         // (?idmsuxU-idmsuxU)  Nothing, but turns match flags i d m s u x U on - off
-        ss.addRule("\\(\\?[idmsuxU]*(?:-[idmsuxU]+)?\\)", MATCH_FLAGS);
+        ss.addRule(Pattern.DEFAULT_STATES, "\\(\\?[idmsuxU]*(?:-[idmsuxU]+)?\\)", MATCH_FLAGS,                     ss.REMAIN);
         // (?idmsux-idmsux:X)  X, as a non-capturing group with the given flags i d m s u x on - off
-        ss.addRule("\\(\\?[idmsux]*(?:-[idmsux]*)?:",     MATCH_FLAGS_NON_CAPTURING_GROUP);
+        ss.addRule(Pattern.DEFAULT_STATES, "\\(\\?[idmsux]*(?:-[idmsux]*)?:",     MATCH_FLAGS_NON_CAPTURING_GROUP, ss.REMAIN);
         // (?=X)               X, via zero-width positive lookahead
-        ss.addRule("\\(\\?=",                             POSITIVE_LOOKAHEAD);
+        ss.addRule(Pattern.DEFAULT_STATES, "\\(\\?=",                             POSITIVE_LOOKAHEAD,              ss.REMAIN);
         // (?!X)               X, via zero-width negative lookahead
-        ss.addRule("\\(\\?!",                             NEGATIVE_LOOKAHEAD);
+        ss.addRule(Pattern.DEFAULT_STATES, "\\(\\?!",                             NEGATIVE_LOOKAHEAD,              ss.REMAIN);
         // (?<=X)              X, via zero-width positive lookbehind
-        ss.addRule("\\(\\?<=",                            POSITIVE_LOOKBEHIND);
+        ss.addRule(Pattern.DEFAULT_STATES, "\\(\\?<=",                            POSITIVE_LOOKBEHIND,             ss.REMAIN);
         // (?<!X)              X, via zero-width negative lookbehind
-        ss.addRule("\\(\\?<!",                            NEGATIVE_LOOKBEHIND);
+        ss.addRule(Pattern.DEFAULT_STATES, "\\(\\?<!",                            NEGATIVE_LOOKBEHIND,             ss.REMAIN);
         // (?>X)               X, as an independent, non-capturing group
-        ss.addRule("\\(\\?>",                             INDEPENDENT_NON_CAPTURING_GROUP);
+        ss.addRule(Pattern.DEFAULT_STATES, "\\(\\?>",                             INDEPENDENT_NON_CAPTURING_GROUP, ss.REMAIN);
 
-        ss.addRule(ss.ANY_STATE, "[^\\\\]", LITERAL_CHARACTER, null); // +++
+        ss.addRule(ss.ANY_STATE,           "[^\\\\]",                             LITERAL_CHARACTER,               ss.REMAIN); // +++
     }
 
     /**
@@ -643,7 +690,12 @@ class Pattern {
      */
     static final RegexScanner LITERAL_SCANNER = new RegexScanner();
     static {
-        Pattern.LITERAL_SCANNER.addRule(".", LITERAL_CHARACTER);
+        Pattern.LITERAL_SCANNER.addRule(
+            Pattern.LITERAL_SCANNER.ANY_STATE,
+            ".",
+            LITERAL_CHARACTER,
+            Pattern.LITERAL_SCANNER.REMAIN
+        );
     }
 
     /**
@@ -747,6 +799,11 @@ class Pattern {
             ? Pattern.REGEX_SCANNER
             : Pattern.LITERAL_SCANNER
         );
+
+        if ((flags & (Pattern.LITERAL | Pattern.COMMENTS)) == Pattern.COMMENTS) {
+            rs.setCurrentState(ScannerState.DEFAULT_);
+        }
+
         rs.setInput(regex);
 
         Sequence sequence;
@@ -841,7 +898,23 @@ class Pattern {
 
         return new AbstractParser<TokenType>(rs) {
 
-            int currentFlags = flags;
+            int currentFlags;
+            { this.setCurrentFlags(flags); }
+
+            void
+            setCurrentFlags(int newFlags) {
+
+                ScannerState currentState = rs.getCurrentState();
+                assert currentState == null || currentState == ScannerState.DEFAULT_;
+
+                if ((newFlags & (Pattern.LITERAL | Pattern.COMMENTS)) == Pattern.COMMENTS) {
+                    rs.setCurrentState(ScannerState.DEFAULT_);
+                } else {
+                    rs.setCurrentState(ScannerState.DEFAULT);
+                }
+
+                this.currentFlags = newFlags;
+            }
 
             public Sequence
             parse() throws ParseException {
@@ -1105,13 +1178,13 @@ class Pattern {
                 case MATCH_FLAGS_NON_CAPTURING_GROUP:
                     {
                         int savedFlags = this.currentFlags;
-                        this.currentFlags = (
+                        this.setCurrentFlags(
                             this.parseFlags(this.currentFlags, t.text.substring(2, t.text.length() - 1))
                         );
 
                         final Sequence result = this.parseAlternatives();
 
-                        this.currentFlags = savedFlags;
+                        this.setCurrentFlags(savedFlags);
 
                         this.read(")");
 
@@ -1168,7 +1241,10 @@ class Pattern {
                     return Sequences.endOfInput();
 
                 case MATCH_FLAGS:
-                    this.currentFlags = this.parseFlags(this.currentFlags, t.text.substring(2, t.text.length() - 1));
+                    this.setCurrentFlags(this.parseFlags(this.currentFlags, t.text.substring(2, t.text.length() - 1)));
+                    return Sequences.emptyStringSequence();
+
+                case COMMENT:
                     return Sequences.emptyStringSequence();
 
                 case LINEBREAK_MATCHER:
@@ -1240,7 +1316,7 @@ class Pattern {
                 case POSSESSIVE_QUANTIFIER:
                 case RELUCTANT_QUANTIFIER:
                 default:
-                    throw new AssertionError(t);
+                    throw new AssertionError("\"" + t + "\" (" + t.type + ")");
                 }
             }
 
