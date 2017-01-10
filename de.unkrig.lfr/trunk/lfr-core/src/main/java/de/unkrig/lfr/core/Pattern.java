@@ -135,7 +135,7 @@ class Pattern {
         0
 //        | Pattern.CANON_EQ
         | Pattern.CASE_INSENSITIVE
-//        | Pattern.COMMENTS
+        | Pattern.COMMENTS
         | Pattern.DOTALL
         | Pattern.LITERAL
         | Pattern.MULTILINE
@@ -145,7 +145,14 @@ class Pattern {
     );
 
     private static final EnumSet<ScannerState>
-    IN_CHAR_CLASS = EnumSet.of(ScannerState.CHAR_CLASS1, ScannerState.CHAR_CLASS2, ScannerState.CHAR_CLASS3);
+    IN_CHAR_CLASS = EnumSet.of(
+        ScannerState.CHAR_CLASS1,
+        ScannerState.CHAR_CLASS2,
+        ScannerState.CHAR_CLASS3,
+        ScannerState.CHAR_CLASS1_,
+        ScannerState.CHAR_CLASS2_,
+        ScannerState.CHAR_CLASS3_
+    );
 
     // Interestingly, the following two are equal!
     public static final String LINE_BREAK_CHARACTERS          = "\r\n\u000B\f\u0085\u2028\u2029";
@@ -286,7 +293,14 @@ class Pattern {
         NEGATIVE_LOOKBEHIND,
     }
 
-    enum ScannerState { CHAR_CLASS1, CHAR_CLASS2, CHAR_CLASS3, IN_QUOTATION } // SUPPRESS CHECKSTYLE JavadocVariable
+    enum ScannerState {
+
+        // Allow char classes ("[...]") nested up three levels.
+        CHAR_CLASS1, CHAR_CLASS2, CHAR_CLASS3, IN_QUOTATION,
+
+        // Scanner states if "comments" are enabled (Pattern.COMMENTS or "(?x)").
+        DEFAULT_, CHAR_CLASS1_, CHAR_CLASS2_, CHAR_CLASS3_, IN_QUOTATION_,
+    }
 
     abstract static
     class AbstractSequence implements Sequence {
@@ -452,12 +466,18 @@ class Pattern {
 
         // Character classes
         // [abc]       a, b, or c (simple class)
-        ss.addRule("\\[",                    LEFT_BRACKET,  ScannerState.CHAR_CLASS1);
-        ss.addRule(ScannerState.CHAR_CLASS1, "\\[", LEFT_BRACKET,  ScannerState.CHAR_CLASS2);
-        ss.addRule(ScannerState.CHAR_CLASS2, "\\[", LEFT_BRACKET,  ScannerState.CHAR_CLASS3);
-        ss.addRule(ScannerState.CHAR_CLASS3, "]",   RIGHT_BRACKET, ScannerState.CHAR_CLASS2);
-        ss.addRule(ScannerState.CHAR_CLASS2, "]",   RIGHT_BRACKET, ScannerState.CHAR_CLASS1);
-        ss.addRule(ScannerState.CHAR_CLASS1, "]",   RIGHT_BRACKET);
+        ss.addRule("\\[",                            LEFT_BRACKET,  ScannerState.CHAR_CLASS1);
+        ss.addRule(ScannerState.DEFAULT_, "\\[",     LEFT_BRACKET,  ScannerState.CHAR_CLASS1_);
+        ss.addRule(ScannerState.CHAR_CLASS1, "\\[",  LEFT_BRACKET,  ScannerState.CHAR_CLASS2);
+        ss.addRule(ScannerState.CHAR_CLASS1_, "\\[", LEFT_BRACKET,  ScannerState.CHAR_CLASS2_);
+        ss.addRule(ScannerState.CHAR_CLASS2, "\\[",  LEFT_BRACKET,  ScannerState.CHAR_CLASS3);
+        ss.addRule(ScannerState.CHAR_CLASS2_, "\\[", LEFT_BRACKET,  ScannerState.CHAR_CLASS3_);
+        ss.addRule(ScannerState.CHAR_CLASS3, "]",    RIGHT_BRACKET, ScannerState.CHAR_CLASS2);
+        ss.addRule(ScannerState.CHAR_CLASS3_, "]",   RIGHT_BRACKET, ScannerState.CHAR_CLASS2_);
+        ss.addRule(ScannerState.CHAR_CLASS2, "]",    RIGHT_BRACKET, ScannerState.CHAR_CLASS1);
+        ss.addRule(ScannerState.CHAR_CLASS2_, "]",   RIGHT_BRACKET, ScannerState.CHAR_CLASS1_);
+        ss.addRule(ScannerState.CHAR_CLASS1, "]",    RIGHT_BRACKET);
+        ss.addRule(ScannerState.CHAR_CLASS1_, "]",   RIGHT_BRACKET, ScannerState.DEFAULT_);
         // [^abc]      Any character except a, b, or c (negation)
         ss.addRule(Pattern.IN_CHAR_CLASS, "\\^", CC_NEGATION, null);
         // [a-zA-Z]    a through z or A through Z, inclusive (range)
@@ -586,10 +606,13 @@ class Pattern {
         // \   Nothing, but quotes the following character
         // \Q  Nothing, but quotes all characters until \E
         // \E  Nothing, but ends quoting started by \Q
-        ss.addRule(ss.ANY_STATE,              "\\\\[^0-9A-Za-z]", QUOTED_CHARACTER,  null);
-        ss.addRule("\\\\Q",                                       QUOTATION_BEGIN,   ScannerState.IN_QUOTATION);
-        ss.addRule(ScannerState.IN_QUOTATION, "\\\\E",            QUOTATION_END,     ScannerState.IN_QUOTATION);
-        ss.addRule(ScannerState.IN_QUOTATION, ".",                LITERAL_CHARACTER, ScannerState.IN_QUOTATION);
+        ss.addRule(ss.ANY_STATE,               "\\\\[^0-9A-Za-z]", QUOTED_CHARACTER,  ss.REMAIN);
+        ss.addRule("\\\\Q",                                        QUOTATION_BEGIN,   ScannerState.IN_QUOTATION);
+        ss.addRule(ScannerState.DEFAULT_,      "\\\\Q",            QUOTATION_BEGIN,   ScannerState.IN_QUOTATION_);
+        ss.addRule(ScannerState.IN_QUOTATION,  "\\\\E",            QUOTATION_END);
+        ss.addRule(ScannerState.IN_QUOTATION_, "\\\\E",            QUOTATION_END,     ScannerState.DEFAULT_);
+        ss.addRule(ScannerState.IN_QUOTATION,  ".",                LITERAL_CHARACTER, ScannerState.IN_QUOTATION);
+        ss.addRule(ScannerState.IN_QUOTATION_, ".",                LITERAL_CHARACTER, ScannerState.IN_QUOTATION_);
 
         // Special constructs (named-capturing and non-capturing)
         // (?<name>X)          X, as a named-capturing group
@@ -855,9 +878,9 @@ class Pattern {
                 // Parse all elements into a list.
                 List<Sequence> elements = new ArrayList<Sequence>();
                 elements.add(first);
-                do {
+                while (this.peek(null, EITHER_OR, END_GROUP, QUOTATION_END) == -1) {
                     elements.add(this.parseQuantified());
-                } while (this.peek(null, "|", ")") == -1);
+                }
 
                 // Now do some optimization on the list:
 
@@ -995,7 +1018,6 @@ class Pattern {
 
                 if (t != null) {
                     TokenType tt = t.type;
-
 
                     if (
                         tt == TokenType.LITERAL_CHARACTER
@@ -1242,10 +1264,11 @@ class Pattern {
             }
 
             /**
-             * @param spec {@code idmsuxU}
+             * @param spec One or more of "{@code idmsuxU}"
              */
             private int
             parseFlags(String spec) throws ParseException {
+
                 int result = 0;
                 for (int i = 0; i < spec.length(); i++) {
                     char c = spec.charAt(i);
