@@ -33,7 +33,10 @@ import de.unkrig.commons.nullanalysis.Nullable;
 /**
  * Classes and methods related to {@link Sequence}s.
  */
+final
 class Sequences {
+
+    private Sequences() {}
 
     /**
      * Representation of a sequence of literal, case-sensitive characters.
@@ -52,8 +55,8 @@ class Sequences {
             return this.successor.matches(matcher, offset);
         }
 
-        @Override
-        public Sequence reverse() {
+        @Override public Sequence
+        reverse() {
 
             this.s = new StringBuilder(this.s).reverse().toString();
 
@@ -151,9 +154,9 @@ class Sequences {
 
                 int[] newGroups = Arrays.copyOf(matcher.groups, matcher.groups.length);
 
-                int[] savedGroups = matcher.groups;
+                final int[] savedGroups = matcher.groups;
                 newGroups[2 * groupNumber] = offset;
-                matcher.groups = newGroups;
+                matcher.groups             = newGroups;
 
                 int result = this.successor.matches(matcher, offset);
 
@@ -468,35 +471,35 @@ class Sequences {
     }
 
     public static Sequence
-        endOfPreviousMatch() {
+    endOfPreviousMatch() {
 
-            return new Pattern.AbstractSequence() {
+        return new Pattern.AbstractSequence() {
 
-                boolean reverse;
+            boolean reverse;
 
-                @Override public int
-                matches(MatcherImpl matcher, int offset) {
+            @Override public int
+            matches(MatcherImpl matcher, int offset) {
 
-                    // The documentation of java.util.regex is totally unclear about the following case, but this seems to
-                    // be how it works:
-                    if (matcher.endOfPreviousMatch == -1) return this.successor.matches(matcher, offset);
-    //                if (matcher.endOfPreviousMatch == -1) return -1;
+                // The documentation of java.util.regex is totally unclear about the following case, but this seems to
+                // be how it works:
+                if (matcher.endOfPreviousMatch == -1) return this.successor.matches(matcher, offset);
+//                if (matcher.endOfPreviousMatch == -1) return -1;
 
-                    if (offset != matcher.endOfPreviousMatch) return -1;
+                if (offset != matcher.endOfPreviousMatch) return -1;
 
-                    return this.successor.matches(matcher, offset);
-                }
+                return this.successor.matches(matcher, offset);
+            }
 
-                @Override public Sequence
-                reverse() {
-                    this.reverse = !this.reverse;
-                    return super.reverse();
-                }
+            @Override public Sequence
+            reverse() {
+                this.reverse = !this.reverse;
+                return super.reverse();
+            }
 
-                @Override public String
-                toString() { return "\\G" + this.successor; }
-            };
-        }
+            @Override public String
+            toString() { return "\\G" + this.successor; }
+        };
+    }
 
     public static Sequence
     positiveLookahead(final Sequence op) {
@@ -508,13 +511,13 @@ class Sequences {
 
                 boolean lookaheadMatches;
 
-                Pattern.End savedEnd       = matcher.end;
-                int         savedRegionEnd = matcher.regionEnd;
+                final Pattern.End savedEnd       = matcher.end;
+                final int         savedRegionEnd = matcher.regionEnd;
                 {
                     matcher.end       = Pattern.End.ANY;
                     matcher.regionEnd = matcher.transparentRegionEnd;
 
-                    lookaheadMatches = op.matches(matcher, offset) != -1;
+                    lookaheadMatches   = op.matches(matcher, offset) != -1;
                     matcher.requireEnd = matcher.hitEnd;
                 }
                 matcher.end       = savedEnd;
@@ -533,14 +536,14 @@ class Sequences {
             @Override public int
             matches(MatcherImpl matcher, int offset) {
 
-                int l1 = matcher.subject.length();
+                final int l1 = matcher.subject.length();
 
                 boolean lookbehindMatches;
 
-                Pattern.End savedEnd          = matcher.end;
-                boolean     savedHitStart     = matcher.hitStart;
-                boolean     savedRequireStart = matcher.requireStart;
-                int         savedRegionStart  = matcher.regionStart;
+                final Pattern.End savedEnd          = matcher.end;
+                final boolean     savedHitStart     = matcher.hitStart;
+                final boolean     savedRequireStart = matcher.requireStart;
+                final int         savedRegionStart  = matcher.regionStart;
                 {
                     matcher.reverse();
                     {
@@ -648,7 +651,7 @@ class Sequences {
 
                     if (!operand.evaluate(c)) return -1;
                 }
-                int offsetAfterMin = offset;
+                final int offsetAfterMin = offset;
 
                 // Now try to match the operand (max-min) more times.
                 for (; i < max; i++) {

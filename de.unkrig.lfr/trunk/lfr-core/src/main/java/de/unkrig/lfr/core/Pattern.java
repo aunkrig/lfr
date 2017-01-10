@@ -504,7 +504,7 @@ class Pattern {
         // \p{javaUpperCase}   Equivalent to java.lang.Character.isUpperCase()
         // \p{javaWhitespace}  Equivalent to java.lang.Character.isWhitespace()
         // \p{javaMirrored}    Equivalent to java.lang.Character.isMirrored()
-        ss.addRule(ss.ANY_STATE, "\\\\[pP]\\{(?:javaLowerCase|javaUpperCase|javaWhitespace|javaMirrored)}", CC_JAVA, null);
+        ss.addRule(ss.ANY_STATE, "\\\\[pP]\\{(?:javaLowerCase|javaUpperCase|javaWhitespace|javaMirrored)}", CC_JAVA, null); // SUPPRESS CHECKSTYLE LineLength
 
         // Classes for Unicode scripts, blocks, categories and binary properties
         // \p{IsLatin}        A Latin script character (script)
@@ -887,7 +887,10 @@ class Pattern {
             @Nullable private Sequence
             merge(Sequence s1, Sequence s2) {
 
-                if (s1 instanceof CharacterClasses.LiteralCharacter && s2 instanceof CharacterClasses.LiteralCharacter) {
+                if (
+                    s1 instanceof CharacterClasses.LiteralCharacter
+                    && s2 instanceof CharacterClasses.LiteralCharacter
+                ) {
                     int c1 = ((CharacterClasses.LiteralCharacter) s1).c;
                     int c2 = ((CharacterClasses.LiteralCharacter) s2).c;
                     return Sequences.literalString(
@@ -1049,8 +1052,8 @@ class Pattern {
 
                 case CAPTURING_GROUP:
                     {
-                        int groupNumber = ++rs.groupCount;
-                        Sequence result = Sequences.capturingGroupStart(groupNumber);
+                        int      groupNumber = ++rs.groupCount;
+                        Sequence result      = Sequences.capturingGroupStart(groupNumber);
                         result.append(this.parseAlternatives());
                         result.append(Sequences.capturingGroupEnd(groupNumber));
                         this.read(")");
@@ -1288,7 +1291,9 @@ class Pattern {
                     {
                         int idx = "ctnrfae".indexOf(t.text.charAt(1));
                         assert idx != -1;
-                        if (idx == 0) return CharacterClasses.literalCharacter((char) (t.text.charAt(2) & 0x1f), t.text);
+                        if (idx == 0) {
+                            return CharacterClasses.literalCharacter((char) (t.text.charAt(2) & 0x1f), t.text);
+                        }
                         return CharacterClasses.literalCharacter("c\t\n\r\f\u0007\u001b".charAt(idx), t.text);
                     }
 
@@ -1331,7 +1336,7 @@ class Pattern {
 
                 case CC_POSIX:
                     {
-                        String             ccName = t.text.substring(3, t.text.length() - 1);
+                        String             ccName             = t.text.substring(3, t.text.length() - 1);
                         Predicate<Integer> codePointPredicate = (
                             "Lower".equals(ccName)  ? Characters.IS_POSIX_LOWER  :
                             "Upper".equals(ccName)  ? Characters.IS_POSIX_UPPER  :
@@ -1359,7 +1364,7 @@ class Pattern {
 
                 case CC_JAVA:
                     {
-                        String ccName = t.text.substring(3, t.text.length() - 1);
+                        String             ccName             = t.text.substring(3, t.text.length() - 1);
                         Predicate<Integer> codePointPredicate = (
                             "javaLowerCase".equals(ccName)  ? Characters.IS_LOWER_CASE :
                             "javaUpperCase".equals(ccName)  ? Characters.IS_UPPER_CASE :

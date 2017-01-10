@@ -41,8 +41,10 @@ import de.unkrig.commons.nullanalysis.NotNullByDefault;
 /**
  * Taken from <a href="stackoverflow.com/questions/19850695">the "Sampler" class</a>.
  */
-@NotNullByDefault(false) public
+@NotNullByDefault(false) public final
 class Sampler {
+
+    private Sampler() {}
 
     private static final ThreadMXBean THREAD_MX_BEAN = ManagementFactory.getThreadMXBean();
 

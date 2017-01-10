@@ -31,7 +31,8 @@ import de.unkrig.commons.lang.protocol.Predicate;
 /**
  * An optimization of {@link Predicate Predicate<Integer>} which saves the overhead of boxing and unboxing.
  */
-public interface IntPredicate {
+public
+interface IntPredicate {
 
     /**
      * Returns {@code true} iff the <var>subject</var> "qualifies", otherwise {@code false}.

@@ -83,7 +83,7 @@ class OracleEssentials {
         final java.util.regex.Pattern    pattern1 = java.util.regex.Pattern.compile(regex, flags);
         final de.unkrig.lfr.core.Pattern pattern2 = de.unkrig.lfr.core.Pattern.compile(regex, flags);
 
-        String message = "regex=\"" + regex + "\", subject=\"" + subject + "\"";
+        final String message = "regex=\"" + regex + "\", subject=\"" + subject + "\"";
 
         // FUNCTIONAL tests (as opposed to PERFORMANCE testing).
         {
