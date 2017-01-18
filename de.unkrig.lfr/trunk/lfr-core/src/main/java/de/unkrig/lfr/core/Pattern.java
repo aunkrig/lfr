@@ -81,6 +81,7 @@ import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.regex.PatternSyntaxException;
 
@@ -1485,7 +1486,28 @@ class Pattern {
                     }
 
                 case CC_UNICODE_SCRIPT_OR_BINARY_PROPERTY:
-                    throw new AssertionError("Unicode scripts and binary properties are not implemented");
+                    {
+                        String name = t.text.substring(5, t.text.length() - 1);
+                        
+                        // A UNICODE preperty, e.g. "TITLECASE"?
+                        Predicate<Integer> codePointPredicate = Characters.unicodePropertyFromName(name);
+                        if (codePointPredicate != null) {
+                            return CharacterClasses.characterClass(codePointPredicate, t.text);
+                        }
+                            
+                        // A UNICODE character property, e.g. category "Lu"?
+                        Byte gc = getGeneralCategory(name);
+                        if (gc != null) return CharacterClasses.inUnicodeGeneralCategory(gc);
+
+                        // A Unicode "script"?
+                        // (Class UnicodeScript only available from Java 7.)
+
+                        throw new AssertionError((
+                            "Invalid or unimplemented Unicode script or property \""
+                            + name 
+                            + "\""
+                        ));
+                    }
 
                 case CC_UNICODE_BLOCK:
                     {
@@ -1572,41 +1594,41 @@ class Pattern {
             m = new HashMap<String, Byte>();
 
             // The JRE provides no way to translate GC names int GC values.
-            m.put("Cn", Character.UNASSIGNED);
-            m.put("Lu", Character.UPPERCASE_LETTER);
-            m.put("Ll", Character.LOWERCASE_LETTER);
-            m.put("Lt", Character.TITLECASE_LETTER);
-            m.put("Lm", Character.MODIFIER_LETTER);
-            m.put("Lo", Character.OTHER_LETTER);
-            m.put("Mn", Character.NON_SPACING_MARK);
-            m.put("Me", Character.ENCLOSING_MARK);
-            m.put("Mc", Character.COMBINING_SPACING_MARK);
-            m.put("Nd", Character.DECIMAL_DIGIT_NUMBER);
-            m.put("Nl", Character.LETTER_NUMBER);
-            m.put("No", Character.OTHER_NUMBER);
-            m.put("Zs", Character.SPACE_SEPARATOR);
-            m.put("Zl", Character.LINE_SEPARATOR);
-            m.put("Zp", Character.PARAGRAPH_SEPARATOR);
-            m.put("Cc", Character.CONTROL);
-            m.put("Cf", Character.FORMAT);
-            m.put("Co", Character.PRIVATE_USE);
-            m.put("Cs", Character.SURROGATE);
-            m.put("Pd", Character.DASH_PUNCTUATION);
-            m.put("Ps", Character.START_PUNCTUATION);
-            m.put("Pe", Character.END_PUNCTUATION);
-            m.put("Pc", Character.CONNECTOR_PUNCTUATION);
-            m.put("Po", Character.OTHER_PUNCTUATION);
-            m.put("Sm", Character.MATH_SYMBOL);
-            m.put("Sc", Character.CURRENCY_SYMBOL);
-            m.put("Sk", Character.MODIFIER_SYMBOL);
-            m.put("So", Character.OTHER_SYMBOL);
-            m.put("Pi", Character.INITIAL_QUOTE_PUNCTUATION);
-            m.put("Pf", Character.FINAL_QUOTE_PUNCTUATION);
+            m.put("CN", Character.UNASSIGNED);
+            m.put("LU", Character.UPPERCASE_LETTER);
+            m.put("LL", Character.LOWERCASE_LETTER);
+            m.put("LT", Character.TITLECASE_LETTER);
+            m.put("LM", Character.MODIFIER_LETTER);
+            m.put("LO", Character.OTHER_LETTER);
+            m.put("MN", Character.NON_SPACING_MARK);
+            m.put("ME", Character.ENCLOSING_MARK);
+            m.put("MC", Character.COMBINING_SPACING_MARK);
+            m.put("ND", Character.DECIMAL_DIGIT_NUMBER);
+            m.put("NL", Character.LETTER_NUMBER);
+            m.put("NO", Character.OTHER_NUMBER);
+            m.put("ZS", Character.SPACE_SEPARATOR);
+            m.put("ZL", Character.LINE_SEPARATOR);
+            m.put("ZP", Character.PARAGRAPH_SEPARATOR);
+            m.put("CC", Character.CONTROL);
+            m.put("CF", Character.FORMAT);
+            m.put("CO", Character.PRIVATE_USE);
+            m.put("CS", Character.SURROGATE);
+            m.put("PD", Character.DASH_PUNCTUATION);
+            m.put("PS", Character.START_PUNCTUATION);
+            m.put("PE", Character.END_PUNCTUATION);
+            m.put("PC", Character.CONNECTOR_PUNCTUATION);
+            m.put("PO", Character.OTHER_PUNCTUATION);
+            m.put("SM", Character.MATH_SYMBOL);
+            m.put("SC", Character.CURRENCY_SYMBOL);
+            m.put("SK", Character.MODIFIER_SYMBOL);
+            m.put("SO", Character.OTHER_SYMBOL);
+            m.put("PI", Character.INITIAL_QUOTE_PUNCTUATION);
+            m.put("PF", Character.FINAL_QUOTE_PUNCTUATION);
 
             Pattern.generalCategories = Collections.unmodifiableMap(m);
         }
 
-        return m.get(name);
+        return m.get(name.toUpperCase(Locale.ENGLISH));
     }
     @Nullable private static Map<String, Byte> generalCategories;
 }
