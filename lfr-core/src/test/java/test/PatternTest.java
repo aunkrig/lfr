@@ -155,10 +155,22 @@ class PatternTest {
         OracleEssentials.harness("a|b", " a b c ");
     }
 
+    // ======================================== CHARACTER CLASSES ========================================
+
+    @Test public void
+    testPredefinedCharacterClasses() {
+        OracleEssentials.harness("\\w",     " abc äöü ");
+        OracleEssentials.harness("(?U)\\w", " abc äöü ");
+        OracleEssentials.harness("\\W",     " abc äöü ");
+        OracleEssentials.harness("(?U)\\W", " abc äöü ");
+    }
+
     @Test public void
     testPosixCharacterClasses() {
-        OracleEssentials.harness("\\p{Lower}", " a B c ä Ä ");
-        OracleEssentials.harness("\\P{Lower}", " a B c ä Ä ");
+        OracleEssentials.harness("\\p{Lower}",     " abc äöü ");
+        OracleEssentials.harness("(?U)\\p{Lower}", " abc äöü ");
+        OracleEssentials.harness("\\P{Lower}",     " abc äöü ");
+        OracleEssentials.harness("(?U)\\P{Lower}", " abc äöü ");
     }
 
     @Test public void
@@ -166,17 +178,31 @@ class PatternTest {
 
         OracleEssentials.harness("\\p{javaLowerCase}", " a B c ä Ä ");
         OracleEssentials.harness("\\P{javaLowerCase}", " a B c ä Ä ");
+    }
 
-//        OracleEssentials.harness("\\p{IsLatin}",       " a B c ä Ä ");  Unicode scripts are not implemented
+    @Test public void
+    testUnicodeCharacterClasses() {
 
+        // By "UNICODE script" - NYI:
+//        OracleEssentials.harness("\\p{IsLatin}",       " a B c ä Ä ");
+
+        // By "UNICODE block":
+        OracleEssentials.harness("\\p{InGreek}",       " \u03b1 ");
         OracleEssentials.harness("\\p{InBasicLatin}",  " a B c ä Ä ");
         OracleEssentials.harness("\\P{InBasicLatin}",  " a B c ä Ä ");
 
+        // By "UNICODE category":
         OracleEssentials.harness("\\p{Lu}",            " a B c ä Ä ");
         OracleEssentials.harness("\\P{Lu}",            " a B c ä Ä ");
+        OracleEssentials.harness("\\p{Sc}",            " a $ ");
+        OracleEssentials.harness("\\P{Sc}",            " a $ ");
 
-//        OracleEssentials.harness("\\p{IsAlphabetic}",  " a B c ä Ä ");  Unicode binary properties are not implemented
+        // By "UNICODE property":
+        OracleEssentials.harness("\\p{IsLowerCASE}",  " abc äöü ");
+        OracleEssentials.harness("\\p{IsAlphabetic}", " abc äöü ");
     }
+
+    // ======================================== END OF CHARACTER CLASSES ========================================
 
     @Test public void
     testNamedCapturingGroups() {
@@ -350,14 +376,6 @@ class PatternTest {
         OracleEssentials.harness("(?x)  a  (?-x) b",    " a b ");
         OracleEssentials.harness("(?x)  a#\n  (?-x) b", " ab ");
         OracleEssentials.harness("(?x)  a#\n  (?-x) b", " a b ");
-    }
-
-    @Test public void
-    testUnicodeCharacterClasses() {
-        OracleEssentials.harness("\\p{Lower}",     " abc äöü ");
-        OracleEssentials.harness("(?U)\\p{Lower}", " abc äöü ");
-        OracleEssentials.harness("\\w",            " abc äöü ");
-        OracleEssentials.harness("(?U)\\w",        " abc äöü ");
     }
 
     // ===================================
