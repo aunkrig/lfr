@@ -28,6 +28,7 @@ package test;
 
 import java.util.Arrays;
 import java.util.Locale;
+import java.util.regex.PatternSyntaxException;
 
 import org.junit.Assert;
 
@@ -45,6 +46,9 @@ class OracleEssentials {
     private static final int     CHUNK_SIZE               = 1000;
 
     private static final Locale LOCALE = Locale.US;
+
+    private static final boolean IS_JAVA_6 = "1.6".equals(System.getProperty("java.specification.version"));
+    private static final boolean IS_JAVA_7 = "1.7".equals(System.getProperty("java.specification.version"));
 
     private static long   totalNs1, totalNs2;
     private static double gainSum;
@@ -79,6 +83,19 @@ class OracleEssentials {
         @Nullable Boolean transparentBounds,
         @Nullable Boolean anchoringBounds
     ) {
+
+        // Ignore tests that use constructs that are not supported by JRE 6.
+        if (OracleEssentials.IS_JAVA_6 && ( // Java 6 doesn't support...
+            regex.contains("(?U")                    // ... the "U" flag (Pattern.UNICODE_CHARACTER_CLASS)
+            || regex.matches(".*\\( ?\\?<\\s*\\w.*") // ... named capturing groups
+            || regex.contains("\\R")                 // ... the linebreak matcher
+            || regex.contains("\\p{Is")              // ... UNICODE properties
+        )) return;
+
+        // Ignore tests that use constructs that are not supported by JRE 7.
+        if (OracleEssentials.IS_JAVA_7 && ( // Java 7 doesn't support...
+            regex.contains("\\R")                    // ... the linebreak matcher
+        )) return;
 
         final java.util.regex.Pattern    pattern1 = java.util.regex.Pattern.compile(regex, flags);
         final de.unkrig.lfr.core.Pattern pattern2 = de.unkrig.lfr.core.Pattern.compile(regex, flags);
@@ -315,6 +332,38 @@ class OracleEssentials {
         }
 
         return sb.append('"').toString();
+    }
+
+    static void
+    patternSyntaxException(String regex) { patternSyntaxException(regex, 0); }
+
+    static void
+    patternSyntaxException(String regex, int flags) {
+
+        {
+            String specificationVersion = System.getProperty("java.specification.version");
+
+            // Check for constructs not supported by JRE 1.6.
+            if ("1.6".equals(specificationVersion) && ( // Java 6 doesn't support...
+                regex.contains("(?U")                // ... the "U" flag (Pattern.UNICODE_CHARACTER_CLASS).
+                || regex.matches(".*\\( ?\\?<\\w.*") // ... named capturing groups.
+                || regex.contains("\\R")             // ... the linebreak matcher.
+            )) return;
+        }
+
+        try {
+            java.util.regex.Pattern.compile(regex, flags);
+            Assert.fail("JUR did not throw a PatternSyntaxException");
+        } catch (PatternSyntaxException pse) {
+            ;
+        }
+
+        try {
+            de.unkrig.lfr.core.Pattern.compile(regex, flags);
+            Assert.fail("LFR did not throw a PatternSyntaxException");
+        } catch (PatternSyntaxException pse) {
+            ;
+        }
     }
 
     static void
