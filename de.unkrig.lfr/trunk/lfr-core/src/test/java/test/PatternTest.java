@@ -205,7 +205,7 @@ class PatternTest {
     // ======================================== END OF CHARACTER CLASSES ========================================
 
     @Test public void
-    testNamedCapturingGroups() {
+    testNamedCapturingGroups1() {
         OracleEssentials.harness("(?<xxx>a+)", " a aa aaa");
 
         de.unkrig.lfr.core.Matcher matcher = de.unkrig.lfr.core.Pattern.compile("(?<xxx>a+)").matcher(" a aa aaa");
@@ -220,6 +220,11 @@ class PatternTest {
         Assert.assertEquals("aaa", matcher.group("xxx"));
 
         Assert.assertFalse(matcher.find());
+    }
+
+    @Test public void
+    testNamedCapturingGroupsBackreference() {
+        OracleEssentials.harness("(?<first>\\w)\\k<first>", " a aa aaa");
     }
 
     @Test public void
@@ -376,6 +381,22 @@ class PatternTest {
         OracleEssentials.harness("(?x)  a  (?-x) b",    " a b ");
         OracleEssentials.harness("(?x)  a#\n  (?-x) b", " ab ");
         OracleEssentials.harness("(?x)  a#\n  (?-x) b", " a b ");
+
+        OracleEssentials.harness("(?x)  (a)", " a b ");
+        OracleEssentials.harness("(?x)  (?:a)", " a b ");
+        OracleEssentials.harness("(?x)  ( ?:a)", " a b ");
+        OracleEssentials.harness("(?x)  (?: a)", " a b ");
+        OracleEssentials.harness("(?x)  (? : a)", " a b ");
+        OracleEssentials.harness("(?x)  ( ? :a)", " a b ");
+        OracleEssentials.harness("(?x)  ( ?: a)", " a b ");
+        OracleEssentials.harness("(?x)  ( ? : a)", " a b ");
+        OracleEssentials.harness("(?x)  (?<name>a)", " a b ");
+        OracleEssentials.harness("(?x)  ( ?<name>a)", " a b ");
+        OracleEssentials.patternSyntaxException("(?x)  (? <name>a)");
+        OracleEssentials.harness("(?x)  (?< name>a)", " a b ");
+        OracleEssentials.patternSyntaxException("(?x)  (? < name>a)");
+        OracleEssentials.harness("(?x)  ( ?< name>a)", " a b ");
+        OracleEssentials.patternSyntaxException("(?x)  ( ? < name>a)");
     }
 
     // ===================================
