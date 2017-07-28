@@ -26,6 +26,7 @@
 
 package de.unkrig.lfr.core;
 
+import java.io.IOException;
 import java.util.regex.MatchResult;
 
 import de.unkrig.commons.nullanalysis.Nullable;
@@ -138,30 +139,33 @@ interface Matcher extends MatchResult {
      */
     boolean lookingAt();
 
-//    /**
-//     * @see java.util.regex.Matcher#quoteReplacement(String)
-//     */
-//    static String quoteReplacement(String s) { return java.util.regex.Matcher.quoteReplacement(s); }
-//
-//    /**
-//     * @see java.util.regex.Matcher#appendReplacement(StrigBuffer, String)
-//     */
-//    Matcher appendReplacement(StringBuffer sb, String replacement);
-//
-//    /**
-//     * @see java.util.regex.Matcher#appendTail(StringBuffer)
-//     */
-//    StringBuffer appendTail(StringBuffer sb);
-//
-//    /**
-//     * @see java.util.regex.Matcher#replaceAll(String)
-//     */
-//    String replaceAll(String replacement);
-//
-//    /**
-//     * @see java.util.regex.Matcher#replaceFirst(String)
-//     */
-//    String replaceFirst(String replacement);
+    /**
+     * @deprecated Use {@link java.util.regex.Matcher#quoteReplacement(String)} instead
+     */
+    @Deprecated String
+    quoteReplacement(String s);
+
+    /**
+     * @param appendable Must not throw any {@link IOException}s
+     * @see              java.util.regex.Matcher#appendReplacement(StrigBuffer, String)
+     */
+    Matcher appendReplacement(Appendable appendable, String replacement);
+
+    /**
+     * @param appendable Must not throw any {@link IOException}s
+     * @see              java.util.regex.Matcher#appendTail(StringBuffer)
+     */
+    <T extends Appendable> T appendTail(T appendable);
+
+    /**
+     * @see java.util.regex.Matcher#replaceAll(String)
+     */
+    String replaceAll(String replacement);
+
+    /**
+     * @see java.util.regex.Matcher#replaceFirst(String)
+     */
+    String replaceFirst(String replacement);
 
     /**
      * @see java.util.regex.Matcher#region(int, int)
