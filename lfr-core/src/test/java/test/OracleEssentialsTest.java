@@ -51,18 +51,18 @@ class OracleEssentialsTest {
         OracleEssentials.endStatistics();
     }
 
-    @Test public void
+    @Test @SuppressWarnings("static-method") public void
     testStringLiterals() {
         OracleEssentials.harness("foo", "foofoofoo");
         OracleEssentials.harness("cat.", "cats");
     }
 
-    @Test public void
+    @Test @SuppressWarnings("static-method") public void
     testSimpleClasses() {
         OracleEssentials.harness("[bcr]at", "bat");
     }
 
-    @Test public void
+    @Test @SuppressWarnings("static-method") public void
     testNegation() {
         OracleEssentials.harness("[^bcr]at", "bat");
         OracleEssentials.harness("[^bcr]at", "cat");
@@ -70,7 +70,7 @@ class OracleEssentialsTest {
         OracleEssentials.harness("[^bcr]at", "hat");
     }
 
-    @Test public void
+    @Test @SuppressWarnings("static-method") public void
     testRanges() {
         OracleEssentials.harness("[a-c]", "a");
         OracleEssentials.harness("[a-c]", "b");
@@ -83,7 +83,7 @@ class OracleEssentialsTest {
         OracleEssentials.harness("foo[^1-5]", "foo6");
     }
 
-    @Test public void
+    @Test @SuppressWarnings("static-method") public void
     testUnions() {
         OracleEssentials.harness("[0-4[6-8]]", "0");
         OracleEssentials.harness("[0-4[6-8]]", "5");
@@ -92,7 +92,7 @@ class OracleEssentialsTest {
         OracleEssentials.harness("[0-4[6-8]]", "9");
     }
 
-    @Test public void
+    @Test @SuppressWarnings("static-method") public void
     testIntersections() {
         OracleEssentials.harness("[2-8&&[4-6]]", "3");
         OracleEssentials.harness("[2-8&&[4-6]]", "4");
@@ -101,7 +101,7 @@ class OracleEssentialsTest {
         OracleEssentials.harness("[2-8&&[4-6]]", "7");
     }
 
-    @Test public void
+    @Test @SuppressWarnings("static-method") public void
     testSubtractions() {
         OracleEssentials.harness("[0-9&&[^345]]", "2");
         OracleEssentials.harness("[0-9&&[^345]]", "3");
@@ -115,7 +115,7 @@ class OracleEssentialsTest {
      * @see <a href="https://docs.oracle.com/javase/tutorial/essential/regex/pre_char_classes.html">Essential Classes:
      * Lesson: Regular Expressions: Predefined Character Classes</a>
      */
-    @Test public void
+    @Test @SuppressWarnings("static-method") public void
     testPredefinedCharacterClasses() {
         OracleEssentials.harness(".",   "@");
         OracleEssentials.harness(".",   "1");
@@ -138,14 +138,14 @@ class OracleEssentialsTest {
      * @see <a href="https://docs.oracle.com/javase/tutorial/essential/regex/quant.html">Essential Classes:
      * Lesson: Regular Expressions: Quantifiers</a>
      */
-    @Test public void
+    @Test @SuppressWarnings("static-method") public void
     testQuantifiers() {
         OracleEssentials.harness("a?", "");
         OracleEssentials.harness("a*", "");
         OracleEssentials.harness("a+", "");
     }
 
-    @Test public void
+    @Test @SuppressWarnings("static-method") public void
     testZeroLengthMatches() {
         OracleEssentials.harness("a?",     "a");
         OracleEssentials.harness("a*",     "a");
@@ -164,14 +164,14 @@ class OracleEssentialsTest {
         OracleEssentials.harness("a{3,6}", "aaaaaaaaa");
     }
 
-    @Test public void
+    @Test @SuppressWarnings("static-method") public void
     testCapturingGroupsAndCharacterClassesWithQuantifiers() {
         OracleEssentials.harness("(dog){3}", "dogdogdogdogdogdog");
         OracleEssentials.harness("dog{3}",   "dogdogdogdogdogdog");
         OracleEssentials.harness("[abc]{3}", "abccabaaaccbbbc");
     }
 
-    @Test public void
+    @Test @SuppressWarnings("static-method") public void
     testDifferencesAmongGreedyReluctantAndPossessiveQuantifiers() {
         OracleEssentials.harness(".*foo",  "xfooxxxxxxfoo");
         OracleEssentials.harness(".*?foo", "xfooxxxxxxfoo");
@@ -182,7 +182,7 @@ class OracleEssentialsTest {
      * @see <a href="https://docs.oracle.com/javase/tutorial/essential/regex/groups.html">Essential Classes:
      * Lesson: Regular Expressions: Capturing groups</a>
      */
-    @Test public void
+    @Test @SuppressWarnings("static-method") public void
     testBackreferences() {
         OracleEssentials.harness("(\\d\\d)\\1", "1212");
         OracleEssentials.harness("(\\d\\d)\\1", "1234");
@@ -192,7 +192,7 @@ class OracleEssentialsTest {
      * @see <a href="https://docs.oracle.com/javase/tutorial/essential/regex/bounds.html">Essential Classes:
      * Lesson: Regular Expressions: Boundary Matchers</a>
      */
-    @Test public void
+    @Test @SuppressWarnings("static-method") public void
     testBoundaryMatchers() {
         OracleEssentials.harness("^dog$",    "dog");
         OracleEssentials.harness("^dog$",    "   dog");
@@ -204,7 +204,7 @@ class OracleEssentialsTest {
      * @see <a href="https://docs.oracle.com/javase/tutorial/essential/regex/pattern.html">Essential Classes:
      * Lesson: Regular Expressions: Methods of the Pattern Class</a>
      */
-    @Test public void
+    @Test @SuppressWarnings("static-method") public void
     testCreatingAPatternWithFlags() {
         OracleEssentials.harness("dog", "DoGDOg", java.util.regex.Pattern.CASE_INSENSITIVE);
     }
@@ -213,7 +213,7 @@ class OracleEssentialsTest {
      * @see <a href="https://docs.oracle.com/javase/tutorial/essential/regex/pattern.html#embedded">Essential Classes:
      * Lesson: Regular Expressions: Embedded Flag Expressions</a>
      */
-    @Test public void
+    @Test @SuppressWarnings("static-method") public void
     testEmbeddedFlagExpressions() {
         OracleEssentials.harness("foo",     "FOOfooFoOfoO", de.unkrig.lfr.core.Pattern.CASE_INSENSITIVE);
         OracleEssentials.harness("(?i)foo", "FOOfooFoOfoO");
@@ -224,7 +224,7 @@ class OracleEssentialsTest {
      * @see <a href="https://docs.oracle.com/javase/tutorial/essential/regex/pattern.html">Essential Classes:
      * Lesson: Regular Expressions: Using the matches(String,CharSequence) Method</a>
      */
-    @Test public void
+    @Test @SuppressWarnings("static-method") public void
     testUsingTheMatchesMethod() {
         Assert.assertTrue(de.unkrig.lfr.core.Pattern.matches("\\d", "1"));
     }
@@ -233,7 +233,7 @@ class OracleEssentialsTest {
      * @see <a href="https://docs.oracle.com/javase/tutorial/essential/regex/pattern.html">Essential Classes:
      * Lesson: Regular Expressions: Using the split(String) Method</a>
      */
-    @Test public void
+    @Test @SuppressWarnings("static-method") public void
     testUsingTheSplitMethod() {
 
         Assert.assertArrayEquals(
