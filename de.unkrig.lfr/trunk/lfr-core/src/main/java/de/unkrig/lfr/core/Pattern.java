@@ -152,23 +152,23 @@ class Pattern {
     private static final EnumSet<ScannerState>
     DEFAULT_STATES = EnumSet.of(
         ScannerState.DEFAULT,
-        ScannerState.DEFAULT_
+        ScannerState.DEFAULT_X
     );
     private static final EnumSet<ScannerState>
     IN_CHAR_CLASS = EnumSet.of(
         ScannerState.CHAR_CLASS1,
         ScannerState.CHAR_CLASS2,
         ScannerState.CHAR_CLASS3,
-        ScannerState.CHAR_CLASS1_,
-        ScannerState.CHAR_CLASS2_,
-        ScannerState.CHAR_CLASS3_
+        ScannerState.CHAR_CLASS1_X,
+        ScannerState.CHAR_CLASS2_X,
+        ScannerState.CHAR_CLASS3_X
     );
     private static final EnumSet<ScannerState>
     IN_COMMENTS_MODE = EnumSet.of(
-        ScannerState.DEFAULT_,
-        ScannerState.CHAR_CLASS1_,
-        ScannerState.CHAR_CLASS2_,
-        ScannerState.CHAR_CLASS3_
+        ScannerState.DEFAULT_X,
+        ScannerState.CHAR_CLASS1_X,
+        ScannerState.CHAR_CLASS2_X,
+        ScannerState.CHAR_CLASS3_X
     );
 
     // Interestingly, the following two are equal!
@@ -318,7 +318,7 @@ class Pattern {
         DEFAULT, CHAR_CLASS1, CHAR_CLASS2, CHAR_CLASS3, IN_QUOTATION,
 
         // Scanner states if "comments" are enabled (Pattern.COMMENTS or "(?x)").
-        DEFAULT_, CHAR_CLASS1_, CHAR_CLASS2_, CHAR_CLASS3_, IN_QUOTATION_,
+        DEFAULT_X, CHAR_CLASS1_X, CHAR_CLASS2_X, CHAR_CLASS3_X, IN_QUOTATION_X,
     }
 
     abstract static
@@ -450,7 +450,7 @@ class Pattern {
         RegexScanner(RegexScanner that) {
             super(that);
 
-            // We don't use the "default state" feature, but define our own states.
+            // We don't use the "default state" feature, but only EXPLICIT states.
             this.setCurrentState(ScannerState.DEFAULT);
         }
     }
@@ -495,18 +495,18 @@ class Pattern {
 
         // Character classes
         // [abc]       a, b, or c (simple class)
-        ss.addRule(ScannerState.DEFAULT,      "\\[", LEFT_BRACKET,    ScannerState.CHAR_CLASS1);
-        ss.addRule(ScannerState.CHAR_CLASS1,  "\\[", LEFT_BRACKET,    ScannerState.CHAR_CLASS2);
-        ss.addRule(ScannerState.CHAR_CLASS2,  "\\[", LEFT_BRACKET,    ScannerState.CHAR_CLASS3);
-        ss.addRule(ScannerState.CHAR_CLASS3,  "]",   RIGHT_BRACKET,   ScannerState.CHAR_CLASS2);
-        ss.addRule(ScannerState.CHAR_CLASS2,  "]",   RIGHT_BRACKET,   ScannerState.CHAR_CLASS1);
-        ss.addRule(ScannerState.CHAR_CLASS1,  "]",   RIGHT_BRACKET,   ScannerState.DEFAULT);
-        ss.addRule(ScannerState.DEFAULT_,     "\\[", LEFT_BRACKET,    ScannerState.CHAR_CLASS1_);
-        ss.addRule(ScannerState.CHAR_CLASS1_, "\\[", LEFT_BRACKET,    ScannerState.CHAR_CLASS2_);
-        ss.addRule(ScannerState.CHAR_CLASS2_, "\\[", LEFT_BRACKET,    ScannerState.CHAR_CLASS3_);
-        ss.addRule(ScannerState.CHAR_CLASS3_, "]",   RIGHT_BRACKET,   ScannerState.CHAR_CLASS2_);
-        ss.addRule(ScannerState.CHAR_CLASS2_, "]",   RIGHT_BRACKET,   ScannerState.CHAR_CLASS1_);
-        ss.addRule(ScannerState.CHAR_CLASS1_, "]",   RIGHT_BRACKET,   ScannerState.DEFAULT_);
+        ss.addRule(ScannerState.DEFAULT,      "\\[",  LEFT_BRACKET,    ScannerState.CHAR_CLASS1);
+        ss.addRule(ScannerState.CHAR_CLASS1,  "\\[",  LEFT_BRACKET,    ScannerState.CHAR_CLASS2);
+        ss.addRule(ScannerState.CHAR_CLASS2,  "\\[",  LEFT_BRACKET,    ScannerState.CHAR_CLASS3);
+        ss.addRule(ScannerState.CHAR_CLASS3,  "]",    RIGHT_BRACKET,   ScannerState.CHAR_CLASS2);
+        ss.addRule(ScannerState.CHAR_CLASS2,  "]",    RIGHT_BRACKET,   ScannerState.CHAR_CLASS1);
+        ss.addRule(ScannerState.CHAR_CLASS1,  "]",    RIGHT_BRACKET,   ScannerState.DEFAULT);
+        ss.addRule(ScannerState.DEFAULT_X,     "\\[", LEFT_BRACKET,    ScannerState.CHAR_CLASS1_X);
+        ss.addRule(ScannerState.CHAR_CLASS1_X, "\\[", LEFT_BRACKET,    ScannerState.CHAR_CLASS2_X);
+        ss.addRule(ScannerState.CHAR_CLASS2_X, "\\[", LEFT_BRACKET,    ScannerState.CHAR_CLASS3_X);
+        ss.addRule(ScannerState.CHAR_CLASS3_X, "]",   RIGHT_BRACKET,   ScannerState.CHAR_CLASS2_X);
+        ss.addRule(ScannerState.CHAR_CLASS2_X, "]",   RIGHT_BRACKET,   ScannerState.CHAR_CLASS1_X);
+        ss.addRule(ScannerState.CHAR_CLASS1_X, "]",   RIGHT_BRACKET,   ScannerState.DEFAULT_X);
         // [^abc]      Any character except a, b, or c (negation)
         ss.addRule(Pattern.IN_CHAR_CLASS,     "\\^", CC_NEGATION,     ss.REMAIN);
         // [a-zA-Z]    a through z or A through Z, inclusive (range)
@@ -648,7 +648,7 @@ class Pattern {
         ss.addRule(Pattern.DEFAULT_STATES, "\\|", EITHER_OR, ss.REMAIN);
         // (X) X, as a capturing group
         ss.addRule(ScannerState.DEFAULT,   "\\((?![\\?<])",        CAPTURING_GROUP, ss.REMAIN);
-        ss.addRule(ScannerState.DEFAULT_,  "\\(\\s*(?![\\?<\\s])", CAPTURING_GROUP, ss.REMAIN);
+        ss.addRule(ScannerState.DEFAULT_X, "\\(\\s*(?![\\?<\\s])", CAPTURING_GROUP, ss.REMAIN);
         ss.addRule(Pattern.DEFAULT_STATES, "\\)",                  END_GROUP,       ss.REMAIN);
 
         // Back references
@@ -659,23 +659,23 @@ class Pattern {
 
         // Quotation
         // \   Nothing, but quotes the following character
-        ss.addRule(ss.ANY_STATE,               "\\\\[^0-9A-Za-z]", QUOTED_CHARACTER,  ss.REMAIN);
+        ss.addRule(ss.ANY_STATE,                "\\\\[^0-9A-Za-z]", QUOTED_CHARACTER,  ss.REMAIN);
         // \Q  Nothing, but quotes all characters until \E
-        ss.addRule(ScannerState.DEFAULT,       "\\\\Q",            QUOTATION_BEGIN,   ScannerState.IN_QUOTATION);
-        ss.addRule(ScannerState.DEFAULT_,      "\\\\Q",            QUOTATION_BEGIN,   ScannerState.IN_QUOTATION_);
+        ss.addRule(ScannerState.DEFAULT,        "\\\\Q",            QUOTATION_BEGIN,   ScannerState.IN_QUOTATION);
+        ss.addRule(ScannerState.DEFAULT_X,      "\\\\Q",            QUOTATION_BEGIN,   ScannerState.IN_QUOTATION_X);
         // \E  Nothing, but ends quoting started by \Q
-        ss.addRule(ScannerState.IN_QUOTATION,  "\\\\E",            QUOTATION_END,     ScannerState.DEFAULT);
-        ss.addRule(ScannerState.IN_QUOTATION_, "\\\\E",            QUOTATION_END,     ScannerState.DEFAULT_);
-        ss.addRule(ScannerState.IN_QUOTATION,  ".",                LITERAL_CHARACTER, ScannerState.IN_QUOTATION);
-        ss.addRule(ScannerState.IN_QUOTATION_, ".",                LITERAL_CHARACTER, ScannerState.IN_QUOTATION_);
+        ss.addRule(ScannerState.IN_QUOTATION,   "\\\\E",            QUOTATION_END,     ScannerState.DEFAULT);
+        ss.addRule(ScannerState.IN_QUOTATION_X, "\\\\E",            QUOTATION_END,     ScannerState.DEFAULT_X);
+        ss.addRule(ScannerState.IN_QUOTATION,   ".",                LITERAL_CHARACTER, ScannerState.IN_QUOTATION);
+        ss.addRule(ScannerState.IN_QUOTATION_X, ".",                LITERAL_CHARACTER, ScannerState.IN_QUOTATION_X);
 
         // Special constructs (named-capturing and non-capturing)
         // (?<name>X)          X, as a named-capturing group
         ss.addRule(ScannerState.DEFAULT,   "\\(\\?<(\\w+)>",                      NAMED_CAPTURING_GROUP,           ss.REMAIN);
-        ss.addRule(ScannerState.DEFAULT_,  "\\(\\s*\\?<\\s*(\\w+)>",              NAMED_CAPTURING_GROUP,           ss.REMAIN);
+        ss.addRule(ScannerState.DEFAULT_X, "\\(\\s*\\?<\\s*(\\w+)>",              NAMED_CAPTURING_GROUP,           ss.REMAIN);
         // (?:X)               X, as a non-capturing group
         ss.addRule(ScannerState.DEFAULT,   "\\(\\?:",                             NON_CAPTURING_GROUP,             ss.REMAIN);
-        ss.addRule(ScannerState.DEFAULT_,  "\\(\\s*\\?\\s*:",                     NON_CAPTURING_GROUP,             ss.REMAIN);
+        ss.addRule(ScannerState.DEFAULT_X, "\\(\\s*\\?\\s*:",                     NON_CAPTURING_GROUP,             ss.REMAIN);
         // (?idmsuxU-idmsuxU)  Nothing, but turns match flags i d m s u x U on - off
         ss.addRule(Pattern.DEFAULT_STATES, "\\(\\?[idmsuxU]*(?:-[idmsuxU]+)?\\)", MATCH_FLAGS,                     ss.REMAIN);
         // (?idmsux-idmsux:X)  X, as a non-capturing group with the given flags i d m s u x on - off
@@ -807,14 +807,16 @@ class Pattern {
             throw new IllegalArgumentException("Unsupported flag " + (flags & ~Pattern.SUPPORTED_FLAGS));
         }
 
+        // With the "LITERAL" flag, use the "literal scanner" instead of the normal regex scanner.
         RegexScanner rs = new RegexScanner(
             (flags & Pattern.LITERAL) == 0
             ? Pattern.REGEX_SCANNER
             : Pattern.LITERAL_SCANNER
         );
 
+        // With the "COMMENTS" flag, start in the "_X" default state.
         if ((flags & (Pattern.LITERAL | Pattern.COMMENTS)) == Pattern.COMMENTS) {
-            rs.setCurrentState(ScannerState.DEFAULT_);
+            rs.setCurrentState(ScannerState.DEFAULT_X);
         }
 
         rs.setInput(regex);
@@ -924,10 +926,13 @@ class Pattern {
             setCurrentFlags(int newFlags) {
 
                 ScannerState currentState = rs.getCurrentState();
-                assert currentState == null || currentState == ScannerState.DEFAULT_;
+                if (currentState != ScannerState.DEFAULT && currentState != ScannerState.DEFAULT_X) {
+                	throw new IllegalStateException("Cannot set flags in this state");
+                }
 
+                // Switch between COMMENTS mode and non-COMMENTS mode.
                 if ((newFlags & (Pattern.LITERAL | Pattern.COMMENTS)) == Pattern.COMMENTS) {
-                    rs.setCurrentState(ScannerState.DEFAULT_);
+                    rs.setCurrentState(ScannerState.DEFAULT_X);
                 } else {
                     rs.setCurrentState(ScannerState.DEFAULT);
                 }
@@ -1300,7 +1305,13 @@ class Pattern {
                     {
                         int      groupNumber = ++rs.groupCount;
                         Sequence result      = Sequences.capturingGroupStart(groupNumber);
-                        result.append(this.parseAlternatives());
+
+                        int savedFlags = this.currentFlags;
+                        {
+                            result.append(this.parseAlternatives());
+                        }
+                        this.setCurrentFlags(savedFlags);
+
                         result.append(Sequences.capturingGroupEnd(groupNumber));
                         this.read(")");
                         return result;
@@ -1328,13 +1339,17 @@ class Pattern {
 
                 case MATCH_FLAGS_NON_CAPTURING_GROUP:
                     {
+                        final Sequence result;
+
                         int savedFlags = this.currentFlags;
-                        this.setCurrentFlags(
-                            this.parseFlags(this.currentFlags, t.text.substring(2, t.text.length() - 1))
-                        );
+                        {
+                            this.setCurrentFlags(this.parseFlags(
+                                this.currentFlags,
+                                t.text.substring(2, t.text.length() - 1)
+                            ));
 
-                        final Sequence result = this.parseAlternatives();
-
+                            result = this.parseAlternatives();
+                        }
                         this.setCurrentFlags(savedFlags);
 
                         this.read(")");
