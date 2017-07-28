@@ -52,6 +52,9 @@ interface Sequence {
      *   region.
      * </p>
      *
+     * @return If this sequence matches, the offset of the first character <em>after</em> the match, otherwise {@code
+     *         -1}
+     *
      * @see Matcher#region(int, int)
      * @see MatcherImpl#groups
      * @see MatcherImpl#hitEnd
