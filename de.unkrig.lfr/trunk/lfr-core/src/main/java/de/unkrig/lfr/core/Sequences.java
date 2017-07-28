@@ -44,6 +44,9 @@ class Sequences {
     static
     class LiteralString extends Pattern.AbstractSequence {
 
+        /**
+         * The literal string that this sequence represents.
+         */
         String s;
 
         LiteralString(String s) { this.s = s; }
@@ -74,7 +77,12 @@ class Sequences {
     literalString(final String s) { return new LiteralString(s); }
 
     /**
-     * Representation of the "|" operator.
+     * Creates and returns {@link Sequence} that returns the first match of one <var>alternatives</var> plus
+     * <em>this</em> sequence's successor.
+     * For example, {@code "a(b|bb)c"} will match both {@code "abc"} and {@code "abbc"}. (In the second case, matching
+     * {@code "abc"} fails, but matching {@code "abbc"} eventually succeeds.)
+     *
+     * @see #independentNonCapturingGroup(Sequence[])
      */
     public static Sequence
     alternatives(final Sequence[] alternatives) {
@@ -90,7 +98,7 @@ class Sequences {
             @Override public void
             append(Sequence that) {
 
-                // On the first invocation, we append "that" to all alternatives. On esubsequent invocations, we append
+                // On the first invocation, we append "that" to all alternatives. On subsequent invocations, we append
                 // "that" only to ONE alternative, because otherwise it would be added N times.
                 if (this.successorAppended) {
                     alternatives[0].append(that);
@@ -119,8 +127,16 @@ class Sequences {
         };
     }
 
+    /**
+     * Creates and returns a {@link Sequence} that matches the <var>alternatives</var>, and, after the first matching
+     * alternative, matches its successor.
+     * For example, {@code "a(?>b|bb)c"} will match {@code "abc"} but <em>not</em> {@code "abbc"}. (In the second case,
+     * matching {@code "ab"} succeeds, {@code "abb"} is never tried.)
+     *
+     * @see #alternatives(Sequence[])
+     */
     public static Sequence
-    independenNonCapturingGroup(final Sequence[] alternatives) {
+    independentNonCapturingGroup(final Sequence[] alternatives) {
 
         if (alternatives.length == 0) return Sequences.emptyStringSequence();
 
@@ -153,10 +169,10 @@ class Sequences {
             matches(MatcherImpl matcher, int offset) {
 
                 int[] newGroups = Arrays.copyOf(matcher.groups, matcher.groups.length);
+                newGroups[2 * groupNumber] = offset;
 
                 final int[] savedGroups = matcher.groups;
-                newGroups[2 * groupNumber] = offset;
-                matcher.groups             = newGroups;
+                matcher.groups = newGroups;
 
                 int result = this.successor.matches(matcher, offset);
 
@@ -164,6 +180,9 @@ class Sequences {
                     matcher.groups = savedGroups;
                     return -1;
                 }
+
+                // Verify that the successor chain contained an "end" for the same capturing group.
+                assert matcher.groups[2 * groupNumber + 1] != -1;
 
                 return result;
             }
@@ -209,7 +228,12 @@ class Sequences {
     }
 
     /**
+     * Creates and returns a sequence that matches the <var>subsequence</var> and then its successor. Iff the
+     * <var>subsequence</var> matches, the beginning and the end of the match are recorded in the matcher.
+     *
      * @param groupNumber 1...<var>groupCount</var>
+     * @return            Iff the <var>subsequence</var> and the successor match, the offset of the first character
+     *                    after the match; otherwise {@code 0}
      */
     public static Sequence
     capturingGroup(final int groupNumber, final Sequence subsequence) {
@@ -219,15 +243,20 @@ class Sequences {
             @Override public int
             matches(MatcherImpl matcher, int offset) {
 
-                int result = subsequence.matches(matcher, offset);
-                if (result == -1) return -1;
+                int start = offset;
+                int end   = subsequence.matches(matcher, start);
+
+                if (end == -1) return -1;
 
                 // Copy "this.groups" and store group start and end.
                 int[] gs = (matcher.groups = Arrays.copyOf(matcher.groups, matcher.groups.length));
-                gs[2 * groupNumber]     = offset;
-                gs[2 * groupNumber + 1] = result;
 
-                return this.successor.matches(matcher, result);
+                // Record the group start and end in the matcher.
+                gs[2 * groupNumber]     = start;
+                gs[2 * groupNumber + 1] = end;
+
+                // Match the rest of the sequence.
+                return this.successor.matches(matcher, end);
             }
 
             @Override public String
@@ -248,13 +277,14 @@ class Sequences {
             @Override public int
             matches(MatcherImpl matcher, int offset) {
 
-                int[]        gs    = matcher.groups;
-                CharSequence group = matcher.subject.subSequence(
-                    gs[2 * groupNumber],
-                    gs[2 * groupNumber + 1]
-                );
+                int[] gs    = matcher.groups;
+                int   start = gs[2 * groupNumber];
+                int   end   = gs[2 * groupNumber + 1];
 
-                offset = matcher.peekRead(offset, group);
+                // If the referenced group didn't match, then neither does this back reference.
+                if (start == -1) return -1;
+
+                offset = matcher.peekRead(offset, matcher.subject.subSequence(start, end));
                 if (offset == -1) return -1;
 
                 return this.successor.matches(matcher, offset);
