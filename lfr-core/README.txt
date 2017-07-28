@@ -12,6 +12,10 @@ Differences:
  * Unicode scripts (e.g. "\p{IsLatin}") are NOT implemented. All other Unicode character classes (blocks, categories
    and properties) ARE supported.
  * Lookbehinds are no longer limited to fixed-length expressions.
+ * JUR compiles invalid back references (e.g. "\9" if there are less than 9 capturing groups) and treats them as "no
+   match" when evaluated, while DULC throws a PatternSyntaxException at compile time.
+ * Because d.u.l.c.Matcher is an INTERFACE (as opposed to j.u.r.Matcher), it cannot declare the static method
+   "quoteReplacement()"; you'd have to use the JUR method instead.
 
 * API: Classes Pattern and Matcher were duplicated from "java.util.regex" ("JUR") to "de.unkrig.lfr.core" ("DULC")
   with identical fields and methods. The j.u.r.MatchResult was re-used instead of being duplicated.
