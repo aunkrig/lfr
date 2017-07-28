@@ -183,7 +183,22 @@ class Pattern {
     final int                  groupCount;
     final Map<String, Integer> namedGroups;
 
-    enum End { END_OF_SUBJECT, ANY }
+    /**
+     * @see #END_OF_SUBJECT
+     * @see #ANY
+     */
+    enum End {
+
+        /**
+         * The match is successful if the pattern matches the entire rest of the sucject.
+         */
+        END_OF_SUBJECT,
+
+        /**
+         * The match is successful if the pattern matches the next characters of the sucject.
+         */
+        ANY,
+    }
 
     // SUPPRESS CHECKSTYLE JavadocVariable:59
     enum TokenType {
@@ -1019,14 +1034,14 @@ class Pattern {
                 }
 
                 if (s1 instanceof Sequences.LiteralString && s2 instanceof CharacterClasses.LiteralCharacter) {
-                    String lhs = ((Sequences.LiteralString)      s1).s;
+                    String lhs = ((Sequences.LiteralString)       s1).s;
                     int    rhs = ((CharacterClasses.LiteralCharacter) s2).c;
                     return Sequences.literalString(new StringBuilder(lhs).appendCodePoint(rhs).toString());
                 }
 
                 if (s1 instanceof CharacterClasses.LiteralCharacter && s2 instanceof Sequences.LiteralString) {
                     int    lhs = ((CharacterClasses.LiteralCharacter) s1).c;
-                    String rhs = ((Sequences.LiteralString)      s2).s;
+                    String rhs = ((Sequences.LiteralString)       s2).s;
                     return Sequences.literalString(
                         new StringBuilder(rhs.length() + 2).appendCodePoint(lhs).append(rhs).toString()
                     );
@@ -1332,7 +1347,7 @@ class Pattern {
 
                         this.read(")");
 
-                        return Sequences.independenNonCapturingGroup(
+                        return Sequences.independentNonCapturingGroup(
                             alternatives.toArray(new Sequence[alternatives.size()])
                         );
                     }
@@ -1420,10 +1435,17 @@ class Pattern {
                         String s         = removeSpaces(t.text);
                         String groupName = s.substring(3, s.length() - 1);
                         if (rs.namedGroups.put(groupName, groupNumber) != null) {
-                            throw new ParseException("Duplicate captuting group name \"" + groupName + "\"");
+                            throw new ParseException("Duplicate capturing group name \"" + groupName + "\"");
                         }
 
-                        Sequence result = Sequences.capturingGroup(groupNumber, this.parseAlternatives());
+                        Sequence result;
+
+                        int savedFlags = this.currentFlags;
+                        {
+                            result = Sequences.capturingGroup(groupNumber, this.parseAlternatives());
+                        }
+                        this.setCurrentFlags(savedFlags);
+
                         this.read(")");
                         return result;
                     }
@@ -1433,7 +1455,7 @@ class Pattern {
                         String  s           = removeSpaces(t.text);
                         String  groupName   = s.substring(3, s.length() - 1);
                         Integer groupNumber = rs.namedGroups.get(groupName);
-                        if (groupNumber > rs.groupCount) {
+                        if (groupNumber == null) {
                             throw new ParseException("Unknown group name \"" + groupName + "\"");
                         }
                         return Sequences.capturingGroupBackReference(groupNumber);
