@@ -47,7 +47,14 @@ class OracleEssentials {
 
     private static final Locale LOCALE = Locale.US;
 
+    /**
+     * Whether this running JVM is 1.6.
+     */
     private static final boolean IS_JAVA_6 = "1.6".equals(System.getProperty("java.specification.version"));
+
+    /**
+     * Whether this running JVM is 1.7.
+     */
     private static final boolean IS_JAVA_7 = "1.7".equals(System.getProperty("java.specification.version"));
 
     private static long   totalNs1, totalNs2;
@@ -55,24 +62,51 @@ class OracleEssentials {
     private static double gainProduct;
     private static int    totalCount = -1;
 
+    /**
+     * Shorthand for "{@link #harness(String, String, int, Integer, int, Boolean, Boolean) harness(regex, subject, 0,
+     * null, 0, null, null)}".
+     */
     static void
-    harness(String regex, String subject) { OracleEssentials.harness(regex, subject, 0); }
+    harness(String regex, String subject) { OracleEssentials.harness(regex, subject, 0, null, 0, null, null); }
 
+    /**
+     * Shorthand for "{@link #harness(String, String, int, Integer, int, Boolean, Boolean) harness(regex, subject,
+     * flags, null, 0, null, null)}".
+     */
     static void
     harness(String regex, String subject, int flags) {
         OracleEssentials.harness(regex, subject, flags, null, 0, null, null);
     }
 
+    /**
+     * Shorthand for "{@link #harness(String, String, int, Integer, int, Boolean, Boolean) harness(regex, subject,
+     * flags, regionStart, regionEnd, null, null)}".
+     */
     static void
     harness(String regex, String subject, int flags, int regionStart, int regionEnd) {
         OracleEssentials.harness(regex, subject, flags, regionStart, regionEnd, null, null);
     }
 
+    /**
+     * Shorthand for "{@link #harness(String, String, int, Integer, int, Boolean, Boolean) harness(regex, subject,
+     * flags, regionStart, regionEnd, transparentBounds, null)}".
+     */
     static void
     harness(String regex, String subject, int flags, int regionStart, int regionEnd, boolean transparentBounds) {
         OracleEssentials.harness(regex, subject, flags, regionStart, regionEnd, transparentBounds, null);
     }
 
+    /**
+     * Verifies that the <var>regex</var> and the <var>subject</var> yield exactly the same matches with
+     * {@code java.util.regex} and {@code de.unkrig.lfr.core} regular expressions.
+     *
+     * @param flags             Regex compilation flags, see {@link java.util.regex.Pattern#compile(String, int)}
+     * @param regionStart       Optional: The non-default region to use for the matcher; see {@link
+     *                          java.util.regex.Matcher#region(int, int)}
+     * @param regionEnd         Honored only when <var>regionStart</var> {@code != null}
+     * @param transparentBounds Optional: Call {@link java.util.regex.Matcher#useTransparentBounds(boolean)}
+     * @param anchoringBounds   Optional: Call {@link java.util.regex.Matcher#useAnchoringBounds(boolean)}
+     */
     static void
     harness(
         String            regex,
@@ -84,18 +118,8 @@ class OracleEssentials {
         @Nullable Boolean anchoringBounds
     ) {
 
-        // Ignore tests that use constructs that are not supported by JRE 6.
-        if (OracleEssentials.IS_JAVA_6 && ( // Java 6 doesn't support...
-            regex.contains("(?U")                    // ... the "U" flag (Pattern.UNICODE_CHARACTER_CLASS)
-            || regex.matches(".*\\( ?\\?<\\s*\\w.*") // ... named capturing groups
-            || regex.contains("\\R")                 // ... the linebreak matcher
-            || regex.contains("\\p{Is")              // ... UNICODE properties
-        )) return;
-
-        // Ignore tests that use constructs that are not supported by JRE 7.
-        if (OracleEssentials.IS_JAVA_7 && ( // Java 7 doesn't support...
-            regex.contains("\\R")                    // ... the linebreak matcher
-        )) return;
+        // Ignore tests that use constructs that are not supported by java.util.regex.
+        if (regexUsesFeatureNotSupportedByJur(regex)) return;
 
         final java.util.regex.Pattern    pattern1 = java.util.regex.Pattern.compile(regex, flags);
         final de.unkrig.lfr.core.Pattern pattern2 = de.unkrig.lfr.core.Pattern.compile(regex, flags);
@@ -119,7 +143,7 @@ class OracleEssentials {
                 matcher2.useAnchoringBounds(anchoringBounds);
             }
 
-            // Test "Matcher.lookingAt().
+            // Test "Matcher.lookingAt()".
             {
                 if (regionStart != null) {
                     matcher1.region(regionStart, regionEnd);
@@ -140,7 +164,7 @@ class OracleEssentials {
                 matcher2.reset();
             }
 
-            // Test "Matcher.matches().
+            // Test "Matcher.matches()".
             {
                 if (regionStart != null) {
                     matcher1.region(regionStart, regionEnd);
@@ -161,7 +185,7 @@ class OracleEssentials {
                 matcher2.reset();
             }
 
-            // Test "Matcher.find().
+            // Test "Matcher.find()".
             {
                 if (regionStart != null) {
                     matcher1.region(regionStart, regionEnd);
@@ -276,6 +300,69 @@ class OracleEssentials {
         }
     }
 
+    static void
+    harnessReplaceAll(String regex, final String subject, String replacement, int flags) {
+
+        // Ignore tests that use constructs that are not supported by java.util.regex.
+        if (regexUsesFeatureNotSupportedByJur(regex)) return;
+
+        final java.util.regex.Pattern    pattern1 = java.util.regex.Pattern.compile(regex, flags);
+        final de.unkrig.lfr.core.Pattern pattern2 = de.unkrig.lfr.core.Pattern.compile(regex, flags);
+
+        // Set up the matchers.
+        java.util.regex.Matcher    matcher1 = pattern1.matcher(subject);
+        de.unkrig.lfr.core.Matcher matcher2 = pattern2.matcher(subject);
+
+        String result1 = matcher1.replaceAll(replacement);
+        String result2 = matcher2.replaceAll(replacement);
+
+        Assert.assertEquals(
+            "regex=\"" + regex + "\", subject=\"" + subject + "\", replacement=\"" + replacement + "\"",
+            result1,
+            result2
+        );
+    }
+
+    static void
+    harnessReplaceFirst(String regex, final String subject, String replacement, int flags) {
+
+        // Ignore tests that use constructs that are not supported by java.util.regex.
+        if (regexUsesFeatureNotSupportedByJur(regex)) return;
+
+        final java.util.regex.Pattern    pattern1 = java.util.regex.Pattern.compile(regex, flags);
+        final de.unkrig.lfr.core.Pattern pattern2 = de.unkrig.lfr.core.Pattern.compile(regex, flags);
+
+        // Set up the matchers.
+        java.util.regex.Matcher    matcher1 = pattern1.matcher(subject);
+        de.unkrig.lfr.core.Matcher matcher2 = pattern2.matcher(subject);
+
+        String result1 = matcher1.replaceFirst(replacement);
+        String result2 = matcher2.replaceFirst(replacement);
+
+        Assert.assertEquals(
+            "regex=\"" + regex + "\", subject=\"" + subject + "\", replacement=\"" + replacement + "\"",
+            result1,
+            result2
+        );
+    }
+
+    private static boolean
+    regexUsesFeatureNotSupportedByJur(String regex) {
+
+        if (OracleEssentials.IS_JAVA_6 && ( // Java 6 doesn't support...
+            regex.contains("(?U")                    // ... the "U" flag (Pattern.UNICODE_CHARACTER_CLASS)
+            || regex.matches(".*\\( ?\\?<\\s*\\w.*") // ... named capturing groups
+            || regex.contains("\\R")                 // ... the linebreak matcher
+            || regex.contains("\\p{Is")              // ... UNICODE properties
+        )) return true;
+
+        if (OracleEssentials.IS_JAVA_7 && ( // Java 7 doesn't support...
+            regex.contains("\\R")                    // ... the linebreak matcher
+        )) return true;
+
+        return false;
+    }
+
     public static long
     measure(Runnable r) {
 
@@ -340,16 +427,15 @@ class OracleEssentials {
     static void
     patternSyntaxException(String regex, int flags) {
 
-        {
-            String specificationVersion = System.getProperty("java.specification.version");
+        OracleEssentials.patternSyntaxExceptionJur(regex, flags);
+        OracleEssentials.patternSyntaxExceptionDulc(regex, flags);
+    }
 
-            // Check for constructs not supported by JRE 1.6.
-            if ("1.6".equals(specificationVersion) && ( // Java 6 doesn't support...
-                regex.contains("(?U")                // ... the "U" flag (Pattern.UNICODE_CHARACTER_CLASS).
-                || regex.matches(".*\\( ?\\?<\\w.*") // ... named capturing groups.
-                || regex.contains("\\R")             // ... the linebreak matcher.
-            )) return;
-        }
+    static void
+    patternSyntaxExceptionJur(String regex, int flags) {
+
+        // Ignore tests that use constructs that are not supported by java.util.regex.
+        if (regexUsesFeatureNotSupportedByJur(regex)) return;
 
         try {
             java.util.regex.Pattern.compile(regex, flags);
@@ -357,6 +443,10 @@ class OracleEssentials {
         } catch (PatternSyntaxException pse) {
             ;
         }
+    }
+
+    static void
+    patternSyntaxExceptionDulc(String regex, int flags) {
 
         try {
             de.unkrig.lfr.core.Pattern.compile(regex, flags);
