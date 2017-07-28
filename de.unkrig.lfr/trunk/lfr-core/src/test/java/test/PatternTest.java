@@ -28,8 +28,13 @@
 
 package test;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+import static test.OracleEssentials.harness;
+import static test.OracleEssentials.patternSyntaxException;
+
 import org.junit.AfterClass;
-import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
@@ -42,19 +47,360 @@ class PatternTest {
     @AfterClass public static void
     tearDownAfterClass() { OracleEssentials.endStatistics(); }
 
-    @Test public void
+    @SuppressWarnings("static-method") @Test public void
     testMatches() {
-        this.verifyMatches("abc", "abc");
-        this.verifyMatches("abc", "abcxx");
-        this.verifyMatches("abc", "xxabc");
-        this.verifyMatches("a.c", "aBc");
-        this.verifyMatches("a.c", "aBcxx");
-        this.verifyMatches("a.*c", "axxxc");
-        this.verifyMatches("a.*c", "axxxcxxxc");
-        this.verifyMatches("a.*c", "axxx");
+        verifyMatches("abc", "abc");
+        verifyMatches("abc", "abcxx");
+        verifyMatches("abc", "xxabc");
+        verifyMatches("a.c", "aBc");
+        verifyMatches("a.c", "aBcxx");
+        verifyMatches("a.*c", "axxxc");
+        verifyMatches("a.*c", "axxxcxxxc");
+        verifyMatches("a.*c", "axxx");
     }
 
-    private void
+    @SuppressWarnings("static-method") @Test public void
+    testLiteralOctals() {
+        verifyMatches("\\00xx",   "\0xx");
+        verifyMatches("\\01xx",   "\01xx");
+        verifyMatches("\\011xx",  "\011xx");
+        verifyMatches("\\0101xx",  "Axx");
+        verifyMatches("\\0111xx",  "\0111xx");
+    }
+
+    @SuppressWarnings("static-method") @Test public void
+    testFind() {
+        harness("abc",   "abc");
+        harness("abc",   "xxabcxx");
+        harness("abc",   "xxaBcxx");
+        harness("a.c",   "xxabcxx");
+        harness("a.*b",  "xxaxxbxxbxxbxx");
+        harness("a.*?b", "xxaxxbxxbxxbxx");
+        harness("a.*+b", "xxaxxbxxbxxbxx");
+    }
+
+    @Test @SuppressWarnings("static-method") public void
+    testLookingAt() {
+        verifyLookingAt("abc", "abcdef");
+        verifyLookingAt("aBc", "abcdef");
+        verifyLookingAt("a.c", "abcdef");
+    }
+
+    @Test @SuppressWarnings("static-method") public void
+    testCaseInsensitive() {
+        harness("(?i)A", "xxxAxxx");
+        harness("(?i)A", "xxxaxxx");
+        harness("(?i)Ä", "xxxäxxx");
+        assertTrue(de.unkrig.lfr.core.Pattern.matches("(?i)Ä", "Ä"));
+        assertFalse(de.unkrig.lfr.core.Pattern.matches("(?i)Ä", "ä"));
+    }
+
+    @Test @SuppressWarnings("static-method") public void
+    testUnicodeCaseInsensitive() {
+        harness("(?ui)A", "xxxAxxx");
+        harness("(?ui)A", "xxxaxxx");
+        harness("(?ui)Ä", "xxxäxxx");
+        assertTrue(de.unkrig.lfr.core.Pattern.matches("(?ui)Ä", "Ä"));
+        assertTrue(de.unkrig.lfr.core.Pattern.matches("(?ui)Ä", "ä"));
+    }
+
+    @Test @SuppressWarnings("static-method") public void
+    testDotall() {
+        harness(".",     " \r  ");
+        harness(".",     " \r  ", de.unkrig.lfr.core.Pattern.DOTALL);
+        harness("(?s).", " \r  ");
+    }
+
+    @Test @SuppressWarnings("static-method") public void
+    testLiteralRegex() {
+        harness("$\\*", "$\\*xxx$\\*xxx", de.unkrig.lfr.core.Pattern.LITERAL);
+        harness("a\\", "a\\xxxA\\xxx",    de.unkrig.lfr.core.Pattern.LITERAL | de.unkrig.lfr.core.Pattern.CASE_INSENSITIVE); // SUPPRESS CHECKSTYLE LineLength
+        harness(".\\Q.\\E.", " ___ ");
+        harness(".\\Q.\\E.", " _._ ");
+    }
+
+    @Test @SuppressWarnings("static-method") public void
+    testBoundaries() {
+        harness("^.", "___\r___\r\n___\u2028___");
+        harness(".$", "___\r___\r\n___\u2028___");
+        harness("^.", "___\r___\r\n___\u2028___", de.unkrig.lfr.core.Pattern.MULTILINE);
+        harness(".$", "___\r___\r\n___\u2028___", de.unkrig.lfr.core.Pattern.MULTILINE);
+        harness("\\b",  " a b c");
+        harness("\\B",  " a b c");
+        harness("\\A",  "bla\rbla");
+        harness("\\Ga", "aaabbb");
+        harness(".\\Z", "abc");
+        harness(".\\Z", "abc\n");
+        harness(".\\Z", "abc\r\nd");
+        harness(".\\z", "abc\n");
+//        harness(".\\z", "abc\r\nd"); JRE says !requireEnd !?
+
+        harness(".", "abc",      de.unkrig.lfr.core.Pattern.MULTILINE);
+        harness(".", "abc\n",    de.unkrig.lfr.core.Pattern.MULTILINE);
+        harness(".", "abc\r\nd", de.unkrig.lfr.core.Pattern.MULTILINE);
+    }
+
+    @Test @SuppressWarnings("static-method") public void
+    testMatchFlagsCapturingGroup() {
+        harness("(?i:a)b", " ab Ab aB AB ");
+    }
+
+    @Test @SuppressWarnings("static-method") public void
+    testAlternatives() {
+        harness("a|b", " a b c ");
+    }
+
+    // ======================================== CHARACTER CLASSES ========================================
+
+    @Test @SuppressWarnings("static-method") public void
+    testPredefinedCharacterClasses() {
+        harness("\\w",     " abc äöü ");
+        harness("(?U)\\w", " abc äöü ");
+        harness("\\W",     " abc äöü ");
+        harness("(?U)\\W", " abc äöü ");
+    }
+
+    @Test @SuppressWarnings("static-method") public void
+    testPosixCharacterClasses() {
+        harness("\\p{Lower}",     " abc äöü ");
+        harness("(?U)\\p{Lower}", " abc äöü ");
+        harness("\\P{Lower}",     " abc äöü ");
+        harness("(?U)\\P{Lower}", " abc äöü ");
+    }
+
+    @Test @SuppressWarnings("static-method") public void
+    testJavaCharacterClasses() {
+
+        harness("\\p{javaLowerCase}", " a B c ä Ä ");
+        harness("\\P{javaLowerCase}", " a B c ä Ä ");
+    }
+
+    @Test @SuppressWarnings("static-method") public void
+    testUnicodeCharacterClasses() {
+
+        // By "UNICODE script" - NYI:
+//        harness("\\p{IsLatin}",       " a B c ä Ä ");
+
+        // By "UNICODE block":
+        harness("\\p{InGreek}",       " \u03b1 ");
+        harness("\\p{InBasicLatin}",  " a B c ä Ä ");
+        harness("\\P{InBasicLatin}",  " a B c ä Ä ");
+
+        // By "UNICODE category":
+        harness("\\p{Lu}",            " a B c ä Ä ");
+        harness("\\P{Lu}",            " a B c ä Ä ");
+        harness("\\p{Sc}",            " a $ ");
+        harness("\\P{Sc}",            " a $ ");
+
+        // By "UNICODE property":
+        harness("\\p{IsLowerCASE}",  " abc äöü ");
+        harness("\\p{IsAlphabetic}", " abc äöü ");
+    }
+
+    // ======================================== END OF CHARACTER CLASSES ========================================
+
+    @Test @SuppressWarnings("static-method") public void
+    testNamedCapturingGroups1() {
+        harness("(?<xxx>a+)", " a aa aaa");
+
+        de.unkrig.lfr.core.Matcher matcher = de.unkrig.lfr.core.Pattern.compile("(?<xxx>a+)").matcher(" a aa aaa");
+
+        assertTrue(matcher.find());
+        assertEquals("a", matcher.group("xxx"));
+
+        assertTrue(matcher.find());
+        assertEquals("aa", matcher.group("xxx"));
+
+        assertTrue(matcher.find());
+        assertEquals("aaa", matcher.group("xxx"));
+
+        assertFalse(matcher.find());
+    }
+
+    @Test @SuppressWarnings("static-method") public void
+    testNamedCapturingGroupsBackreference() {
+        harness("(?<first>\\w)\\k<first>", " a aa aaa");
+    }
+
+    @Test @SuppressWarnings("static-method") public void
+    testPositiveLookahead() {
+        harness("a(?=b)",   " a aba abba a");
+        harness("a(?=(b))", " a aba abba a");
+    }
+
+    @Test @SuppressWarnings("static-method") public void
+    testNegativeLookahead() {
+        harness("a(?!b)",   " a aba abba a");
+        harness("a(?!(b))", " a aba abba a");
+    }
+
+    @Test @SuppressWarnings("static-method") public void
+    testPositiveLookbehind() {
+        harness("(?<=b)a",    " a aba abba a");
+        harness("(?<=(b))a",  " a aba abba a");
+        harness("(?<=\\R )a", " \r\n a ");
+        harness("(?<=\\R )a", " \r a ");
+        harness("(?<=\\R )a", " \n a ");
+    }
+
+    @Test @SuppressWarnings("static-method") public void
+    testNegativeLookbehind() {
+        harness("(?<!b)a",   " a aba abba a");
+        harness("(?<!(b))a", " a aba abba a");
+    }
+
+    @Test @SuppressWarnings("static-method") public void
+    testRegion() {
+        harness("a", "__a__ a aba abba __a__", 0, 5, 17);
+        harness("^", "__a__ a aba abba __a__", 0, 5, 17);
+        harness("^", "__a__ a aba abba __a__", 0, 5, 17, false, false);
+        harness("^", "__a__ a aba abba __a__", 0, 5, 17, false, true);
+        harness("^", "__a__ a aba abba __a__", 0, 5, 17, true,  false);
+        harness("^", "__a__ a aba abba __a__", 0, 5, 17, true,  true);
+    }
+
+    @Test @SuppressWarnings("static-method") public void
+    testTransparentBounds() {
+
+        // The for the nineth, failed, match, jur returns "false" for "hitEnd()"!?
+//        harness("\\b",     "__a__ a aba abba __a__", 0, 5, 17, true);
+
+        // Lookahead.
+        harness(" (?=_)",  "__a__ a aba abba __a__", 0, 5, 17, true);
+        harness(" (?!_)",  "__a__ a aba abba __a__", 0, 5, 17, true);
+
+        // Lookbehind.
+        harness("(?<=_) ", "__a__ a aba abba __a__", 0, 5, 17, true);
+        harness("(?<!_) ", "__a__ a aba abba __a__", 0, 5, 17, true);
+    }
+
+    @Test @SuppressWarnings("static-method") public void
+    testAnchoringBounds() {
+        harness("^",  "__a__ a aba abba __a__", 0, 5, 17, null, false);
+        harness("$",  "__a__ a aba abba __a__", 0, 5, 17, null, false);
+    }
+
+    @Test @SuppressWarnings("static-method") public void
+    testUnixLines() {
+        harness("\\R",  "  \n  \r\n \u2028 ");
+        harness("\\R",  "  \n  \r\n \u2028 ", de.unkrig.lfr.core.Pattern.UNIX_LINES);
+        harness("^",    "  \n  \r\n \u2028 ");
+        harness("^",    "  \n  \r\n \u2028 ", de.unkrig.lfr.core.Pattern.UNIX_LINES);
+    }
+
+    @Test @SuppressWarnings("static-method") public void
+    testQuantifiers() {
+
+        harness("a?",  " aaa ");
+//        harness("a??", " aaa "); // JRE says !hitEnd after the 7th, failed, match!?
+        harness("a?+", " aaa ");
+
+        harness("a*",  " aaa ");
+//        harness("a*?", " aaa "); // JRE says !hitEnd after the 7th, failed, match!?
+        harness("a*+", " aaa ");
+
+        harness("a+",  " aaa ");
+        harness("a+?", " aaa ");
+        harness("a++", " aaa ");
+
+//        harness("a{0}",  " aaa "); // JRE says !hitEnd after the 7th, failed, match!?
+//        harness("a{0}?", " aaa "); // JRE says !hitEnd after the 7th, failed, match!?
+//        harness("a{0}+", " aaa "); // JRE says !hitEnd after the 7th, failed, match!?
+
+        harness("a{1}",  " aaa ");
+        harness("a{1}?", " aaa ");
+        harness("a{1}+", " aaa ");
+
+        harness("a{2}",  " aaa ");
+        harness("a{2}?", " aaa ");
+        harness("a{2}+", " aaa ");
+
+        harness("a{0,}",  " aaa ");
+//        harness("a{0,}?", " aaa "); // JRE says !hitEnd after the 7th, failed, match!?
+        harness("a{0,}+", " aaa ");
+    }
+
+    @Test @SuppressWarnings("static-method") public void
+    testSurrogates() {
+        int    clef              = 0x1d120;
+        char   clefHighSurrogate = highSurrogateOf(clef);
+        char   clefLowSurrogate  = lowSurrogateOf(clef);
+        String clefUnicode       = "" + clefHighSurrogate + clefLowSurrogate;
+
+        harness(clefUnicode,       clefUnicode);
+        harness(clefUnicode + "?", "");
+        harness(clefUnicode + "?", "" + clefHighSurrogate);
+        harness(clefUnicode + "?", "" + clefLowSurrogate);
+        harness(clefUnicode + "?", "" + clefHighSurrogate + clefLowSurrogate);
+        harness(clefUnicode + "?", "" + clefLowSurrogate + clefHighSurrogate);
+    }
+
+    @Test @SuppressWarnings("static-method") public void
+    testPreviousMatchBoundary() {
+
+        // From: http://stackoverflow.com/questions/2708833
+        harness(
+            "(?<=\\G\\d{3})(?=\\d)" + "|" + "(?<=^-?\\d{1,3})(?=(?:\\d{3})+(?!\\d))",
+            "-1234567890.1234567890"
+        );
+    }
+
+    @Test @SuppressWarnings("static-method") public void
+    testAtomicGroups() {
+        harness("^a(bc|b)c$",   "abc");
+        harness("^a(bc|b)c$",   "abcc");
+        harness("^a(?>bc|b)c$", "abc");
+        harness("^a(?>bc|b)c$", "abcc");
+    }
+
+    /**
+     * @see <a href="http://stackoverflow.com/questions/17618812">Clarification about requireEnd Matcher's method</a>
+     */
+    @Test @SuppressWarnings("static-method") public void
+    testRequireEnd() {
+        harness("cat$", "I have a cat");
+        harness("cat$", "I have a catflap");
+        harness("cat",  "I have a cat");
+        harness("cat",  "I have a catflap");
+
+        harness("\\d+\\b|[><]=?", "1234");
+        harness("\\d+\\b|[><]=?", ">=");
+        harness("\\d+\\b|[><]=?", "<");
+    }
+
+    @Test @SuppressWarnings("static-method") public void
+    testComments() {
+        harness(" a# comment \nb ",    " ab a# comment \nb", de.unkrig.lfr.core.Pattern.COMMENTS);
+        harness("(?x)  a  ",           " a ");
+        harness("(?x)  a  (?-x) b",    " ab ");
+        harness("(?x)  a  (?-x) b",    " a b ");
+        harness("(?x)  a#\n  (?-x) b", " ab ");
+        harness("(?x)  a#\n  (?-x) b", " a b ");
+
+        harness("(?x)  (a)", " a b ");
+        harness("(?x)  (?:a)", " a b ");
+        harness("(?x)  ( ?:a)", " a b ");
+        harness("(?x)  (?: a)", " a b ");
+        harness("(?x)  (? : a)", " a b ");
+        harness("(?x)  ( ? :a)", " a b ");
+        harness("(?x)  ( ?: a)", " a b ");
+        harness("(?x)  ( ? : a)", " a b ");
+        harness("(?x)  (?<name>a)", " a b ");
+        harness("(?x)  ( ?<name>a)", " a b ");
+        patternSyntaxException("(?x)  (? <name>a)");
+        harness("(?x)  (?< name>a)", " a b ");
+        patternSyntaxException("(?x)  (? < name>a)");
+        harness("(?x)  ( ?< name>a)", " a b ");
+        patternSyntaxException("(?x)  ( ? < name>a)");
+    }
+
+    // ===================================
+
+    /**
+     * Verifies that {@link java.util.regex.Matcher#matches()} and {@link de.unkrig.lfr.core.Matcher#matches()} yield
+     * the same result.
+     */
+    private static void
     verifyMatches(String regex, String subject) {
 
         String message = "regex=\"" + regex + "\", subject=\"" + subject + "\"";
@@ -64,7 +410,7 @@ class PatternTest {
 
         boolean m1Matches = matcher1.matches();
         boolean m2Matches = matcher2.matches();
-        Assert.assertEquals(m1Matches, m2Matches);
+        assertEquals(m1Matches, m2Matches);
 
         if (m1Matches) {
             OracleEssentials.assertEqualStateAfterMatch(message, matcher1, matcher2);
@@ -72,334 +418,6 @@ class PatternTest {
             OracleEssentials.assertEqualState(message, matcher1, matcher2);
         }
     }
-
-    @Test public void
-    testFind() {
-        OracleEssentials.harness("abc",   "abc");
-        OracleEssentials.harness("abc",   "xxabcxx");
-        OracleEssentials.harness("abc",   "xxaBcxx");
-        OracleEssentials.harness("a.c",   "xxabcxx");
-        OracleEssentials.harness("a.*b",  "xxaxxbxxbxxbxx");
-        OracleEssentials.harness("a.*?b", "xxaxxbxxbxxbxx");
-        OracleEssentials.harness("a.*+b", "xxaxxbxxbxxbxx");
-    }
-
-    @Test public void
-    testLookingAt() {
-        this.verifyLookingAt("abc", "abcdef");
-        this.verifyLookingAt("aBc", "abcdef");
-        this.verifyLookingAt("a.c", "abcdef");
-    }
-
-    @Test public void
-    testCaseInsensitive() {
-        OracleEssentials.harness("(?i)A", "xxxAxxx");
-        OracleEssentials.harness("(?i)A", "xxxaxxx");
-        OracleEssentials.harness("(?i)Ä", "xxxäxxx");
-        Assert.assertTrue(de.unkrig.lfr.core.Pattern.matches("(?i)Ä", "Ä"));
-        Assert.assertFalse(de.unkrig.lfr.core.Pattern.matches("(?i)Ä", "ä"));
-    }
-
-    @Test public void
-    testUnicodeCaseInsensitive() {
-        OracleEssentials.harness("(?ui)A", "xxxAxxx");
-        OracleEssentials.harness("(?ui)A", "xxxaxxx");
-        OracleEssentials.harness("(?ui)Ä", "xxxäxxx");
-        Assert.assertTrue(de.unkrig.lfr.core.Pattern.matches("(?ui)Ä", "Ä"));
-        Assert.assertTrue(de.unkrig.lfr.core.Pattern.matches("(?ui)Ä", "ä"));
-    }
-
-    @Test public void
-    testDotall() {
-        OracleEssentials.harness(".",     " \r  ");
-        OracleEssentials.harness(".",     " \r  ", de.unkrig.lfr.core.Pattern.DOTALL);
-        OracleEssentials.harness("(?s).", " \r  ");
-    }
-
-    @Test public void
-    testLiteralRegex() {
-        OracleEssentials.harness("$\\*", "$\\*xxx$\\*xxx", de.unkrig.lfr.core.Pattern.LITERAL);
-        OracleEssentials.harness("a\\", "a\\xxxA\\xxx",    de.unkrig.lfr.core.Pattern.LITERAL | de.unkrig.lfr.core.Pattern.CASE_INSENSITIVE); // SUPPRESS CHECKSTYLE LineLength
-        OracleEssentials.harness(".\\Q.\\E.", " ___ ");
-        OracleEssentials.harness(".\\Q.\\E.", " _._ ");
-    }
-
-    @Test public void
-    testBoundaries() {
-        OracleEssentials.harness("^.", "___\r___\r\n___\u2028___");
-        OracleEssentials.harness(".$", "___\r___\r\n___\u2028___");
-        OracleEssentials.harness("^.", "___\r___\r\n___\u2028___", de.unkrig.lfr.core.Pattern.MULTILINE);
-        OracleEssentials.harness(".$", "___\r___\r\n___\u2028___", de.unkrig.lfr.core.Pattern.MULTILINE);
-        OracleEssentials.harness("\\b",  " a b c");
-        OracleEssentials.harness("\\B",  " a b c");
-        OracleEssentials.harness("\\A",  "bla\rbla");
-        OracleEssentials.harness("\\Ga", "aaabbb");
-        OracleEssentials.harness(".\\Z", "abc");
-        OracleEssentials.harness(".\\Z", "abc\n");
-        OracleEssentials.harness(".\\Z", "abc\r\nd");
-        OracleEssentials.harness(".\\z", "abc\n");
-//        OracleEssentials.harness(".\\z", "abc\r\nd"); JRE says !requireEnd !?
-
-        OracleEssentials.harness(".", "abc",      de.unkrig.lfr.core.Pattern.MULTILINE);
-        OracleEssentials.harness(".", "abc\n",    de.unkrig.lfr.core.Pattern.MULTILINE);
-        OracleEssentials.harness(".", "abc\r\nd", de.unkrig.lfr.core.Pattern.MULTILINE);
-    }
-
-    @Test public void
-    testMatchFlagsCapturingGroup() {
-        OracleEssentials.harness("(?i:a)b", " ab Ab aB AB ");
-    }
-
-    @Test public void
-    testAlternatives() {
-        OracleEssentials.harness("a|b", " a b c ");
-    }
-
-    // ======================================== CHARACTER CLASSES ========================================
-
-    @Test public void
-    testPredefinedCharacterClasses() {
-        OracleEssentials.harness("\\w",     " abc äöü ");
-        OracleEssentials.harness("(?U)\\w", " abc äöü ");
-        OracleEssentials.harness("\\W",     " abc äöü ");
-        OracleEssentials.harness("(?U)\\W", " abc äöü ");
-    }
-
-    @Test public void
-    testPosixCharacterClasses() {
-        OracleEssentials.harness("\\p{Lower}",     " abc äöü ");
-        OracleEssentials.harness("(?U)\\p{Lower}", " abc äöü ");
-        OracleEssentials.harness("\\P{Lower}",     " abc äöü ");
-        OracleEssentials.harness("(?U)\\P{Lower}", " abc äöü ");
-    }
-
-    @Test public void
-    testJavaCharacterClasses() {
-
-        OracleEssentials.harness("\\p{javaLowerCase}", " a B c ä Ä ");
-        OracleEssentials.harness("\\P{javaLowerCase}", " a B c ä Ä ");
-    }
-
-    @Test public void
-    testUnicodeCharacterClasses() {
-
-        // By "UNICODE script" - NYI:
-//        OracleEssentials.harness("\\p{IsLatin}",       " a B c ä Ä ");
-
-        // By "UNICODE block":
-        OracleEssentials.harness("\\p{InGreek}",       " \u03b1 ");
-        OracleEssentials.harness("\\p{InBasicLatin}",  " a B c ä Ä ");
-        OracleEssentials.harness("\\P{InBasicLatin}",  " a B c ä Ä ");
-
-        // By "UNICODE category":
-        OracleEssentials.harness("\\p{Lu}",            " a B c ä Ä ");
-        OracleEssentials.harness("\\P{Lu}",            " a B c ä Ä ");
-        OracleEssentials.harness("\\p{Sc}",            " a $ ");
-        OracleEssentials.harness("\\P{Sc}",            " a $ ");
-
-        // By "UNICODE property":
-        OracleEssentials.harness("\\p{IsLowerCASE}",  " abc äöü ");
-        OracleEssentials.harness("\\p{IsAlphabetic}", " abc äöü ");
-    }
-
-    // ======================================== END OF CHARACTER CLASSES ========================================
-
-    @Test public void
-    testNamedCapturingGroups1() {
-        OracleEssentials.harness("(?<xxx>a+)", " a aa aaa");
-
-        de.unkrig.lfr.core.Matcher matcher = de.unkrig.lfr.core.Pattern.compile("(?<xxx>a+)").matcher(" a aa aaa");
-
-        Assert.assertTrue(matcher.find());
-        Assert.assertEquals("a", matcher.group("xxx"));
-
-        Assert.assertTrue(matcher.find());
-        Assert.assertEquals("aa", matcher.group("xxx"));
-
-        Assert.assertTrue(matcher.find());
-        Assert.assertEquals("aaa", matcher.group("xxx"));
-
-        Assert.assertFalse(matcher.find());
-    }
-
-    @Test public void
-    testNamedCapturingGroupsBackreference() {
-        OracleEssentials.harness("(?<first>\\w)\\k<first>", " a aa aaa");
-    }
-
-    @Test public void
-    testPositiveLookahead() {
-        OracleEssentials.harness("a(?=b)",   " a aba abba a");
-        OracleEssentials.harness("a(?=(b))", " a aba abba a");
-    }
-
-    @Test public void
-    testNegativeLookahead() {
-        OracleEssentials.harness("a(?!b)",   " a aba abba a");
-        OracleEssentials.harness("a(?!(b))", " a aba abba a");
-    }
-
-    @Test public void
-    testPositiveLookbehind() {
-        OracleEssentials.harness("(?<=b)a",    " a aba abba a");
-        OracleEssentials.harness("(?<=(b))a",  " a aba abba a");
-        OracleEssentials.harness("(?<=\\R )a", " \r\n a ");
-        OracleEssentials.harness("(?<=\\R )a", " \r a ");
-        OracleEssentials.harness("(?<=\\R )a", " \n a ");
-    }
-
-    @Test public void
-    testNegativeLookbehind() {
-        OracleEssentials.harness("(?<!b)a",   " a aba abba a");
-        OracleEssentials.harness("(?<!(b))a", " a aba abba a");
-    }
-
-    @Test public void
-    testRegion() {
-        OracleEssentials.harness("a", "__a__ a aba abba __a__", 0, 5, 17);
-        OracleEssentials.harness("^", "__a__ a aba abba __a__", 0, 5, 17);
-        OracleEssentials.harness("^", "__a__ a aba abba __a__", 0, 5, 17, false, false);
-        OracleEssentials.harness("^", "__a__ a aba abba __a__", 0, 5, 17, false, true);
-        OracleEssentials.harness("^", "__a__ a aba abba __a__", 0, 5, 17, true,  false);
-        OracleEssentials.harness("^", "__a__ a aba abba __a__", 0, 5, 17, true,  true);
-    }
-
-    @Test public void
-    testTransparentBounds() {
-
-        // The for the nineth, failed, match, jur returns "false" for "hitEnd()"!?
-//        OracleEssentials.harness("\\b",     "__a__ a aba abba __a__", 0, 5, 17, true);
-
-        // Lookahead.
-        OracleEssentials.harness(" (?=_)",  "__a__ a aba abba __a__", 0, 5, 17, true);
-        OracleEssentials.harness(" (?!_)",  "__a__ a aba abba __a__", 0, 5, 17, true);
-
-        // Lookbehind.
-        OracleEssentials.harness("(?<=_) ", "__a__ a aba abba __a__", 0, 5, 17, true);
-        OracleEssentials.harness("(?<!_) ", "__a__ a aba abba __a__", 0, 5, 17, true);
-    }
-
-    @Test public void
-    testAnchoringBounds() {
-        OracleEssentials.harness("^",  "__a__ a aba abba __a__", 0, 5, 17, null, false);
-        OracleEssentials.harness("$",  "__a__ a aba abba __a__", 0, 5, 17, null, false);
-    }
-
-    @Test public void
-    testUnixLines() {
-        OracleEssentials.harness("\\R",  "  \n  \r\n \u2028 ");
-        OracleEssentials.harness("\\R",  "  \n  \r\n \u2028 ", de.unkrig.lfr.core.Pattern.UNIX_LINES);
-        OracleEssentials.harness("^",    "  \n  \r\n \u2028 ");
-        OracleEssentials.harness("^",    "  \n  \r\n \u2028 ", de.unkrig.lfr.core.Pattern.UNIX_LINES);
-    }
-
-    @Test public void
-    testQuantifiers() {
-
-        OracleEssentials.harness("a?",  " aaa ");
-//        OracleEssentials.harness("a??", " aaa "); // JRE says !hitEnd after the 7th, failed, match!?
-        OracleEssentials.harness("a?+", " aaa ");
-
-        OracleEssentials.harness("a*",  " aaa ");
-//        OracleEssentials.harness("a*?", " aaa "); // JRE says !hitEnd after the 7th, failed, match!?
-        OracleEssentials.harness("a*+", " aaa ");
-
-        OracleEssentials.harness("a+",  " aaa ");
-        OracleEssentials.harness("a+?", " aaa ");
-        OracleEssentials.harness("a++", " aaa ");
-
-//        OracleEssentials.harness("a{0}",  " aaa "); // JRE says !hitEnd after the 7th, failed, match!?
-//        OracleEssentials.harness("a{0}?", " aaa "); // JRE says !hitEnd after the 7th, failed, match!?
-//        OracleEssentials.harness("a{0}+", " aaa "); // JRE says !hitEnd after the 7th, failed, match!?
-
-        OracleEssentials.harness("a{1}",  " aaa ");
-        OracleEssentials.harness("a{1}?", " aaa ");
-        OracleEssentials.harness("a{1}+", " aaa ");
-
-        OracleEssentials.harness("a{2}",  " aaa ");
-        OracleEssentials.harness("a{2}?", " aaa ");
-        OracleEssentials.harness("a{2}+", " aaa ");
-
-        OracleEssentials.harness("a{0,}",  " aaa ");
-//        OracleEssentials.harness("a{0,}?", " aaa "); // JRE says !hitEnd after the 7th, failed, match!?
-        OracleEssentials.harness("a{0,}+", " aaa ");
-    }
-
-    @Test public void
-    testSurrogates() {
-        int    clef              = 0x1d120;
-        char   clefHighSurrogate = PatternTest.highSurrogateOf(clef);
-        char   clefLowSurrogate  = PatternTest.lowSurrogateOf(clef);
-        String clefUnicode       = "" + clefHighSurrogate + clefLowSurrogate;
-
-        OracleEssentials.harness(clefUnicode,       clefUnicode);
-        OracleEssentials.harness(clefUnicode + "?", "");
-        OracleEssentials.harness(clefUnicode + "?", "" + clefHighSurrogate);
-        OracleEssentials.harness(clefUnicode + "?", "" + clefLowSurrogate);
-        OracleEssentials.harness(clefUnicode + "?", "" + clefHighSurrogate + clefLowSurrogate);
-        OracleEssentials.harness(clefUnicode + "?", "" + clefLowSurrogate + clefHighSurrogate);
-    }
-
-    @Test public void
-    testPreviousMatchBoundary() {
-
-        // From: http://stackoverflow.com/questions/2708833
-        OracleEssentials.harness(
-            "(?<=\\G\\d{3})(?=\\d)" + "|" + "(?<=^-?\\d{1,3})(?=(?:\\d{3})+(?!\\d))",
-            "-1234567890.1234567890"
-        );
-    }
-
-    @Test public void
-    testAtomicGroups() {
-        OracleEssentials.harness("^a(bc|b)c$",   "abc");
-        OracleEssentials.harness("^a(bc|b)c$",   "abcc");
-        OracleEssentials.harness("^a(?>bc|b)c$", "abc");
-        OracleEssentials.harness("^a(?>bc|b)c$", "abcc");
-    }
-
-    /**
-     * @see <a href="http://stackoverflow.com/questions/17618812">Clarification about requireEnd Matcher's method</a>
-     */
-    @Test public void
-    testRequireEnd() {
-        OracleEssentials.harness("cat$", "I have a cat");
-        OracleEssentials.harness("cat$", "I have a catflap");
-        OracleEssentials.harness("cat",  "I have a cat");
-        OracleEssentials.harness("cat",  "I have a catflap");
-
-        OracleEssentials.harness("\\d+\\b|[><]=?", "1234");
-        OracleEssentials.harness("\\d+\\b|[><]=?", ">=");
-        OracleEssentials.harness("\\d+\\b|[><]=?", "<");
-    }
-
-    @Test public void
-    testComments() {
-        OracleEssentials.harness(" a# comment \nb ",    " ab a# comment \nb", de.unkrig.lfr.core.Pattern.COMMENTS);
-        OracleEssentials.harness("(?x)  a  ",           " a ");
-        OracleEssentials.harness("(?x)  a  (?-x) b",    " ab ");
-        OracleEssentials.harness("(?x)  a  (?-x) b",    " a b ");
-        OracleEssentials.harness("(?x)  a#\n  (?-x) b", " ab ");
-        OracleEssentials.harness("(?x)  a#\n  (?-x) b", " a b ");
-
-        OracleEssentials.harness("(?x)  (a)", " a b ");
-        OracleEssentials.harness("(?x)  (?:a)", " a b ");
-        OracleEssentials.harness("(?x)  ( ?:a)", " a b ");
-        OracleEssentials.harness("(?x)  (?: a)", " a b ");
-        OracleEssentials.harness("(?x)  (? : a)", " a b ");
-        OracleEssentials.harness("(?x)  ( ? :a)", " a b ");
-        OracleEssentials.harness("(?x)  ( ?: a)", " a b ");
-        OracleEssentials.harness("(?x)  ( ? : a)", " a b ");
-        OracleEssentials.harness("(?x)  (?<name>a)", " a b ");
-        OracleEssentials.harness("(?x)  ( ?<name>a)", " a b ");
-        OracleEssentials.patternSyntaxException("(?x)  (? <name>a)");
-        OracleEssentials.harness("(?x)  (?< name>a)", " a b ");
-        OracleEssentials.patternSyntaxException("(?x)  (? < name>a)");
-        OracleEssentials.harness("(?x)  ( ?< name>a)", " a b ");
-        OracleEssentials.patternSyntaxException("(?x)  ( ? < name>a)");
-    }
-
-    // ===================================
 
     private static char
     highSurrogateOf(int codepoint) {
@@ -413,11 +431,15 @@ class PatternTest {
         return (char) (((codepoint - 0x10000) & 0x3ff) + 0xDC00);
     }
 
-    private void
+    /**
+     * Verifies that {@link java.util.regex.Matcher#lookingAt()} and {@link de.unkrig.lfr.core.Matcher#lookingAt()}
+     * yield the same result.
+     */
+    private static void
     verifyLookingAt(String regex, String subject) {
         java.util.regex.Matcher    m1 = java.util.regex.Pattern.compile(regex).matcher(subject);
         de.unkrig.lfr.core.Matcher m2 = de.unkrig.lfr.core.Pattern.compile(regex).matcher(subject);
-        Assert.assertEquals(m1.lookingAt(), m2.lookingAt());
+        assertEquals(m1.lookingAt(), m2.lookingAt());
         OracleEssentials.assertEqualState("regex=\"" + regex + "\", subject=\"" + subject + "\"", m1, m2);
     }
 }

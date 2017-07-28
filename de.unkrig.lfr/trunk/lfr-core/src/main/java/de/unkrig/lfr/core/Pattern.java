@@ -124,7 +124,8 @@ class Pattern {
     public static final int UNICODE_CHARACTER_CLASS = 256; // Since Java 7
 
     private static final int ALL_FLAGS = (
-        Pattern.CANON_EQ
+        0
+        | Pattern.CANON_EQ
         | Pattern.CASE_INSENSITIVE
         | Pattern.COMMENTS
         | Pattern.DOTALL
@@ -448,6 +449,8 @@ class Pattern {
 
         RegexScanner(RegexScanner that) {
             super(that);
+
+            // We don't use the "default state" feature, but define our own states.
             this.setCurrentState(ScannerState.DEFAULT);
         }
     }
@@ -468,27 +471,27 @@ class Pattern {
         // x         The character x
         // See below: +++
         // \\        The backslash character
-        ss.addRule(ss.ANY_STATE, "\\\\\\\\",                              QUOTED_CHARACTER,    ss.REMAIN);
+        ss.addRule(ss.ANY_STATE, "\\\\\\\\",                                  QUOTED_CHARACTER,    ss.REMAIN);
         // \0n       The character with octal value 0n (0 <= n <= 7)
         // \0nn      The character with octal value 0nn (0 <= n <= 7)
         // \0mnn     The character with octal value 0mnn (0 <= m <= 3, 0 <= n <= 7)
-        ss.addRule(ss.ANY_STATE, "\\\\0(?:0[0-3][0-8][0-7]|[0-7][0-7]?)", LITERAL_OCTAL,       ss.REMAIN);
+        ss.addRule(ss.ANY_STATE, "\\\\0(?:[0-3][0-7][0-7]|[0-7][0-7]|[0-7])", LITERAL_OCTAL,       ss.REMAIN);
         // \xhh      The character with hexadecimal value 0xhh
-        ss.addRule(ss.ANY_STATE, "\\\\u[0-9a-fA-F]{4}",                   LITERAL_HEXADECIMAL, ss.REMAIN);
+        ss.addRule(ss.ANY_STATE, "\\\\u[0-9a-fA-F]{4}",                       LITERAL_HEXADECIMAL, ss.REMAIN);
         // /uhhhh    The character with hexadecimal value 0xhhhh
-        ss.addRule(ss.ANY_STATE, "\\\\x[0-9a-fA-F]{2}",                   LITERAL_HEXADECIMAL, ss.REMAIN);
+        ss.addRule(ss.ANY_STATE, "\\\\x[0-9a-fA-F]{2}",                       LITERAL_HEXADECIMAL, ss.REMAIN);
         // \x{h...h} The character with hexadecimal value 0xh...h
         //                                    (Character.MIN_CODE_POINT  <= 0xh...h <=  Character.MAX_CODE_POINT)
-        ss.addRule(ss.ANY_STATE, "\\\\x\\{[0-9a-fA-F]+}",                 LITERAL_HEXADECIMAL, ss.REMAIN);
+        ss.addRule(ss.ANY_STATE, "\\\\x\\{[0-9a-fA-F]+}",                     LITERAL_HEXADECIMAL, ss.REMAIN);
         // \t        The tab character ('/u0009')
         // \n        The newline (line feed) character ('/u000A')
         // \r        The carriage-return character ('/u000D')
         // \f        The form-feed character ('/u000C')
         // \a        The alert (bell) character ('/u0007')
         // \e        The escape character ('/u001B')
-        ss.addRule(ss.ANY_STATE, "\\\\[tnrfae]",                          LITERAL_CONTROL,     ss.REMAIN);
+        ss.addRule(ss.ANY_STATE, "\\\\[tnrfae]",                              LITERAL_CONTROL,     ss.REMAIN);
         // \cx The control character corresponding to x
-        ss.addRule(ss.ANY_STATE, "\\\\c[A-Za-z]",                         LITERAL_CONTROL,     ss.REMAIN);
+        ss.addRule(ss.ANY_STATE, "\\\\c[A-Za-z]",                             LITERAL_CONTROL,     ss.REMAIN);
 
         // Character classes
         // [abc]       a, b, or c (simple class)
@@ -695,6 +698,8 @@ class Pattern {
     /**
      * This scanner is intended to be cloned by {@link RegexScanner#RegexScanner(RegexScanner)} when a literal scanner
      * is needed.
+     *
+     * @see #LITERAL
      */
     static final RegexScanner LITERAL_SCANNER = new RegexScanner();
     static {
@@ -1137,7 +1142,7 @@ class Pattern {
                     ), t.text);
 
                 case LITERAL_OCTAL:
-                    return CharacterClasses.literalCharacter(Integer.parseInt(t.text.substring(2, 8)), t.text);
+                    return CharacterClasses.literalCharacter(Integer.parseInt(t.text.substring(2), 8), t.text);
 
                 case LEFT_BRACKET:
                     {
