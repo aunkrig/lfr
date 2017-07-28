@@ -141,13 +141,31 @@ class PatternTest {
     }
 
     @Test @SuppressWarnings("static-method") public void
+    testMatchFlagsGroup() {
+        harness("a(?i)b", " ab Ab aB AB ");
+    }
+
+    @Test @SuppressWarnings("static-method") public void
     testMatchFlagsCapturingGroup() {
-        harness("(?i:a)b", " ab Ab aB AB ");
+        harness("a((?i)b)c",       " abc abC aBc aBC Abc AbC ABc ABC ");
+        harness("a(?<xxx>(?i)b)c", " abc abC aBc aBC Abc AbC ABc ABC ");
+    }
+
+    @Test @SuppressWarnings("static-method") public void
+    testMatchFlagsNonCapturingGroup() {
+        harness("a(?i:b)c", " abc abC aBc aBC Abc AbC ABc ABC ");
     }
 
     @Test @SuppressWarnings("static-method") public void
     testAlternatives() {
-        harness("a|b", " a b c ");
+        harness("a|b",        " a b c ");
+        harness("a(?:b|bb)c", " ac abc abbc abbbc ");
+    }
+
+    @Test @SuppressWarnings("static-method") public void
+    testIndependentGroup() {
+        harness("(?>a|b)",    " a b c ");
+        harness("a(?>b|bb)c", " ac abc abbc abbbc ");
     }
 
     // ======================================== CHARACTER CLASSES ========================================
@@ -200,7 +218,12 @@ class PatternTest {
     // ======================================== END OF CHARACTER CLASSES ========================================
 
     @Test @SuppressWarnings("static-method") public void
-    testNamedCapturingGroups1() {
+    testCapturingGroups() {
+        harness("((a+)(b+))", " abbb aabb aaab ");
+    }
+
+    @Test @SuppressWarnings("static-method") public void
+    testNamedCapturingGroups() {
         harness("(?<xxx>a+)", " a aa aaa");
 
         de.unkrig.lfr.core.Matcher matcher = de.unkrig.lfr.core.Pattern.compile("(?<xxx>a+)").matcher(" a aa aaa");
@@ -218,8 +241,19 @@ class PatternTest {
     }
 
     @Test @SuppressWarnings("static-method") public void
+    testCapturingGroupsBackreference() {
+
+        // JUR compiles invalid group references ok, and treats them as "no match". DULC, however, is more accurate
+        // and reports invalid group references already at COMPILE TIME.
+        String regex = "(\\d\\d)\\2";
+        assertEquals("  12  ", java.util.regex.Pattern.compile(regex).matcher("  12  ").replaceAll("x"));
+        OracleEssentials.patternSyntaxExceptionDulc(regex, 0);
+    }
+
+    @Test @SuppressWarnings("static-method") public void
     testNamedCapturingGroupsBackreference() {
         harness("(?<first>\\w)\\k<first>", " a aa aaa");
+        patternSyntaxException("(?<first>\\w)\\k<bla>");  // Backreference to inexistent named group.
     }
 
     @Test @SuppressWarnings("static-method") public void
@@ -392,6 +426,16 @@ class PatternTest {
         patternSyntaxException("(?x)  (? < name>a)");
         harness("(?x)  ( ?< name>a)", " a b ");
         patternSyntaxException("(?x)  ( ? < name>a)");
+    }
+
+    @Test @SuppressWarnings("static-method") public void
+    testReplaceAll() {
+        OracleEssentials.harnessReplaceAll("(a)b", " ababaabaaaba ", "$1+", 0);
+    }
+
+    @Test @SuppressWarnings("static-method") public void
+    testReplaceFirst() {
+        OracleEssentials.harnessReplaceFirst("(a)b", " ababaabaaaba ", "$1+", 0);
     }
 
     // ===================================
