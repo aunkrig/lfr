@@ -26,6 +26,7 @@
 
 package de.unkrig.lfr.core;
 
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.regex.MatchResult;
 
@@ -59,9 +60,9 @@ class MatcherImpl implements Matcher {
     /**
      * The offsets of the captured groups within the {@link #subject}. The offset of the first character of the
      * <var>n</var>th group is 2*<var>n</var>; the offset <em>after</em> the <var>n</var>th group is 2*<var>n</var> +
-     * 1.
+     * 1. These offsets are {@code -1} if the group did not match anything.
      * <p>
-     *   This field is modified bei {@link Sequence#matches(MatcherImpl, int)}, bu the <em>elements</em> of this
+     *   This field is modified bei {@link Sequence#matches(MatcherImpl, int)}, but the <em>elements</em> of this
      *   array are <em>never</em> modified! This makes it easy to "remember" (and later restore) the groups.
      * </p>
      */
@@ -98,6 +99,8 @@ class MatcherImpl implements Matcher {
      */
     int endOfPreviousMatch = -1;
 
+    int lastAppendPosition;
+
     @Nullable End end;
 
     MatcherImpl(Pattern pattern, CharSequence subject) {
@@ -129,11 +132,12 @@ class MatcherImpl implements Matcher {
         this.updateTransparentBounds();
         this.updateAnchoringBounds();
 
-        this.endOfPreviousMatch = -1;
         this.hitStart           = false;
         this.requireStart       = false;
         this.hitEnd             = false;
         this.requireEnd         = false;
+        this.endOfPreviousMatch = -1;
+        this.lastAppendPosition = 0;
         return this;
     }
 
@@ -310,6 +314,103 @@ class MatcherImpl implements Matcher {
 
     @Override public boolean hasTransparentBounds() { return this.hasTransparentBounds; }
     @Override public boolean hasAnchoringBounds()   { return this.hasAnchoringBounds;   }
+
+    // SEARCH/REPLACE LOGIC
+
+    @Override @Deprecated public String
+    quoteReplacement(String s) {
+        throw new AssertionError("Use \"java.util.regex.Matcher#quoteReplacement(String)\" instead");
+    }
+
+    @Override public Matcher
+    appendReplacement(Appendable appendable, String replacement) {
+
+        if (this.groups[0] == -1) throw new IllegalStateException("No match available");
+
+        try {
+
+            StringBuilder result = new StringBuilder();
+
+            for (int cursor = 0; cursor < replacement.length();) {
+                char c = replacement.charAt(cursor);
+                cursor++;
+
+                if (c == '\\') {
+                    result.append(replacement.charAt(cursor++));
+                } else
+                if (c == '$') {
+                    int refNum = (int) replacement.charAt(cursor) - '0';
+                    if (refNum < 0 || refNum > 9) throw new IllegalArgumentException("Illegal group reference");
+                    cursor++;
+
+                    while (cursor < replacement.length()) {
+                        int nextDigit = replacement.charAt(cursor) - '0';
+                        if (nextDigit < 0 || nextDigit > 9) break;
+                        int newRefNum = refNum * 10 + nextDigit;
+                        if (this.groupCount() < newRefNum) break;
+                        refNum = newRefNum;
+                        cursor++;
+                    }
+
+                    if (this.group(refNum) != null) result.append(this.group(refNum));
+                } else
+                {
+                    result.append(c);
+                }
+            }
+
+            appendable.append(this.subject.subSequence(this.lastAppendPosition, this.groups[0]));
+
+            appendable.append(result);
+
+            this.lastAppendPosition = this.groups[1];
+        } catch (IOException ioe) {
+            throw new AssertionError(ioe);
+        }
+
+        return this;
+    }
+
+    @Override public <T extends Appendable> T
+    appendTail(T sb) {
+
+    	try {
+            sb.append(this.subject, this.lastAppendPosition, this.subject.length());
+            return sb;
+        } catch (IOException ioe) {
+            throw new AssertionError(ioe);
+        }
+    }
+
+    @Override public String
+    replaceAll(String replacement) {
+
+        this.reset();
+
+        if (!this.find()) return this.subject.toString();
+
+        StringBuilder sb = new StringBuilder();
+        do {
+            this.appendReplacement(sb, replacement);
+        } while (this.find());
+
+        this.appendTail(sb);
+
+        return sb.toString();
+    }
+
+    @Override public String
+    replaceFirst(String replacement) {
+
+        this.reset();
+
+        if (!this.find()) return this.subject.toString();
+
+        StringBuilder sb = new StringBuilder();
+        this.appendReplacement(sb, replacement);
+        this.appendTail(sb);
+        return sb.toString();
+    }
 
     // REGION/BOUNDS SETTERS
 
