@@ -1091,7 +1091,7 @@ class Pattern {
 
                     case '{':
                         {
-                            String s    = removeSpaces(t.text);
+                            String s    = Pattern.removeSpaces(t.text);
                             int    idx1 = s.indexOf(',');
                             int    idx2 = s.indexOf('}', idx1 + 1);
                             if (idx1 == -1) {
@@ -1253,7 +1253,7 @@ class Pattern {
                         }
 
                         // A UNICODE character property, e.g. category "Lu"?
-                        Byte gc = getGeneralCategory(name);
+                        Byte gc = Pattern.getGeneralCategory(name);
                         if (gc != null) return CharacterClasses.inUnicodeGeneralCategory(gc);
 
                         // A Unicode "script"?
@@ -1432,7 +1432,7 @@ class Pattern {
                     {
                         int groupNumber = ++rs.groupCount;
 
-                        String s         = removeSpaces(t.text);
+                        String s         = Pattern.removeSpaces(t.text);
                         String groupName = s.substring(3, s.length() - 1);
                         if (rs.namedGroups.put(groupName, groupNumber) != null) {
                             throw new ParseException("Duplicate capturing group name \"" + groupName + "\"");
@@ -1452,7 +1452,7 @@ class Pattern {
 
                 case NAMED_CAPTURING_GROUP_BACK_REFERENCE:
                     {
-                        String  s           = removeSpaces(t.text);
+                        String  s           = Pattern.removeSpaces(t.text);
                         String  groupName   = s.substring(3, s.length() - 1);
                         Integer groupNumber = rs.namedGroups.get(groupName);
                         if (groupNumber == null) {
@@ -1682,7 +1682,7 @@ class Pattern {
                         }
 
                         // A UNICODE character property, e.g. category "Lu"?
-                        Byte gc = getGeneralCategory(name);
+                        Byte gc = Pattern.getGeneralCategory(name);
                         if (gc != null) return CharacterClasses.inUnicodeGeneralCategory(gc);
 
                         // A Unicode "script"?
