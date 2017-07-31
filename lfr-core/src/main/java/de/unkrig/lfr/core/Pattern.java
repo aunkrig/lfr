@@ -95,6 +95,7 @@ import de.unkrig.commons.text.parser.ParseException;
 import de.unkrig.commons.text.scanner.AbstractScanner.Token;
 import de.unkrig.commons.text.scanner.ScanException;
 import de.unkrig.commons.text.scanner.StatefulScanner;
+import de.unkrig.lfr.core.Sequences.LiteralString;
 
 /**
  * A drop-in replacement for {@link java.util.regex.Pattern}.
@@ -843,6 +844,10 @@ class Pattern {
             PatternSyntaxException pse = new PatternSyntaxException(pe.getMessage(), regex, rs.getOffset());
             pse.initCause(pe);
             throw pse;
+        }
+
+        if (sequence instanceof LiteralString) {
+            sequence = ((LiteralString) sequence).optimize();
         }
 
         return new Pattern(regex, flags, sequence, rs.groupCount, rs.namedGroups);

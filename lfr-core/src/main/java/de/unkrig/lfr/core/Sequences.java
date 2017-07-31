@@ -27,6 +27,8 @@
 package de.unkrig.lfr.core;
 
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
 
 import de.unkrig.commons.nullanalysis.Nullable;
 
@@ -58,6 +60,25 @@ class Sequences {
             return this.successor.matches(matcher, offset);
         }
 
+        @Override public boolean
+        find(MatcherImpl matcher, int start) {
+
+            // Inlined version of "AbstractSequence.find()".
+            final int re = matcher.regionEnd;
+            for (; start <= re; start++) {
+
+                int offset = matcher.peekRead(start, this.s);
+                if (offset != -1 && (offset = this.successor.matches(matcher, offset)) != -1) {
+                    matcher.groups[0] = start;
+                    matcher.groups[1] = offset;
+                    return true;
+                }
+            }
+
+            matcher.hitEnd = true;
+            return false;
+        }
+
         @Override public Sequence
         reverse() {
 
@@ -68,6 +89,133 @@ class Sequences {
 
         @Override public String
         toString() { return this.s + this.successor; }
+
+        /**
+         * @return Either {@code this} object, or an optimized version thereof
+         */
+        Sequence
+        optimize() {
+
+            // Check whether we have a relatively LONG literal string pattern, and if so, optimize its "find()" method
+            // by using the Knuth–Morris–Pratt algorithm (see
+            // https://en.wikipedia.org/wiki/Knuth%E2%80%93Morris%E2%80%93Pratt_algorithm ).
+            final int len = this.s.length();
+            if (len < 16) return this; // String literal is too short for this optimization.
+
+            return new Sequence() {
+
+                final CharToIntMapping deltas = computeDeltas(LiteralString.this.s);
+
+                @Override public int      matches(MatcherImpl matcher, int offset) { return LiteralString.this.matches(matcher, offset); } // SUPPRESS CHECKSTYLE LineLength:3
+                @Override public void     append(Sequence that)                    { LiteralString.this.append(that);                    }
+                @Override public Sequence reverse()                                { return LiteralString.this.reverse();                }
+
+                @Override public boolean
+                find(MatcherImpl matcher, int start) {
+
+                    int limit = matcher.regionEnd - len;
+                    for (start += len - 1; start <= limit;) {
+
+                        int delta = this.deltas.get(matcher.charAt(start));
+                        if (delta == -1) {
+                            start += len;
+                            continue;
+                        }
+
+                        start -= delta;
+                        int result = LiteralString.this.matches(matcher, start);
+                        if (result != -1) {
+                            matcher.groups[0] = start;
+                            matcher.groups[1] = result;
+                            return true;
+                        }
+
+                        start += len;
+                    }
+
+                    matcher.hitEnd = true;
+                    return false;
+                }
+            };
+        }
+
+        /**
+         * Optimized version of a {@code Map<Character, Integer>}.
+         */
+        interface
+        CharToIntMapping {
+
+            /**
+             * @return The value that the <var>key</var> maps to, or {@code -1}
+             */
+            int get(char key);
+
+            /**
+             * Maps the given <var>key</var> to the given <var>value</var>, replacing any previously mapped value.
+             */
+            void put(char key, int value);
+        }
+
+        private static CharToIntMapping
+        computeDeltas(String keys) {
+            int len = keys.length();
+
+            char maxKey = 0;
+            for (int i = 0; i < len; i++) {
+                char c = keys.charAt(i);
+                if (c > maxKey) maxKey = c;
+            }
+
+            CharToIntMapping result;
+            if (maxKey < 256) {
+
+                // The key characters are relative small, so we can use a super-fast, array-based mapping.
+                result = arrayBasedCharToIntMapping(maxKey);
+            } else {
+
+                result = hashMapCharToIntMapping();
+            }
+
+            for (int i = 0; i < len; i++) result.put(keys.charAt(i), i);
+
+            return result;
+        }
+
+        private static CharToIntMapping
+        arrayBasedCharToIntMapping(final char maxKey) {
+
+            return new CharToIntMapping() {
+
+                final int[] deltas = new int[maxKey + 1];
+                { Arrays.fill(this.deltas, -1); }
+
+                @Override public int
+                get(char c) {
+                    return c < this.deltas.length ? this.deltas[c] : -1;
+                }
+
+                @Override public void
+                put(char key, int value) { this.deltas[key] = value; }
+            };
+        }
+
+        private static CharToIntMapping
+        hashMapCharToIntMapping() {
+
+            return new CharToIntMapping() {
+
+                final Map<Character, Integer> deltas = new HashMap<Character, Integer>();
+
+                @Override public int
+                get(char c) {
+                    Integer result = this.deltas.get(c);
+                    return result != null ? result : -1;
+                }
+
+                @Override public void
+                put(char key, int value) { this.deltas.put(key, value); }
+            };
+        }
     }
 
     public static Sequence
