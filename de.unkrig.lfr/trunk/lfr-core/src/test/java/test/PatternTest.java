@@ -32,6 +32,8 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
+import java.util.Random;
+
 import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.BeforeClass;
@@ -69,6 +71,25 @@ class PatternTest {
         harnessMatches("\\011xx",  "\011xx");
         harnessMatches("\\0101xx",  "Axx");
         harnessMatches("\\0111xx",  "\0111xx");
+    }
+
+    @SuppressWarnings("static-method") @Test public void
+    testLongStringLiterals() {
+
+        // Long enough for "LiteralString.optimize().
+        String infix = "ABCDEFGHIJKLMNOP";
+
+        // Compose a LONG subject string.
+        StringBuilder subject = new StringBuilder();
+        Random        r       = new Random(123);
+        for (int i = 0; i < 20; i++) {
+            for (int j = r.nextInt(64) - 32; j > 0; j--) subject.append('X');
+            subject.append(infix, 0, r.nextInt(infix.length() + 1));
+            for (int j = r.nextInt(64) - 32; j > 0; j--) subject.append('X');
+            subject.append(infix, r.nextInt(infix.length()), infix.length());
+        }
+
+        OracleEssentials.harnessFull(infix, subject.toString());
     }
 
     @SuppressWarnings("static-method") @Test public void
