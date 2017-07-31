@@ -686,7 +686,7 @@ class Pattern {
 
         // Special constructs (named-capturing and non-capturing)
         // (?<name>X)          X, as a named-capturing group
-        ss.addRule(ScannerState.DEFAULT,   "\\(\\?<(\\w+)>",                      NAMED_CAPTURING_GROUP,           ss.REMAIN);
+        ss.addRule(ScannerState.DEFAULT,   "\\(\\?<(\\w+)>",                      NAMED_CAPTURING_GROUP,           ss.REMAIN); // SUPPRESS CHECKSTYLE LineLength:18
         ss.addRule(ScannerState.DEFAULT_X, "\\(\\s*\\?<\\s*(\\w+)>",              NAMED_CAPTURING_GROUP,           ss.REMAIN);
         // (?:X)               X, as a non-capturing group
         ss.addRule(ScannerState.DEFAULT,   "\\(\\?:",                             NON_CAPTURING_GROUP,             ss.REMAIN);
@@ -942,7 +942,7 @@ class Pattern {
 
                 ScannerState currentState = rs.getCurrentState();
                 if (currentState != ScannerState.DEFAULT && currentState != ScannerState.DEFAULT_X) {
-                	throw new IllegalStateException("Cannot set flags in this state");
+                    throw new IllegalStateException("Cannot set flags in this state");
                 }
 
                 // Switch between COMMENTS mode and non-COMMENTS mode.
@@ -1199,7 +1199,7 @@ class Pattern {
                         boolean u      = (this.currentFlags & Pattern.UNICODE_CHARACTER_CLASS) != 0;
 
                         Predicate<Integer> codePointPredicate = (
-                            "Lower".equals(ccName)  ? (u ? Characters.IS_UNICODE_LOWER       : Characters.IS_POSIX_LOWER)  :
+                            "Lower".equals(ccName)  ? (u ? Characters.IS_UNICODE_LOWER       : Characters.IS_POSIX_LOWER)  :  // SUPPRESS CHECKSTYLE LineLength:12
                             "Upper".equals(ccName)  ? (u ? Characters.IS_UNICODE_UPPER       : Characters.IS_POSIX_UPPER)  :
                             "ASCII".equals(ccName)  ? Characters.IS_POSIX_ASCII                                            :
                             "Alpha".equals(ccName)  ? (u ? Characters.IS_UNICODE_ALPHA       : Characters.IS_POSIX_ALPHA)  :
@@ -1628,7 +1628,7 @@ class Pattern {
                         boolean u      = (this.currentFlags & Pattern.UNICODE_CHARACTER_CLASS) != 0;
 
                         Predicate<Integer> codePointPredicate = (
-                            "Lower".equals(ccName)  ? (u ? Characters.IS_UNICODE_LOWER       : Characters.IS_POSIX_LOWER)  :
+                            "Lower".equals(ccName)  ? (u ? Characters.IS_UNICODE_LOWER       : Characters.IS_POSIX_LOWER)  :  // SUPPRESS CHECKSTYLE LineLength:12
                             "Upper".equals(ccName)  ? (u ? Characters.IS_UNICODE_UPPER       : Characters.IS_POSIX_UPPER)  :
                             "ASCII".equals(ccName)  ? Characters.IS_POSIX_ASCII                                            :
                             "Alpha".equals(ccName)  ? (u ? Characters.IS_UNICODE_ALPHA       : Characters.IS_POSIX_ALPHA)  :
@@ -1828,7 +1828,7 @@ class Pattern {
                 int j;
                 for (j = i + 1; j < len && Character.isWhitespace(subject.charAt(j)); j++);
                 subject = subject.substring(0, i) + subject.substring(j);
-                len -= j - i;
+                len     -= j - i;
             }
         }
         return subject;
