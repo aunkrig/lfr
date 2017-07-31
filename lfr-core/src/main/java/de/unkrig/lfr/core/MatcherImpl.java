@@ -317,9 +317,9 @@ class MatcherImpl implements Matcher {
 
     // SEARCH/REPLACE LOGIC
 
-    @Override @Deprecated public String
+    @Override public String
     quoteReplacement(String s) {
-        throw new AssertionError("Use \"java.util.regex.Matcher#quoteReplacement(String)\" instead");
+        throw new AssertionError("Use \"java.util.regex.Matcher.quoteReplacement(String)\" instead");
     }
 
     @Override public Matcher
@@ -329,39 +329,36 @@ class MatcherImpl implements Matcher {
 
         try {
 
-            StringBuilder result = new StringBuilder();
-
-            for (int cursor = 0; cursor < replacement.length();) {
-                char c = replacement.charAt(cursor);
-                cursor++;
-
-                if (c == '\\') {
-                    result.append(replacement.charAt(cursor++));
-                } else
-                if (c == '$') {
-                    int refNum = (int) replacement.charAt(cursor) - '0';
-                    if (refNum < 0 || refNum > 9) throw new IllegalArgumentException("Illegal group reference");
-                    cursor++;
-
-                    while (cursor < replacement.length()) {
-                        int nextDigit = replacement.charAt(cursor) - '0';
-                        if (nextDigit < 0 || nextDigit > 9) break;
-                        int newRefNum = refNum * 10 + nextDigit;
-                        if (this.groupCount() < newRefNum) break;
-                        refNum = newRefNum;
-                        cursor++;
-                    }
-
-                    if (this.group(refNum) != null) result.append(this.group(refNum));
-                } else
-                {
-                    result.append(c);
-                }
-            }
-
+            // Append text between the previous match and THIS match.
             appendable.append(this.subject.subSequence(this.lastAppendPosition, this.groups[0]));
 
-            appendable.append(result);
+            // Append the (expanded) replacement string.
+            for (int cursor = 0; cursor < replacement.length();) {
+                char c = replacement.charAt(cursor++);
+
+                if (c == '\\') {
+                    appendable.append(replacement.charAt(cursor++));
+                } else
+                if (c == '$') {
+                    int groupNumber = Character.digit(replacement.charAt(cursor++), 10);
+                    if (groupNumber == -1) throw new IllegalArgumentException("Illegal group reference");
+
+                    for (; cursor < replacement.length(); cursor++) {
+
+                        int nextDigit = Character.digit(replacement.charAt(cursor), 10);
+                        if (nextDigit == -1) break;
+
+                        int newGroupNumber = groupNumber * 10 + nextDigit;
+                        if (newGroupNumber > this.groupCount()) break;
+                        groupNumber = newGroupNumber;
+                    }
+
+                    if (this.group(groupNumber) != null) appendable.append(this.group(groupNumber));
+                } else
+                {
+                    appendable.append(c);
+                }
+            }
 
             this.lastAppendPosition = this.groups[1];
         } catch (IOException ioe) {
@@ -372,11 +369,11 @@ class MatcherImpl implements Matcher {
     }
 
     @Override public <T extends Appendable> T
-    appendTail(T sb) {
+    appendTail(T appendable) {
 
         try {
-            sb.append(this.subject, this.lastAppendPosition, this.subject.length());
-            return sb;
+            appendable.append(this.subject, this.lastAppendPosition, this.subject.length());
+            return appendable;
         } catch (IOException ioe) {
             throw new AssertionError(ioe);
         }
@@ -394,9 +391,7 @@ class MatcherImpl implements Matcher {
             this.appendReplacement(sb, replacement);
         } while (this.find());
 
-        this.appendTail(sb);
-
-        return sb.toString();
+        return this.appendTail(sb).toString();
     }
 
     @Override public String
@@ -407,9 +402,7 @@ class MatcherImpl implements Matcher {
         if (!this.find()) return this.subject.toString();
 
         StringBuilder sb = new StringBuilder();
-        this.appendReplacement(sb, replacement);
-        this.appendTail(sb);
-        return sb.toString();
+        return this.appendReplacement(sb, replacement).appendTail(sb).toString();
     }
 
     // REGION/BOUNDS SETTERS
