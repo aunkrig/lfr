@@ -94,7 +94,7 @@ class MatcherImpl implements Matcher {
     boolean requireEnd;
 
     /**
-     * The index <em>behind</em> the preceeding match, or -1 if no matching was done, or the preceeding match had
+     * The index <em>behind</em> the preceding match, or -1 if no matching was done, or the preceding match had
      * failed.
      */
     int endOfPreviousMatch = -1;
