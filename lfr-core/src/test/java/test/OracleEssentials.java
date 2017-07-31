@@ -28,11 +28,11 @@ package test;
 
 import java.util.Arrays;
 import java.util.Locale;
-import java.util.regex.PatternSyntaxException;
 
 import org.junit.Assert;
 
 import de.unkrig.commons.nullanalysis.Nullable;
+import test.RegexTest.MatcherAssertion;
 import test.Sampler.CallTree;
 
 public final
@@ -47,53 +47,43 @@ class OracleEssentials {
 
     private static final Locale LOCALE = Locale.US;
 
-    /**
-     * Whether this running JVM is 1.6.
-     */
-    private static final boolean IS_JAVA_6 = "1.6".equals(System.getProperty("java.specification.version"));
-
-    /**
-     * Whether this running JVM is 1.7.
-     */
-    private static final boolean IS_JAVA_7 = "1.7".equals(System.getProperty("java.specification.version"));
-
     private static long   totalNs1, totalNs2;
     private static double gainSum;
     private static double gainProduct;
     private static int    totalCount = -1;
 
     /**
-     * Shorthand for "{@link #harness(String, String, int, Integer, int, Boolean, Boolean) harness(regex, subject, 0,
-     * null, 0, null, null)}".
+     * Shorthand for "{@link #harnessFull(String, String, int, Integer, int, Boolean, Boolean) harness(regex, subject,
+     * 0, null, 0, null, null)}".
      */
     static void
-    harness(String regex, String subject) { OracleEssentials.harness(regex, subject, 0, null, 0, null, null); }
+    harnessFull(String regex, String subject) { OracleEssentials.harnessFull(regex, subject, 0, null, 0, null, null); }
 
     /**
-     * Shorthand for "{@link #harness(String, String, int, Integer, int, Boolean, Boolean) harness(regex, subject,
+     * Shorthand for "{@link #harnessFull(String, String, int, Integer, int, Boolean, Boolean) harness(regex, subject,
      * flags, null, 0, null, null)}".
      */
     static void
-    harness(String regex, String subject, int flags) {
-        OracleEssentials.harness(regex, subject, flags, null, 0, null, null);
+    harnessFull(String regex, String subject, int flags) {
+        OracleEssentials.harnessFull(regex, subject, flags, null, 0, null, null);
     }
 
     /**
-     * Shorthand for "{@link #harness(String, String, int, Integer, int, Boolean, Boolean) harness(regex, subject,
+     * Shorthand for "{@link #harnessFull(String, String, int, Integer, int, Boolean, Boolean) harness(regex, subject,
      * flags, regionStart, regionEnd, null, null)}".
      */
     static void
-    harness(String regex, String subject, int flags, int regionStart, int regionEnd) {
-        OracleEssentials.harness(regex, subject, flags, regionStart, regionEnd, null, null);
+    harnessFull(String regex, String subject, int flags, int regionStart, int regionEnd) {
+        OracleEssentials.harnessFull(regex, subject, flags, regionStart, regionEnd, null, null);
     }
 
     /**
-     * Shorthand for "{@link #harness(String, String, int, Integer, int, Boolean, Boolean) harness(regex, subject,
+     * Shorthand for "{@link #harnessFull(String, String, int, Integer, int, Boolean, Boolean) harness(regex, subject,
      * flags, regionStart, regionEnd, transparentBounds, null)}".
      */
     static void
-    harness(String regex, String subject, int flags, int regionStart, int regionEnd, boolean transparentBounds) {
-        OracleEssentials.harness(regex, subject, flags, regionStart, regionEnd, transparentBounds, null);
+    harnessFull(String regex, String subject, int flags, int regionStart, int regionEnd, boolean transparentBounds) {
+        OracleEssentials.harnessFull(regex, subject, flags, regionStart, regionEnd, transparentBounds, null);
     }
 
     /**
@@ -108,7 +98,7 @@ class OracleEssentials {
      * @param anchoringBounds   Optional: Call {@link java.util.regex.Matcher#useAnchoringBounds(boolean)}
      */
     static void
-    harness(
+    harnessFull(
         String            regex,
         final String      subject,
         int               flags,
@@ -118,83 +108,45 @@ class OracleEssentials {
         @Nullable Boolean anchoringBounds
     ) {
 
-        // Ignore tests that use constructs that are not supported by java.util.regex.
-        if (regexUsesFeatureNotSupportedByJur(regex)) return;
+        RegexTest rt = new RegexTest(regex);
+        rt.setFlags(flags);
+        rt.setRegion(regionStart, regionEnd);
+        rt.setTransparentBounds(transparentBounds);
+        rt.setAnchoringBounds(anchoringBounds);
 
-        final java.util.regex.Pattern    pattern1 = java.util.regex.Pattern.compile(regex, flags);
-        final de.unkrig.lfr.core.Pattern pattern2 = de.unkrig.lfr.core.Pattern.compile(regex, flags);
+        // Test "Matcher.lookingAt()".
+        rt.assertMatchers(subject, new MatcherAssertion() {
 
-        final String message = "regex=\"" + regex + "\", subject=\"" + subject + "\"";
-
-        // FUNCTIONAL tests (as opposed to PERFORMANCE testing).
-        {
-
-            // Set up the matchers.
-            java.util.regex.Matcher    matcher1 = pattern1.matcher(subject);
-            de.unkrig.lfr.core.Matcher matcher2 = pattern2.matcher(subject);
-
-            if (transparentBounds != null) {
-                matcher1.useTransparentBounds(transparentBounds);
-                matcher2.useTransparentBounds(transparentBounds);
-            }
-
-            if (anchoringBounds != null) {
-                matcher1.useAnchoringBounds(anchoringBounds);
-                matcher2.useAnchoringBounds(anchoringBounds);
-            }
-
-            // Test "Matcher.lookingAt()".
-            {
-                if (regionStart != null) {
-                    matcher1.region(regionStart, regionEnd);
-                    matcher2.region(regionStart, regionEnd);
-                }
+            @Override public void
+            assertMatchers(java.util.regex.Matcher matcher1, de.unkrig.lfr.core.Matcher matcher2) {
 
                 boolean lookingAt1 = matcher1.lookingAt();
                 boolean lookingAt2 = matcher2.lookingAt();
-                Assert.assertEquals(message + ", lookingAt()", lookingAt1, lookingAt2);
-
-                if (lookingAt1) {
-                    OracleEssentials.assertEqualStateAfterMatch(message + ", lookingAt()", matcher1, matcher2);
-                } else {
-                    OracleEssentials.assertEqualState(message + ", lookingAt()", matcher1, matcher2);
-                }
-
-                matcher1.reset();
-                matcher2.reset();
+                Assert.assertEquals("lookingAt()", lookingAt1, lookingAt2);
             }
+        });
 
-            // Test "Matcher.matches()".
-            {
-                if (regionStart != null) {
-                    matcher1.region(regionStart, regionEnd);
-                    matcher2.region(regionStart, regionEnd);
-                }
+        // Test "Matcher.matches()".
+        rt.assertMatchers(subject, new MatcherAssertion() {
+
+            @Override public void
+            assertMatchers(java.util.regex.Matcher matcher1, de.unkrig.lfr.core.Matcher matcher2) {
 
                 boolean matches1 = matcher1.matches();
                 boolean matches2 = matcher2.matches();
-                Assert.assertEquals(message + ", matches()", matches1, matches2);
-
-                if (matches1) {
-                    OracleEssentials.assertEqualStateAfterMatch(message + ", matches()", matcher1, matcher2);
-                } else {
-                    OracleEssentials.assertEqualState(message + ", matches()", matcher1, matcher2);
-                }
-
-                matcher1.reset();
-                matcher2.reset();
+                Assert.assertEquals("matches()", matches1, matches2);
             }
+        });
 
-            // Test "Matcher.find()".
-            {
-                if (regionStart != null) {
-                    matcher1.region(regionStart, regionEnd);
-                    matcher2.region(regionStart, regionEnd);
-                }
+        // Test "Matcher.find()".
+        rt.assertMatchers(subject, new MatcherAssertion() {
+
+            @Override public void
+            assertMatchers(java.util.regex.Matcher matcher1, de.unkrig.lfr.core.Matcher matcher2) {
 
                 int matchCount;
                 for (matchCount = 0;; matchCount++) {
-                    String message2 = message + ", Match #" + (matchCount + 1);
+                    String message2 = "Match #" + (matchCount + 1);
 
                     boolean found1 = matcher1.find();
                     boolean found2 = matcher2.find();
@@ -202,14 +154,15 @@ class OracleEssentials {
 
                     if (!found1 || !found2) break;
 
-                    OracleEssentials.assertEqualStateAfterMatch(message2, matcher1, matcher2);
+                    OracleEssentials.assertEqualState(message2, matcher1, matcher2);
                 }
-
-                OracleEssentials.assertEqualState(message + ", after " + matchCount + " matches", matcher1, matcher2);
             }
-        }
+        });
 
         if (OracleEssentials.ALSO_COMPARE_PERFORMANCE) {
+
+            final java.util.regex.Pattern    pattern1 = java.util.regex.Pattern.compile(regex, flags);
+            final de.unkrig.lfr.core.Pattern pattern2 = de.unkrig.lfr.core.Pattern.compile(regex, flags);
 
             Runnable r1 = new Runnable() {
 
@@ -267,6 +220,8 @@ class OracleEssentials {
 
         if (OracleEssentials.ALSO_DO_PROFILING) {
 
+            final de.unkrig.lfr.core.Pattern pattern2 = de.unkrig.lfr.core.Pattern.compile(regex, flags);
+
             Runnable r2 = new Runnable() {
 
                 @Override public void
@@ -298,69 +253,6 @@ class OracleEssentials {
             }
             Sampler.printCallTree(t);
         }
-    }
-
-    static void
-    harnessReplaceAll(String regex, final String subject, String replacement, int flags) {
-
-        // Ignore tests that use constructs that are not supported by java.util.regex.
-        if (regexUsesFeatureNotSupportedByJur(regex)) return;
-
-        final java.util.regex.Pattern    pattern1 = java.util.regex.Pattern.compile(regex, flags);
-        final de.unkrig.lfr.core.Pattern pattern2 = de.unkrig.lfr.core.Pattern.compile(regex, flags);
-
-        // Set up the matchers.
-        java.util.regex.Matcher    matcher1 = pattern1.matcher(subject);
-        de.unkrig.lfr.core.Matcher matcher2 = pattern2.matcher(subject);
-
-        String result1 = matcher1.replaceAll(replacement);
-        String result2 = matcher2.replaceAll(replacement);
-
-        Assert.assertEquals(
-            "regex=\"" + regex + "\", subject=\"" + subject + "\", replacement=\"" + replacement + "\"",
-            result1,
-            result2
-        );
-    }
-
-    static void
-    harnessReplaceFirst(String regex, final String subject, String replacement, int flags) {
-
-        // Ignore tests that use constructs that are not supported by java.util.regex.
-        if (regexUsesFeatureNotSupportedByJur(regex)) return;
-
-        final java.util.regex.Pattern    pattern1 = java.util.regex.Pattern.compile(regex, flags);
-        final de.unkrig.lfr.core.Pattern pattern2 = de.unkrig.lfr.core.Pattern.compile(regex, flags);
-
-        // Set up the matchers.
-        java.util.regex.Matcher    matcher1 = pattern1.matcher(subject);
-        de.unkrig.lfr.core.Matcher matcher2 = pattern2.matcher(subject);
-
-        String result1 = matcher1.replaceFirst(replacement);
-        String result2 = matcher2.replaceFirst(replacement);
-
-        Assert.assertEquals(
-            "regex=\"" + regex + "\", subject=\"" + subject + "\", replacement=\"" + replacement + "\"",
-            result1,
-            result2
-        );
-    }
-
-    private static boolean
-    regexUsesFeatureNotSupportedByJur(String regex) {
-
-        if (OracleEssentials.IS_JAVA_6 && ( // Java 6 doesn't support...
-            regex.contains("(?U")                    // ... the "U" flag (Pattern.UNICODE_CHARACTER_CLASS)
-            || regex.matches(".*\\( ?\\?<\\s*\\w.*") // ... named capturing groups
-            || regex.contains("\\R")                 // ... the linebreak matcher
-            || regex.contains("\\p{Is")              // ... UNICODE properties
-        )) return true;
-
-        if (OracleEssentials.IS_JAVA_7 && ( // Java 7 doesn't support...
-            regex.contains("\\R")                    // ... the linebreak matcher
-        )) return true;
-
-        return false;
     }
 
     public static long
@@ -422,75 +314,49 @@ class OracleEssentials {
     }
 
     static void
-    patternSyntaxException(String regex) { patternSyntaxException(regex, 0); }
-
-    static void
-    patternSyntaxException(String regex, int flags) {
-
-        OracleEssentials.patternSyntaxExceptionJur(regex, flags);
-        OracleEssentials.patternSyntaxExceptionDulc(regex, flags);
-    }
-
-    static void
-    patternSyntaxExceptionJur(String regex, int flags) {
-
-        // Ignore tests that use constructs that are not supported by java.util.regex.
-        if (regexUsesFeatureNotSupportedByJur(regex)) return;
-
-        try {
-            java.util.regex.Pattern.compile(regex, flags);
-            Assert.fail("JUR did not throw a PatternSyntaxException");
-        } catch (PatternSyntaxException pse) {
-            ;
-        }
-    }
-
-    static void
-    patternSyntaxExceptionDulc(String regex, int flags) {
-
-        try {
-            de.unkrig.lfr.core.Pattern.compile(regex, flags);
-            Assert.fail("LFR did not throw a PatternSyntaxException");
-        } catch (PatternSyntaxException pse) {
-            ;
-        }
-    }
-
-    static void
     assertEqualState(String message, java.util.regex.Matcher matcher1, de.unkrig.lfr.core.Matcher matcher2) {
+
+        boolean hasMatch1;
+        try {
+            hasMatch1 = matcher1.group() != null;
+        } catch (IllegalStateException ise) {
+            hasMatch1 = false;
+        }
+
+        boolean hasMatch2;
+        try {
+            hasMatch2 = matcher2.group() != null;
+        } catch (IllegalStateException ise) {
+            hasMatch2 = false;
+        }
+
+        Assert.assertEquals(matcher1 + "/" + matcher2 + ": hasMatch", hasMatch1, hasMatch2);
+
+        if (hasMatch1) {
+
+            Assert.assertEquals(message + ", groupCount()", matcher1.groupCount(), matcher2.groupCount());
+
+            for (int i = 0; i <= matcher1.groupCount(); i++) {
+
+                int start1 = matcher1.start(i);
+                int start2 = matcher2.start(i);
+                Assert.assertEquals(message + ", start(" + i + ")", start1, start2);
+
+                int end1 = matcher1.end(i);
+                int end2 = matcher2.end(i);
+                Assert.assertEquals(message + ", end(" + i + ")", end1, end2);
+
+                String group1 = matcher1.group(i);
+                String group2 = matcher2.group(i);
+                Assert.assertEquals(message + ", group(" + i + ")", group1, group2);
+            }
+
+            Assert.assertEquals(message + ", requireEnd()", matcher1.requireEnd(), matcher2.requireEnd());
+        }
 
         boolean hitEnd1 = matcher1.hitEnd();
         boolean hitEnd2 = matcher2.hitEnd();
         Assert.assertEquals(message + ", hitEnd()", hitEnd1, hitEnd2);
-    }
-
-    static void
-    assertEqualStateAfterMatch(
-        String                     message,
-        java.util.regex.Matcher    matcher1,
-        de.unkrig.lfr.core.Matcher matcher2
-    ) {
-
-        Assert.assertEquals(message + ", groupCount()", matcher1.groupCount(), matcher2.groupCount());
-
-        for (int i = 0; i <= matcher1.groupCount(); i++) {
-
-            int start1 = matcher1.start(i);
-            int start2 = matcher2.start(i);
-            Assert.assertEquals(message + ", start(" + i + ")", start1, start2);
-
-            int end1 = matcher1.end(i);
-            int end2 = matcher2.end(i);
-            Assert.assertEquals(message + ", end(" + i + ")", end1, end2);
-
-            String group1 = matcher1.group(i);
-            String group2 = matcher2.group(i);
-            Assert.assertEquals(message + ", group(" + i + ")", group1, group2);
-        }
-
-        Assert.assertEquals(message + ", requireEnd()", matcher1.requireEnd(), matcher2.requireEnd());
-
-        OracleEssentials.assertEqualState(message, matcher1, matcher2);
     }
 
     public static void
