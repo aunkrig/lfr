@@ -325,7 +325,7 @@ class MatcherImpl implements Matcher {
     @Override public Matcher
     appendReplacement(Appendable appendable, String replacement) {
 
-        if (this.groups[0] == -1) throw new IllegalStateException("No match available");
+        if (this.endOfPreviousMatch == -1) throw new IllegalStateException("No match available");
 
         try {
 
@@ -374,7 +374,7 @@ class MatcherImpl implements Matcher {
     @Override public <T extends Appendable> T
     appendTail(T sb) {
 
-    	try {
+        try {
             sb.append(this.subject, this.lastAppendPosition, this.subject.length());
             return sb;
         } catch (IOException ioe) {
@@ -525,14 +525,18 @@ class MatcherImpl implements Matcher {
 
         StringBuilder sb = (
             new StringBuilder()
-            .append("pattern=")
+            .append("[pattern=")
             .append(this.pattern())
+            .append(" region=")
+            .append(this.regionStart)
+            .append(",")
+            .append(this.regionEnd)
             .append(" subject=")
             .append(this.subject)
         );
 
         if (this.endOfPreviousMatch != -1) {
-            sb.append(" match=").append(this.subject.subSequence(this.groups[0], this.groups[1]));
+            sb.append(" lastmatch=").append(this.subject.subSequence(this.groups[0], this.groups[1]));
         }
 
         return sb.append(']').toString();
