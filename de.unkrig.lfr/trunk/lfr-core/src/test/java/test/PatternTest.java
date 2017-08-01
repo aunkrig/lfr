@@ -76,12 +76,13 @@ class PatternTest {
     @SuppressWarnings("static-method") @Test public void
     testLongStringLiterals() {
 
+        Random r = new Random(123);
+
         // Long enough for "LiteralString.optimize().
         String infix = "ABCDEFGHIJKLMNOP";
 
         // Compose a LONG subject string.
         StringBuilder subject = new StringBuilder();
-        Random        r       = new Random(123);
         for (int i = 0; i < 20; i++) {
             for (int j = r.nextInt(64) - 32; j > 0; j--) subject.append('X');
             subject.append(infix, 0, r.nextInt(infix.length() + 1));
@@ -89,10 +90,12 @@ class PatternTest {
             subject.append(infix, r.nextInt(infix.length()), infix.length());
         }
 
+        // Verify that the "long literal string" optimization has NOT taken place yet.
         Assert.assertFalse(classIsLoaded("de.unkrig.lfr.core.Sequences$LiteralString$1"));
 
         OracleEssentials.harnessFull(infix, subject.toString());
 
+        // Verify that the "long literal string" optimization HAS taken place now.
         Assert.assertTrue(classIsLoaded("de.unkrig.lfr.core.Sequences$LiteralString$1"));
     }
 
