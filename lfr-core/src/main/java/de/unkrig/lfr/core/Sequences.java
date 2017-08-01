@@ -27,9 +27,8 @@
 package de.unkrig.lfr.core;
 
 import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Map;
 
+import de.unkrig.commons.lang.StringUtil;
 import de.unkrig.commons.nullanalysis.Nullable;
 
 /**
@@ -39,6 +38,47 @@ final
 class Sequences {
 
     private Sequences() {}
+
+    static final
+    class ReluctantQuantifierSequence extends Pattern.AbstractSequence {
+
+        private final int      min;
+        private final int      max;
+        private final Sequence op;
+
+        private
+        ReluctantQuantifierSequence(int min, int max, Sequence op) {
+            this.min = min;
+            this.max = max;
+            this.op  = op;
+        }
+
+        @Override public int
+        matches(MatcherImpl matcher, int offset) {
+
+            // The operand MUST match min times;
+            int i;
+            for (i = 0; i < this.min; i++) {
+                offset = this.op.matches(matcher, offset);
+                if (offset == -1) return -1;
+            }
+
+            // Now try to match the operand (max-min) more times.
+            for (;; i++) {
+
+                int offset2 = this.successor.matches(matcher, offset);
+                if (offset2 != -1) return offset2;
+
+                if (i >= this.max) return -1;
+
+                offset = this.op.matches(matcher, offset);
+                if (offset == -1) return -1;
+            }
+        }
+
+        @Override public String
+        toString() { return this.op + "{" + this.min + "," + this.max + "}?" + this.successor; }
+    }
 
     /**
      * Representation of a sequence of literal, case-sensitive characters.
@@ -100,11 +140,11 @@ class Sequences {
             // by using the Knuth–Morris–Pratt algorithm (see
             // https://en.wikipedia.org/wiki/Knuth%E2%80%93Morris%E2%80%93Pratt_algorithm ).
             final int len = this.s.length();
-            if (len < 16) return this; // String literal is too short for this optimization.
+            if (len < StringUtil.MIN_KEY_LENGTH) return this; // String literal is too short for this optimization.
 
             return new Sequence() {
 
-                final CharToIntMapping deltas = computeDeltas(LiteralString.this.s);
+                final StringUtil.IndexOf indexOf = StringUtil.newIndexOf(LiteralString.this.s);
 
                 @Override public int      matches(MatcherImpl matcher, int offset) { return LiteralString.this.matches(matcher, offset); } // SUPPRESS CHECKSTYLE LineLength:3
                 @Override public void     append(Sequence that)                    { LiteralString.this.append(that);                    }
@@ -113,24 +153,22 @@ class Sequences {
                 @Override public boolean
                 find(MatcherImpl matcher, int start) {
 
-                    int limit = matcher.regionEnd - len;
-                    for (start += len - 1; start <= limit;) {
+                    while (start < matcher.regionEnd) {
 
-                        int delta = this.deltas.get(matcher.charAt(start));
-                        if (delta == -1) {
-                            start += len;
-                            continue;
-                        }
+                        // Find the next occurrence of the literal string.
+                        int offset = this.indexOf.indexOf(matcher.subject, start, matcher.regionEnd);
+                        if (offset == -1) break;
 
-                        start -= delta;
-                        int result = LiteralString.this.matches(matcher, start);
+                        // See if the rest of the pattern matches.
+                        int result = LiteralString.this.successor.matches(matcher, offset + len);
                         if (result != -1) {
-                            matcher.groups[0] = start;
+                            matcher.groups[0] = offset;
                             matcher.groups[1] = result;
                             return true;
                         }
 
-                        start += len;
+                        // Rest of pattern didn't match; continue at the second character of the literal string match.
+                        start = offset + 1;
                     }
 
                     matcher.hitEnd = true;
@@ -138,85 +176,7 @@ class Sequences {
                 }
             };
         }
-
-        /**
-         * Optimized version of a {@code Map<Character, Integer>}.
-         */
-        interface
-        CharToIntMapping {
-
-            /**
-             * @return The value that the <var>key</var> maps to, or {@code -1}
-             */
-            int get(char key);
-
-            /**
-             * Maps the given <var>key</var> to the given <var>value</var>, replacing any previously mapped value.
-             */
-            void put(char key, int value);
-        }
-
-        private static CharToIntMapping
-        computeDeltas(String keys) {
-            int len = keys.length();
-
-            char maxKey = 0;
-            for (int i = 0; i < len; i++) {
-                char c = keys.charAt(i);
-                if (c > maxKey) maxKey = c;
             }
-
-            CharToIntMapping result;
-            if (maxKey < 256) {
-
-                // The key characters are relative small, so we can use a super-fast, array-based mapping.
-                result = arrayBasedCharToIntMapping(maxKey);
-            } else {
-
-                result = hashMapCharToIntMapping();
-            }
-
-            for (int i = 0; i < len; i++) result.put(keys.charAt(i), i);
-
-            return result;
-        }
-
-        private static CharToIntMapping
-        arrayBasedCharToIntMapping(final char maxKey) {
-
-            return new CharToIntMapping() {
-
-                final int[] deltas = new int[maxKey + 1];
-                { Arrays.fill(this.deltas, -1); }
-
-                @Override public int
-                get(char c) {
-                    return c < this.deltas.length ? this.deltas[c] : -1;
-                }
-
-                @Override public void
-                put(char key, int value) { this.deltas[key] = value; }
-            };
-        }
-
-        private static CharToIntMapping
-        hashMapCharToIntMapping() {
-
-            return new CharToIntMapping() {
-
-                final Map<Character, Integer> deltas = new HashMap<Character, Integer>();
-
-                @Override public int
-                get(char c) {
-                    Integer result = this.deltas.get(c);
-                    return result != null ? result : -1;
-                }
-
-                @Override public void
-                put(char key, int value) { this.deltas.put(key, value); }
-            };
-        }
-    }
 
     public static Sequence
     emptyStringSequence() { return new Pattern.EmptyStringSequence(); }
@@ -881,34 +841,7 @@ class Sequences {
     public static Sequence
     reluctantQuantifierSequence(final Sequence op, final int min, final int max) {
 
-        return new Pattern.AbstractSequence() {
-
-            @Override public int
-            matches(MatcherImpl matcher, int offset) {
-
-                // The operand MUST match min times;
-                int i;
-                for (i = 0; i < min; i++) {
-                    offset = op.matches(matcher, offset);
-                    if (offset == -1) return -1;
-                }
-
-                // Now try to match the operand (max-min) more times.
-                for (;; i++) {
-
-                    int offset2 = this.successor.matches(matcher, offset);
-                    if (offset2 != -1) return offset2;
-
-                    if (i >= max) return -1;
-
-                    offset = op.matches(matcher, offset);
-                    if (offset == -1) return -1;
-                }
-            }
-
-            @Override public String
-            toString() { return op + "{" + min + "," + max + "}?" + this.successor; }
-        };
+        return new ReluctantQuantifierSequence(min, max, op);
     }
 
     public static Sequence
