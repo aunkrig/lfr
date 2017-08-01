@@ -999,7 +999,7 @@ class Pattern {
                     elements.add(this.parseQuantified());
                 }
 
-                // Now do some optimization on the list:
+                // Now try some optimizations on the list:
 
                 // Remove EmptyStringSequences.
                 for (Iterator<Sequence> it = elements.iterator(); it.hasNext();) {
@@ -1017,6 +1017,34 @@ class Pattern {
                         i++;
                     }
                 }
+
+//                // Optimize ".*?ABC" by using the Knuth–Morris–Pratt algorithm.
+//                for (int i = 0; i < elements.size() - 1;) {
+//
+//                    if (elements.get(i) instanceof Sequences.ReluctantQuantifierSequence) {
+//                        Sequence e1 = elements.get(i + 1);
+//                        if (e1 instanceof LiteralString) {
+//                            LiteralString ls = (LiteralString) e1;
+//                            if (ls.s.length() >= 16) {
+//                                elements.set(i, new AbstractSequence() {
+//
+//                                    @Override public int
+//                                    matches(MatcherImpl matcher, int offset) {
+//                                        // TODO Auto-generated method stub
+//                                        return 0;
+//                                    }
+//                                })
+//                            }
+//                        }
+//                    }
+//                    Sequence merged = this.merge(elements.get(i), e1);
+//                    if (merged != null) {
+//                        elements.set(i, merged);
+//                        elements.remove(i + 1);
+//                    } else {
+//                        i++;
+//                    }
+//                }
 
                 // Now link all sequence elements one to another.
                 for (int i = 0; i < elements.size() - 1; i++) elements.get(i).append(elements.get(i + 1));
