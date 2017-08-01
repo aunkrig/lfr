@@ -146,7 +146,7 @@ class OracleEssentials {
 
                 int matchCount;
                 for (matchCount = 0;; matchCount++) {
-                    String message2 = "Match #" + (matchCount + 1);
+                    String message2 = "Pattern \"" + matcher1.pattern() + "\", Match #" + (matchCount + 1);
 
                     boolean found1 = matcher1.find();
                     boolean found2 = matcher2.find();
