@@ -40,6 +40,7 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 
 import de.unkrig.commons.lang.ObjectUtil;
+import de.unkrig.commons.lang.StringUtil;
 import de.unkrig.commons.lang.protocol.Transformer;
 import test.RegexTest.MatcherAssertion;
 
@@ -78,8 +79,8 @@ class PatternTest {
 
         Random r = new Random(123);
 
-        // Long enough for "LiteralString.optimize().
         String infix = "ABCDEFGHIJKLMNOP";
+        Assert.assertTrue(infix.length() >= StringUtil.MIN_KEY_LENGTH);
 
         // Compose a LONG subject string.
         StringBuilder subject = new StringBuilder();
@@ -389,6 +390,32 @@ class PatternTest {
     }
 
     @Test @SuppressWarnings("static-method") public void
+    testReluctantAndPossessiveQuantifierFollowedByLongLiteralString() {
+
+        Random r = new Random(123);
+
+        String infix = "ABCDEFGHIJKLMNOP";
+        Assert.assertTrue(infix.length() >= StringUtil.MIN_KEY_LENGTH);
+
+        // Compose a LONG subject string.
+        StringBuilder subject = new StringBuilder();
+        for (int i = 0; i < 20; i++) {
+            for (int j = r.nextInt(64) - 32; j > 0; j--) subject.append('X');
+            subject.append(infix, 0, r.nextInt(infix.length() + 1));
+            for (int j = r.nextInt(64) - 32; j > 0; j--) subject.append('X');
+            subject.append(infix, r.nextInt(infix.length()), infix.length());
+        }
+
+        // Verify that the "long literal string" optimization has NOT taken place yet.
+        Assert.assertFalse(classIsLoaded("de.unkrig.lfr.core.Pattern$5$1"));
+
+        harnessMatches(".*?" + infix, subject.toString(), java.util.regex.Pattern.DOTALL);
+
+        // Verify that the "long literal string" optimization HAS taken place now.
+        Assert.assertTrue(classIsLoaded("de.unkrig.lfr.core.Pattern$5$1"));
+    }
+
+    @Test @SuppressWarnings("static-method") public void
     testSurrogates() {
         int    clef              = 0x1d120;
         char   clefHighSurrogate = highSurrogateOf(clef);
@@ -570,12 +597,19 @@ class PatternTest {
      * the same result.
      */
     private static void
-    harnessMatches(String regex, String subject) {
+    harnessMatches(String regex, String subject) { harnessMatches(regex, subject, 0); }
+
+    /**
+     * Verifies that {@link java.util.regex.Matcher#matches()} and {@link de.unkrig.lfr.core.Matcher#matches()} yield
+     * the same result.
+     */
+    private static void
+    harnessMatches(String regex, String subject, int flags) {
 
         String message = "regex=\"" + regex + "\", subject=\"" + subject + "\"";
 
-        java.util.regex.Matcher    matcher1 = java.util.regex.Pattern.compile(regex).matcher(subject);
-        de.unkrig.lfr.core.Matcher matcher2 = de.unkrig.lfr.core.Pattern.compile(regex).matcher(subject);
+        java.util.regex.Matcher    matcher1 = java.util.regex.Pattern.compile(regex, flags).matcher(subject);
+        de.unkrig.lfr.core.Matcher matcher2 = de.unkrig.lfr.core.Pattern.compile(regex, flags).matcher(subject);
 
         boolean m1Matches = matcher1.matches();
         boolean m2Matches = matcher2.matches();
