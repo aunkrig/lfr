@@ -89,7 +89,11 @@ class PatternTest {
             subject.append(infix, r.nextInt(infix.length()), infix.length());
         }
 
+        Assert.assertFalse(classIsLoaded("de.unkrig.lfr.core.Sequences$LiteralString$1"));
+
         OracleEssentials.harnessFull(infix, subject.toString());
+
+        Assert.assertTrue(classIsLoaded("de.unkrig.lfr.core.Sequences$LiteralString$1"));
     }
 
     @SuppressWarnings("static-method") @Test public void
@@ -645,5 +649,24 @@ class PatternTest {
     lowSurrogateOf(int codepoint) {
         if (codepoint < 0x10000 || codepoint > 0x10FFFF) throw new IllegalArgumentException();
         return (char) (((codepoint - 0x10000) & 0x3ff) + 0xDC00);
+    }
+
+    private static boolean
+    classIsLoaded(String className) {
+
+        try {
+            return FIND_LOADED_CLASS.invoke(ClassLoader.getSystemClassLoader(), className) != null;
+        } catch (Exception e) {
+            throw new AssertionError(e);
+        }
+    }
+    private static final java.lang.reflect.Method FIND_LOADED_CLASS;
+    static {
+        try {
+            FIND_LOADED_CLASS = ClassLoader.class.getDeclaredMethod("findLoadedClass", String.class);
+            FIND_LOADED_CLASS.setAccessible(true);
+        } catch (Exception e) {
+            throw new ExceptionInInitializerError(e);
+        }
     }
 }
