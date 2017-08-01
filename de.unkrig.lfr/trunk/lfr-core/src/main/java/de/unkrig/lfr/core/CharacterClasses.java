@@ -321,6 +321,8 @@ class CharacterClasses {
     /** Matches <em>any</em> character. */
     public static Pattern.CharacterClass
     anyCharacter() {
+    	
+    	// Cannot use a constant, because ".append()" modifies the object.
         return new Pattern.CharacterClass() {
             @Override public boolean evaluate(int subject) { return true; }
             @Override public String  toString()            { return ".";  }
