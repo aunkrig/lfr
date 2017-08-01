@@ -86,6 +86,8 @@ import java.util.Map;
 import java.util.regex.PatternSyntaxException;
 
 import de.unkrig.commons.lang.Characters;
+import de.unkrig.commons.lang.StringUtil;
+import de.unkrig.commons.lang.StringUtil.IndexOf;
 import de.unkrig.commons.lang.protocol.Predicate;
 import de.unkrig.commons.lang.protocol.ProducerUtil;
 import de.unkrig.commons.lang.protocol.ProducerWhichThrows;
@@ -96,6 +98,7 @@ import de.unkrig.commons.text.scanner.AbstractScanner.Token;
 import de.unkrig.commons.text.scanner.ScanException;
 import de.unkrig.commons.text.scanner.StatefulScanner;
 import de.unkrig.lfr.core.Sequences.LiteralString;
+import de.unkrig.lfr.core.Sequences.ReluctantQuantifierSequence;
 
 /**
  * A drop-in replacement for {@link java.util.regex.Pattern}.
@@ -1018,33 +1021,60 @@ class Pattern {
                     }
                 }
 
-//                // Optimize ".*?ABC" by using the Knuth–Morris–Pratt algorithm.
-//                for (int i = 0; i < elements.size() - 1;) {
-//
-//                    if (elements.get(i) instanceof Sequences.ReluctantQuantifierSequence) {
-//                        Sequence e1 = elements.get(i + 1);
-//                        if (e1 instanceof LiteralString) {
-//                            LiteralString ls = (LiteralString) e1;
-//                            if (ls.s.length() >= 16) {
-//                                elements.set(i, new AbstractSequence() {
-//
-//                                    @Override public int
-//                                    matches(MatcherImpl matcher, int offset) {
-//                                        // TODO Auto-generated method stub
-//                                        return 0;
-//                                    }
-//                                })
-//                            }
-//                        }
-//                    }
-//                    Sequence merged = this.merge(elements.get(i), e1);
-//                    if (merged != null) {
-//                        elements.set(i, merged);
-//                        elements.remove(i + 1);
-//                    } else {
-//                        i++;
-//                    }
-//                }
+                // Optimize, if possible and reasonable,  ".*?ABC" by using "StringUtil.newIndexOf()".
+                for (int i = 0; i < elements.size() - 1; i++) {
+
+                    // Is the current element ".{x,y}"?
+                    Sequence e0 = elements.get(i);
+                    if (!(e0 instanceof ReluctantQuantifierSequence)) continue;
+                    final ReluctantQuantifierSequence rq = (ReluctantQuantifierSequence) e0;
+
+                    if (rq.op.getClass() != CharacterClasses.anyCharacter().getClass()) continue;
+
+                    // Is the next-but-one element a literal string?
+                    Sequence e1 = elements.get(i + 1);
+                    if (!(e1 instanceof LiteralString)) continue;
+                    final LiteralString ls = (LiteralString) e1;
+
+                    final String infix       = ls.s;
+                    final int    infixLength = infix.length();
+                    if (infixLength < StringUtil.MIN_KEY_LENGTH) continue;
+
+                    // Replace the two elements with ONE new element.
+                    elements.remove(i + 1);
+                    elements.set(i, new AbstractSequence() {
+
+                        final IndexOf indexOf = StringUtil.newIndexOf(infix);
+
+                        @Override public int
+                        matches(MatcherImpl matcher, int offset) {
+
+                            int limit = matcher.regionEnd;
+
+                            // Beware of overflow!
+                            if (limit - offset > rq.max) limit = offset + rq.max;
+
+                            offset += rq.min;
+
+                            while (offset <= limit) {
+
+                                // Find next match of the infix withing the subject string.
+                                offset = this.indexOf.indexOf(matcher.subject, offset, limit);
+                                if (offset == -1) break;
+
+                                // See if the successor matches the rest of the subject.
+                                int result = this.successor.matches(matcher, offset + infixLength);
+                                if (result != -1) return result;
+
+                                // Successor didn't match, continue with next character position.
+                                offset++;
+                            }
+
+                            matcher.hitEnd = true;
+                            return -1;
+                        }
+                    });
+                }
 
                 // Now link all sequence elements one to another.
                 for (int i = 0; i < elements.size() - 1; i++) elements.get(i).append(elements.get(i + 1));

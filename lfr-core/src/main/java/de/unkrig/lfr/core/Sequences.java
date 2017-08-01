@@ -42,9 +42,9 @@ class Sequences {
     static final
     class ReluctantQuantifierSequence extends Pattern.AbstractSequence {
 
-        private final int      min;
-        private final int      max;
-        private final Sequence op;
+        final int      min;
+        final int      max;
+        final Sequence op;
 
         private
         ReluctantQuantifierSequence(int min, int max, Sequence op) {
