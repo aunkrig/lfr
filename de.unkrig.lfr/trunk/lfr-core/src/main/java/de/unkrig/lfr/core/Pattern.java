@@ -749,7 +749,7 @@ class Pattern {
 
                 char c = matcher.charAt(offset);
 
-                // Check for LInebreAK characters in a highly optimized manner.
+                // Check for linebreak characters in a highly optimized manner.
                 if (c <= 0x0d) {
                     if (c == this.c1 && offset < matcher.regionEnd - 1 && matcher.charAt(offset + 1) == this.c2) {
                         return this.successor.matches(matcher, offset + 2);
@@ -1007,7 +1007,27 @@ class Pattern {
                     if (it.next() instanceof EmptyStringSequence) it.remove();
                 }
 
-                // Merge consecutive literals into one string literal.
+                this.optimizeConsecutiveStringLiterals(elements);
+
+                this.optimizeGreedyQuantifiers(elements);
+
+                this.optimizeReluctantQuantifiers(elements);
+
+                this.optimizePossessiveQuantifiers(elements);
+
+                // Now link all sequence elements one to another.
+                for (int i = 0; i < elements.size() - 1; i++) elements.get(i).append(elements.get(i + 1));
+
+                return elements.get(0);
+            }
+
+            /**
+             * Merges consecutive literals into one string literal.
+             *
+             * @param elements Is modified by this method to implement the optimization
+             */
+            private void
+            optimizeConsecutiveStringLiterals(List<Sequence> elements) {
                 for (int i = 0; i < elements.size() - 1;) {
 
                     Sequence merged = this.merge(elements.get(i), elements.get(i + 1));
@@ -1018,17 +1038,26 @@ class Pattern {
                         i++;
                     }
                 }
+            }
 
-                // Optimize greedy quantifiers on "any char", followed by a literal string, by using
-                // "StringUtil.newIndexOf().lastIndexOf()".
+            /**
+             *  Optimize greedy quantifiers on "any char", followed by a literal string, by using {@link
+             *  IndexOf#lastIndexOf(CharSequence, int, int)}.
+             *
+             * @param elements Is modified by this method to implement the optimization
+             */
+            private void
+            optimizeGreedyQuantifiers(List<Sequence> elements) {
+
                 for (int i = 0; i < elements.size() - 1; i++) {
 
-                    // Is the current element ".{x,y}"?
+                    // Is the current element a greedy quantifier?
                     Sequence e0 = elements.get(i);
                     if (!(e0 instanceof GreedyQuantifierSequence)) continue;
                     final GreedyQuantifierSequence gqs = (GreedyQuantifierSequence) e0;
 
-                    if (gqs.op.getClass() != CharacterClasses.anyCharacter().getClass()) continue;
+                    // Is the quantifier's operand "any char"?
+                    if (gqs.operand.getClass() != CharacterClasses.anyCharacter().getClass()) continue;
 
                     // Is the next-but-one element a literal string?
                     Sequence e1 = elements.get(i + 1);
@@ -1072,17 +1101,26 @@ class Pattern {
                         }
                     });
                 }
+            }
 
-                // Optimize ruluctant quantifiers on "any char", followed by a literal string, by using
-                // "StringUtil.newIndexOf().indexOf()".
+            /**
+             * Optimizes reluctant quantifiers on "any char", followed by a literal string, by using {@link
+             * IndexOf#indexOf(CharSequence, int, int)}.
+             *
+             * @param elements Is modified by this method to implement the optimization
+             */
+            private void
+            optimizeReluctantQuantifiers(List<Sequence> elements) {
+
                 for (int i = 0; i < elements.size() - 1; i++) {
 
-                    // Is the current element ".{x,y}?"?
+                    // Is the current element a reluctant quantifier?
                     Sequence e0 = elements.get(i);
                     if (!(e0 instanceof ReluctantQuantifierSequence)) continue;
                     final ReluctantQuantifierSequence rqs = (ReluctantQuantifierSequence) e0;
 
-                    if (rqs.op.getClass() != CharacterClasses.anyCharacter().getClass()) continue;
+                    // Is the reluctant quantifier's operand "any char"?
+                    if (rqs.operand.getClass() != CharacterClasses.anyCharacter().getClass()) continue;
 
                     // Is the next-but-one element a literal string?
                     Sequence e1 = elements.get(i + 1);
@@ -1127,65 +1165,43 @@ class Pattern {
                         }
                     });
                 }
+            }
 
-                // Optimize possessive quantifiers on "any char", followed by a literal string, by using
-                // "StringUtil.newIndexOf().lastIndexOf()".
+            /**
+             * Optimizes possessive quantifiers on "any char" by using @link IndexOf#lastIndexOf(CharSequence, int,
+             * int)}.
+             *
+             * @param elements Is modified by this method to implement the optimization
+             */
+            void
+            optimizePossessiveQuantifiers(List<Sequence> elements) {
+
                 for (int i = 0; i < elements.size() - 1; i++) {
 
-                    // Is the current element ".{x,y}"?
+                    // Is the current element a possessive quantifier?
                     Sequence e0 = elements.get(i);
                     if (!(e0 instanceof PossessiveQuantifierSequence)) continue;
                     final PossessiveQuantifierSequence pqs = (PossessiveQuantifierSequence) e0;
 
-                    if (pqs.op.getClass() != CharacterClasses.anyCharacter().getClass()) continue;
+                    // Is quantifier operand "any char"?
+                    if (pqs.operand.getClass() != CharacterClasses.anyCharacter().getClass()) continue;
 
-                    // Is the next-but-one element a literal string?
-                    Sequence e1 = elements.get(i + 1);
-                    if (!(e1 instanceof LiteralString)) continue;
-                    final LiteralString ls = (LiteralString) e1;
-
-                    final String infix       = ls.s;
-                    final int    infixLength = infix.length();
-
-                    // Replace the two elements with ONE new element.
-                    elements.remove(i + 1);
+                    // Replace the possessive quantifier element.
                     elements.set(i, new AbstractSequence() {
-
-                        final IndexOf indexOf = StringUtil.newIndexOf(infix);
 
                         @Override public int
                         matches(MatcherImpl matcher, int offset) {
 
-                            int fromIndex = matcher.regionEnd - infixLength;
-                            if (fromIndex - offset > pqs.max) fromIndex = offset + pqs.max; // Beware of overflow!
-
-                            int toIndex = offset + pqs.min;
-
-                            matcher.hitEnd = true;
-
-                            while (fromIndex >= toIndex) {
-
-                                // Find next match of the infix withing the subject string.
-                                fromIndex = this.indexOf.indexOf(matcher.subject, fromIndex, toIndex);
-                                if (fromIndex == -1) break;
-
-                                // See if the successor matches the rest of the subject.
-                                int result = this.successor.matches(matcher, fromIndex + infixLength);
-                                if (result != -1) return result;
-
-                                // Successor didn't match, continue with next character position.
-                                fromIndex--;
+                            if (pqs.max > matcher.regionEnd - offset) {
+                                offset = matcher.regionEnd;
+                            } else {
+                                offset += pqs.max;
                             }
 
-                            return -1;
+                            return this.successor.matches(matcher, offset);
                         }
                     });
                 }
-
-                // Now link all sequence elements one to another.
-                for (int i = 0; i < elements.size() - 1; i++) elements.get(i).append(elements.get(i + 1));
-
-                return elements.get(0);
             }
 
             @Nullable private Sequence

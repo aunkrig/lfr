@@ -35,3 +35,9 @@ Differences:
        ...) may yield different results.
    (-) Regex COMPILATION was not measured and is probably much slower than JUR. There is surely a lot of room for
        optimization in this aera, if someone needs it.
+   (+) DULC drastically improves the evaluation performance of the following special cases:
+        * Patterns that start with 16 or more literal characters (only "Matcher.find()")
+        * Patterns that contain a greedy or reluctant quantifier of ANY, followed by 16 or more literal characters;
+          e.g. "xxx.*ABCDEFGHIJKLMNOPxxx" or "xxx.{4,39}?ABCDEFGHIJKLMNOPxxx"
+        * Patterns that contain a possessive quantifier of ANY; e.g. "xxxA++xxx"
+       "ANY" means the "." pattern, and the DOTALL flag being active.

@@ -43,15 +43,15 @@ class Sequences {
     static final
     class GreedyQuantifierSequence extends Pattern.AbstractSequence {
 
-        final Sequence op;
+        final Sequence operand;
         final int      max;
         final int      min;
 
         private
-        GreedyQuantifierSequence(int min, int max, Sequence op) {
-            this.min = min;
-            this.max = max;
-            this.op  = op;
+        GreedyQuantifierSequence(Sequence operand, int min, int max) {
+            this.operand = operand;
+            this.min     = min;
+            this.max     = max;
         }
 
         @Override public int
@@ -59,7 +59,7 @@ class Sequences {
 
             // The operand MUST match (min) times;
             for (int i = 0; i < this.min; i++) {
-                offset = this.op.matches(matcher, offset);
+                offset = this.operand.matches(matcher, offset);
                 if (offset == -1) return -1;
             }
 
@@ -73,7 +73,7 @@ class Sequences {
 
                 savedOffset[i] = offset;
 
-                offset = this.op.matches(matcher, offset);
+                offset = this.operand.matches(matcher, offset);
 
                 if (offset == -1) {
                     for (; i >= 0; i--) {
@@ -88,21 +88,21 @@ class Sequences {
         }
 
         @Override public String
-        toString() { return this.op + "{" + this.min + "," + this.max + "}" + this.successor; }
+        toString() { return this.operand + "{" + this.min + "," + this.max + "}" + this.successor; }
     }
 
     static final
     class ReluctantQuantifierSequence extends Pattern.AbstractSequence {
 
+        final Sequence operand;
         final int      min;
         final int      max;
-        final Sequence op;
 
         private
-        ReluctantQuantifierSequence(int min, int max, Sequence op) {
-            this.min = min;
-            this.max = max;
-            this.op  = op;
+        ReluctantQuantifierSequence(Sequence operand, int min, int max) {
+            this.operand = operand;
+            this.min     = min;
+            this.max     = max;
         }
 
         @Override public int
@@ -111,7 +111,7 @@ class Sequences {
             // The operand MUST match min times;
             int i;
             for (i = 0; i < this.min; i++) {
-                offset = this.op.matches(matcher, offset);
+                offset = this.operand.matches(matcher, offset);
                 if (offset == -1) return -1;
             }
 
@@ -123,41 +123,44 @@ class Sequences {
 
                 if (i >= this.max) return -1;
 
-                offset = this.op.matches(matcher, offset);
+                offset = this.operand.matches(matcher, offset);
                 if (offset == -1) return -1;
             }
         }
 
         @Override public String
-        toString() { return this.op + "{" + this.min + "," + this.max + "}?" + this.successor; }
+        toString() { return this.operand + "{" + this.min + "," + this.max + "}?" + this.successor; }
     }
 
     static final
     class PossessiveQuantifierSequence extends Pattern.AbstractSequence {
 
-        final Sequence op;
-        final int      max;
+        final Sequence operand;
         final int      min;
+        final int      max;
 
         private
-        PossessiveQuantifierSequence(Sequence op, int max, int min) {
-            this.op = op;
-            this.max = max;
-            this.min = min;
+        PossessiveQuantifierSequence(Sequence operand, int min, int max) {
+            this.operand = operand;
+            this.min     = min;
+            this.max     = max;
         }
 
         @Override public int
         matches(MatcherImpl matcher, int offset) {
 
-            int i = 0;
-            for (; i < this.min; i++) {
-                offset = this.op.matches(matcher, offset);
+            // The operand MUST match (min) times;
+            for (int i = 0; i < this.min; i++) {
+                offset = this.operand.matches(matcher, offset);
                 if (offset == -1) return -1;
             }
 
-            for (; i < this.max; i++) {
+            // Now try to match the operand (max-min-1) more times.
+            int limit = this.max - this.min;
 
-                int offset2 = this.op.matches(matcher, offset);
+            for (int i = 0; i < limit; i++) {
+
+                int offset2 = this.operand.matches(matcher, offset);
 
                 if (offset2 == -1) return this.successor.matches(matcher, offset);
 
@@ -168,7 +171,7 @@ class Sequences {
         }
 
         @Override public String
-        toString() { return this.op + "{" + this.min + "," + this.max + "}+" + this.successor; }
+        toString() { return this.operand + "{" + this.min + "," + this.max + "}+" + this.successor; }
     }
 
     /**
@@ -760,25 +763,28 @@ class Sequences {
     }
 
     public static Sequence
-    greedyQuantifierSequence(final Sequence op, final int min, final int max) {
+    greedyQuantifierSequence(Sequence operand, int min, int max) {
 
         // Optimize for bare character classes, e.g. "." or "[...]".
-        if (op instanceof Pattern.CharacterClass && op.getClass() != CharacterClasses.anyCharacter().getClass()) {
-            final Pattern.CharacterClass cc = (Pattern.CharacterClass) op;
+        if (
+            operand instanceof Pattern.CharacterClass
+            && operand.getClass() != CharacterClasses.anyCharacter().getClass()
+        ) {
+            final Pattern.CharacterClass cc = (Pattern.CharacterClass) operand;
             if (cc.successor == Pattern.TERMINAL) {
-                return Sequences.greedyQuantifierCharacterPredicate(min, max, cc);
+                return Sequences.greedyQuantifierCharacterPredicate(cc, min, max);
             }
         }
 
-        return new GreedyQuantifierSequence(min, max, op);
+        return new GreedyQuantifierSequence(operand, min, max);
     }
 
     /**
      * Optimized version of {@link #greedyQuantifierSequence(Sequence, int, int)} when the operand is a bare
-     * character predicate, e.g. "." or "[...]".
+     * character predicate, e.g. a character class.
      */
     public static Sequence
-    greedyQuantifierCharacterPredicate(final int min, final int max, final IntPredicate operand) {
+    greedyQuantifierCharacterPredicate(final IntPredicate operand, final int min, final int max) {
 
         return new Pattern.AbstractSequence() {
 
@@ -857,15 +863,15 @@ class Sequences {
     }
 
     public static Sequence
-    reluctantQuantifierSequence(final Sequence op, final int min, final int max) {
+    reluctantQuantifierSequence(Sequence operand, int min, int max) {
 
-        return new ReluctantQuantifierSequence(min, max, op);
+        return new ReluctantQuantifierSequence(operand, min, max);
     }
 
     public static Sequence
-    possessiveQuantifierSequence(final Sequence op, final int min, final int max) {
+    possessiveQuantifierSequence(Sequence operand, int min, int max) {
 
-        return new PossessiveQuantifierSequence(op, max, min);
+        return new PossessiveQuantifierSequence(operand, min, max);
     }
 
     static String
