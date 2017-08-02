@@ -39,9 +39,11 @@ import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
+import de.unkrig.commons.lang.AssertionUtil;
 import de.unkrig.commons.lang.ObjectUtil;
-import de.unkrig.commons.lang.StringUtil;
+import de.unkrig.commons.lang.protocol.Producer;
 import de.unkrig.commons.lang.protocol.Transformer;
+import de.unkrig.commons.nullanalysis.Nullable;
 import test.RegexTest.MatcherAssertion;
 
 public
@@ -77,27 +79,42 @@ class PatternTest {
     @SuppressWarnings("static-method") @Test public void
     testLongStringLiterals() {
 
-        Random r = new Random(123);
-
         String infix = "ABCDEFGHIJKLMNOP";
-        Assert.assertTrue(infix.length() >= StringUtil.MIN_KEY_LENGTH);
 
-        // Compose a LONG subject string.
-        StringBuilder subject = new StringBuilder();
-        for (int i = 0; i < 20; i++) {
-            for (int j = r.nextInt(64) - 32; j > 0; j--) subject.append('X');
-            subject.append(infix, 0, r.nextInt(infix.length() + 1));
-            for (int j = r.nextInt(64) - 32; j > 0; j--) subject.append('X');
-            subject.append(infix, r.nextInt(infix.length()), infix.length());
+        Producer<String> sp = randomSubjectProducer(infix);
+
+//        // Verify that the "long literal string" optimization has NOT taken place yet.
+//        Assert.assertFalse(classIsLoaded("de.unkrig.commons.lang.StringUtil$6"));
+
+        for (int i = 0; i < 1000; i++) {
+            OracleEssentials.harnessFull(infix, AssertionUtil.notNull(sp.produce()));
         }
 
-        // Verify that the "long literal string" optimization has NOT taken place yet.
-        Assert.assertFalse(classIsLoaded("de.unkrig.lfr.core.Sequences$LiteralString$1"));
+//        // Verify that the "long literal string" optimization HAS taken place now.
+//        Assert.assertTrue(classIsLoaded("de.unkrig.commons.lang.StringUtil$6"));
+    }
 
-        OracleEssentials.harnessFull(infix, subject.toString());
+    private static Producer<String>
+    randomSubjectProducer(final String infix) {
 
-        // Verify that the "long literal string" optimization HAS taken place now.
-        Assert.assertTrue(classIsLoaded("de.unkrig.lfr.core.Sequences$LiteralString$1"));
+        return new Producer<String>() {
+
+            Random r = new Random(123);
+
+            @Override @Nullable public String
+            produce() {
+
+                StringBuilder sb = new StringBuilder();
+                for (int i = 0; i < 20; i++) {
+                    for (int j = this.r.nextInt(64) - 32; j > 0; j--) sb.append('X');
+                    sb.append(infix, 0, this.r.nextInt(infix.length() + 1));
+                    for (int j = this.r.nextInt(64) - 32; j > 0; j--) sb.append('X');
+                    sb.append(infix, this.r.nextInt(infix.length()), infix.length());
+                }
+
+                return sb.toString();
+            }
+        };
     }
 
     @SuppressWarnings("static-method") @Test public void
@@ -390,29 +407,40 @@ class PatternTest {
     }
 
     @Test @SuppressWarnings("static-method") public void
-    testReluctantAndPossessiveQuantifierFollowedByLongLiteralString() {
-
-        Random r = new Random(123);
+    testGreedyQuantifierFollowedByLongLiteralString() {
 
         String infix = "ABCDEFGHIJKLMNOP";
-        Assert.assertTrue(infix.length() >= StringUtil.MIN_KEY_LENGTH);
 
-        // Compose a LONG subject string.
-        StringBuilder subject = new StringBuilder();
-        for (int i = 0; i < 20; i++) {
-            for (int j = r.nextInt(64) - 32; j > 0; j--) subject.append('X');
-            subject.append(infix, 0, r.nextInt(infix.length() + 1));
-            for (int j = r.nextInt(64) - 32; j > 0; j--) subject.append('X');
-            subject.append(infix, r.nextInt(infix.length()), infix.length());
+        Producer<String> rsp = randomSubjectProducer(infix);
+
+//        // Verify that the "long literal string" optimization has NOT taken place yet.
+//        Assert.assertFalse(classIsLoaded("de.unkrig.lfr.core.Pattern$5$1"));
+
+        for (int i = 0; i < 1000; i++) {
+            String subject = AssertionUtil.notNull(rsp.produce());
+            harnessMatches(".*" + infix, subject, java.util.regex.Pattern.DOTALL);
         }
 
-        // Verify that the "long literal string" optimization has NOT taken place yet.
-        Assert.assertFalse(classIsLoaded("de.unkrig.lfr.core.Pattern$5$1"));
+//        // Verify that the "long literal string" optimization HAS taken place now.
+//        Assert.assertTrue(classIsLoaded("de.unkrig.lfr.core.Pattern$5$1"));
+    }
 
-        harnessMatches(".*?" + infix, subject.toString(), java.util.regex.Pattern.DOTALL);
+    @Test @SuppressWarnings("static-method") public void
+    testReluctantQuantifierFollowedByLongLiteralString() {
 
-        // Verify that the "long literal string" optimization HAS taken place now.
-        Assert.assertTrue(classIsLoaded("de.unkrig.lfr.core.Pattern$5$1"));
+        String infix = "ABCDEFGHIJKLMNOP";
+
+        Producer<String> rsp = randomSubjectProducer(infix);
+
+//        // Verify that the "long literal string" optimization has NOT taken place yet.
+//        Assert.assertFalse(classIsLoaded("de.unkrig.lfr.core.Pattern$5$1"));
+
+        for (int i = 0; i < 1000; i++) {
+            harnessMatches(".*?" + infix, AssertionUtil.notNull(rsp.produce()), java.util.regex.Pattern.DOTALL);
+        }
+
+//        // Verify that the "long literal string" optimization HAS taken place now.
+//        Assert.assertTrue(classIsLoaded("de.unkrig.lfr.core.Pattern$5$1"));
     }
 
     @Test @SuppressWarnings("static-method") public void
@@ -613,7 +641,7 @@ class PatternTest {
 
         boolean m1Matches = matcher1.matches();
         boolean m2Matches = matcher2.matches();
-        assertEquals(m1Matches, m2Matches);
+        assertEquals("regex=\"" + regex + "\", subject=\"" + subject + "\", matches()", m1Matches, m2Matches);
 
         OracleEssentials.assertEqualState(message, matcher1, matcher2);
     }
