@@ -99,6 +99,7 @@ import de.unkrig.commons.text.scanner.ScanException;
 import de.unkrig.commons.text.scanner.StatefulScanner;
 import de.unkrig.lfr.core.Sequences.GreedyQuantifierSequence;
 import de.unkrig.lfr.core.Sequences.LiteralString;
+import de.unkrig.lfr.core.Sequences.PossessiveQuantifierSequence;
 import de.unkrig.lfr.core.Sequences.ReluctantQuantifierSequence;
 
 /**
@@ -1122,6 +1123,60 @@ class Pattern {
                             }
 
                             matcher.hitEnd = true;
+                            return -1;
+                        }
+                    });
+                }
+
+                // Optimize possessive quantifiers on "any char", followed by a literal string, by using
+                // "StringUtil.newIndexOf().lastIndexOf()".
+                for (int i = 0; i < elements.size() - 1; i++) {
+
+                    // Is the current element ".{x,y}"?
+                    Sequence e0 = elements.get(i);
+                    if (!(e0 instanceof PossessiveQuantifierSequence)) continue;
+                    final PossessiveQuantifierSequence pqs = (PossessiveQuantifierSequence) e0;
+
+                    if (pqs.op.getClass() != CharacterClasses.anyCharacter().getClass()) continue;
+
+                    // Is the next-but-one element a literal string?
+                    Sequence e1 = elements.get(i + 1);
+                    if (!(e1 instanceof LiteralString)) continue;
+                    final LiteralString ls = (LiteralString) e1;
+
+                    final String infix       = ls.s;
+                    final int    infixLength = infix.length();
+
+                    // Replace the two elements with ONE new element.
+                    elements.remove(i + 1);
+                    elements.set(i, new AbstractSequence() {
+
+                        final IndexOf indexOf = StringUtil.newIndexOf(infix);
+
+                        @Override public int
+                        matches(MatcherImpl matcher, int offset) {
+
+                            int fromIndex = matcher.regionEnd - infixLength;
+                            if (fromIndex - offset > pqs.max) fromIndex = offset + pqs.max; // Beware of overflow!
+
+                            int toIndex = offset + pqs.min;
+
+                            matcher.hitEnd = true;
+
+                            while (fromIndex >= toIndex) {
+
+                                // Find next match of the infix withing the subject string.
+                                fromIndex = this.indexOf.indexOf(matcher.subject, fromIndex, toIndex);
+                                if (fromIndex == -1) break;
+
+                                // See if the successor matches the rest of the subject.
+                                int result = this.successor.matches(matcher, fromIndex + infixLength);
+                                if (result != -1) return result;
+
+                                // Successor didn't match, continue with next character position.
+                                fromIndex--;
+                            }
+
                             return -1;
                         }
                     });

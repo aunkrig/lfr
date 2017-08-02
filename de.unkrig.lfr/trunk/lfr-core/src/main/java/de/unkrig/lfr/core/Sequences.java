@@ -132,6 +132,45 @@ class Sequences {
         toString() { return this.op + "{" + this.min + "," + this.max + "}?" + this.successor; }
     }
 
+    static final
+    class PossessiveQuantifierSequence extends Pattern.AbstractSequence {
+
+        final Sequence op;
+        final int      max;
+        final int      min;
+
+        private
+        PossessiveQuantifierSequence(Sequence op, int max, int min) {
+            this.op = op;
+            this.max = max;
+            this.min = min;
+        }
+
+        @Override public int
+        matches(MatcherImpl matcher, int offset) {
+
+            int i = 0;
+            for (; i < this.min; i++) {
+                offset = this.op.matches(matcher, offset);
+                if (offset == -1) return -1;
+            }
+
+            for (; i < this.max; i++) {
+
+                int offset2 = this.op.matches(matcher, offset);
+
+                if (offset2 == -1) return this.successor.matches(matcher, offset);
+
+                offset = offset2;
+            }
+
+            return this.successor.matches(matcher, offset);
+        }
+
+        @Override public String
+        toString() { return this.op + "{" + this.min + "," + this.max + "}+" + this.successor; }
+    }
+
     /**
      * Representation of a sequence of literal, case-sensitive characters.
      */
@@ -826,32 +865,7 @@ class Sequences {
     public static Sequence
     possessiveQuantifierSequence(final Sequence op, final int min, final int max) {
 
-        return new Pattern.AbstractSequence() {
-
-            @Override public int
-            matches(MatcherImpl matcher, int offset) {
-
-                int i = 0;
-                for (; i < min; i++) {
-                    offset = op.matches(matcher, offset);
-                    if (offset == -1) return -1;
-                }
-
-                for (; i < max; i++) {
-
-                    int offset2 = op.matches(matcher, offset);
-
-                    if (offset2 == -1) return this.successor.matches(matcher, offset);
-
-                    offset = offset2;
-                }
-
-                return this.successor.matches(matcher, offset);
-            }
-
-            @Override public String
-            toString() { return op + "{" + min + "," + max + "}+" + this.successor; }
-        };
+        return new PossessiveQuantifierSequence(op, max, min);
     }
 
     static String
