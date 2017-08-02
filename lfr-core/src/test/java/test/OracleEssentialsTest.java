@@ -176,6 +176,8 @@ class OracleEssentialsTest {
         OracleEssentials.harnessFull(".*foo",  "xfooxxxxxxfoo");
         OracleEssentials.harnessFull(".*?foo", "xfooxxxxxxfoo");
         OracleEssentials.harnessFull(".*+foo", "xfooxxxxxxfoo");
+        OracleEssentials.harnessFull("x*+foo", "xfooxxxxxxfoo");
+        OracleEssentials.harnessFull("x*+foo", "xfooxxxxxxfooo");
     }
 
     /**
