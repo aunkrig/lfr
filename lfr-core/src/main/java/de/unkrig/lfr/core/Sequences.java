@@ -29,6 +29,7 @@ package de.unkrig.lfr.core;
 import java.util.Arrays;
 
 import de.unkrig.commons.lang.StringUtil;
+import de.unkrig.commons.lang.StringUtil.IndexOf;
 import de.unkrig.commons.nullanalysis.Nullable;
 
 /**
@@ -38,6 +39,57 @@ final
 class Sequences {
 
     private Sequences() {}
+
+    static final
+    class GreedyQuantifierSequence extends Pattern.AbstractSequence {
+
+        final Sequence op;
+        final int      max;
+        final int      min;
+
+        private
+        GreedyQuantifierSequence(int min, int max, Sequence op) {
+            this.min = min;
+            this.max = max;
+            this.op  = op;
+        }
+
+        @Override public int
+        matches(MatcherImpl matcher, int offset) {
+
+            // The operand MUST match (min) times;
+            for (int i = 0; i < this.min; i++) {
+                offset = this.op.matches(matcher, offset);
+                if (offset == -1) return -1;
+            }
+
+            // Now try to match the operand (max-min-1) more times.
+            int     limit       = this.max - this.min;
+            int[]   savedOffset = new int[Math.min(limit, 20)];
+
+            for (int i = 0; i < limit; i++) {
+
+                if (i >= savedOffset.length) savedOffset = Arrays.copyOf(savedOffset, 2 * i);
+
+                savedOffset[i] = offset;
+
+                offset = this.op.matches(matcher, offset);
+
+                if (offset == -1) {
+                    for (; i >= 0; i--) {
+                        offset = this.successor.matches(matcher, savedOffset[i]);
+                        if (offset != -1) return offset;
+                    }
+                    return -1;
+                }
+            }
+
+            return this.successor.matches(matcher, offset);
+        }
+
+        @Override public String
+        toString() { return this.op + "{" + this.min + "," + this.max + "}" + this.successor; }
+    }
 
     static final
     class ReluctantQuantifierSequence extends Pattern.AbstractSequence {
@@ -91,6 +143,8 @@ class Sequences {
          */
         String s;
 
+        @Nullable private StringUtil.IndexOf indexOf;
+
         LiteralString(String s) { this.s = s; }
 
         @Override public int
@@ -103,16 +157,25 @@ class Sequences {
         @Override public boolean
         find(MatcherImpl matcher, int start) {
 
-            // Inlined version of "AbstractSequence.find()".
-            final int re = matcher.regionEnd;
-            for (; start <= re; start++) {
+            IndexOf io = this.indexOf;
+            if (io == null) io = (this.indexOf = StringUtil.newIndexOf(this.s));
 
-                int offset = matcher.peekRead(start, this.s);
-                if (offset != -1 && (offset = this.successor.matches(matcher, offset)) != -1) {
-                    matcher.groups[0] = start;
-                    matcher.groups[1] = offset;
+            while (start < matcher.regionEnd) {
+
+                // Find the next occurrence of the literal string.
+                int offset = io.indexOf(matcher.subject, start, matcher.regionEnd);
+                if (offset == -1) break;
+
+                // See if the rest of the pattern matches.
+                int result = LiteralString.this.successor.matches(matcher, offset + this.s.length());
+                if (result != -1) {
+                    matcher.groups[0] = offset;
+                    matcher.groups[1] = result;
                     return true;
                 }
+
+                // Rest of pattern didn't match; continue at the second character of the literal string match.
+                start = offset + 1;
             }
 
             matcher.hitEnd = true;
@@ -129,54 +192,7 @@ class Sequences {
 
         @Override public String
         toString() { return this.s + this.successor; }
-
-        /**
-         * @return Either {@code this} object, or an optimized version thereof
-         */
-        Sequence
-        optimize() {
-
-            // Check whether we have a relatively LONG literal string pattern, and if so, optimize its "find()" method
-            // by using the Knuth–Morris–Pratt algorithm (see
-            // https://en.wikipedia.org/wiki/Knuth%E2%80%93Morris%E2%80%93Pratt_algorithm ).
-            final int len = this.s.length();
-            if (len < StringUtil.MIN_KEY_LENGTH) return this; // String literal is too short for this optimization.
-
-            return new Sequence() {
-
-                final StringUtil.IndexOf indexOf = StringUtil.newIndexOf(LiteralString.this.s);
-
-                @Override public int      matches(MatcherImpl matcher, int offset) { return LiteralString.this.matches(matcher, offset); } // SUPPRESS CHECKSTYLE LineLength:3
-                @Override public void     append(Sequence that)                    { LiteralString.this.append(that);                    }
-                @Override public Sequence reverse()                                { return LiteralString.this.reverse();                }
-
-                @Override public boolean
-                find(MatcherImpl matcher, int start) {
-
-                    while (start < matcher.regionEnd) {
-
-                        // Find the next occurrence of the literal string.
-                        int offset = this.indexOf.indexOf(matcher.subject, start, matcher.regionEnd);
-                        if (offset == -1) break;
-
-                        // See if the rest of the pattern matches.
-                        int result = LiteralString.this.successor.matches(matcher, offset + len);
-                        if (result != -1) {
-                            matcher.groups[0] = offset;
-                            matcher.groups[1] = result;
-                            return true;
-                        }
-
-                        // Rest of pattern didn't match; continue at the second character of the literal string match.
-                        start = offset + 1;
-                    }
-
-                    matcher.hitEnd = true;
-                    return false;
-                }
-            };
-        }
-            }
+    }
 
     public static Sequence
     emptyStringSequence() { return new Pattern.EmptyStringSequence(); }
@@ -708,55 +724,18 @@ class Sequences {
     greedyQuantifierSequence(final Sequence op, final int min, final int max) {
 
         // Optimize for bare character classes, e.g. "." or "[...]".
-        if (op instanceof Pattern.CharacterClass) {
+        if (op instanceof Pattern.CharacterClass && op.getClass() != CharacterClasses.anyCharacter().getClass()) {
             final Pattern.CharacterClass cc = (Pattern.CharacterClass) op;
             if (cc.successor == Pattern.TERMINAL) {
                 return Sequences.greedyQuantifierCharacterPredicate(min, max, cc);
             }
         }
 
-        return new Pattern.AbstractSequence() {
-
-            @Override public int
-            matches(MatcherImpl matcher, int offset) {
-
-                // The operand MUST match (min) times;
-                for (int i = 0; i < min; i++) {
-                    offset = op.matches(matcher, offset);
-                    if (offset == -1) return -1;
-                }
-
-                // Now try to match the operand (max-min-1) more times.
-                int     limit       = max - min;
-                int[]   savedOffset = new int[Math.min(limit, 20)];
-
-                for (int i = 0; i < limit; i++) {
-
-                    if (i >= savedOffset.length) savedOffset = Arrays.copyOf(savedOffset, 2 * i);
-
-                    savedOffset[i] = offset;
-
-                    offset = op.matches(matcher, offset);
-
-                    if (offset == -1) {
-                        for (; i >= 0; i--) {
-                            offset = this.successor.matches(matcher, savedOffset[i]);
-                            if (offset != -1) return offset;
-                        }
-                        return -1;
-                    }
-                }
-
-                return this.successor.matches(matcher, offset);
-            }
-
-            @Override public String
-            toString() { return op + "{" + min + "," + max + "}" + this.successor; }
-        };
+        return new GreedyQuantifierSequence(min, max, op);
     }
 
     /**
-     * Optimized version of {@link #greedyQuantifierSequence(Sequence, int, int)} when the operand is a bary
+     * Optimized version of {@link #greedyQuantifierSequence(Sequence, int, int)} when the operand is a bare
      * character predicate, e.g. "." or "[...]".
      */
     public static Sequence

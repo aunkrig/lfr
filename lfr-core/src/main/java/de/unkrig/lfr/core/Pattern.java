@@ -97,6 +97,7 @@ import de.unkrig.commons.text.parser.ParseException;
 import de.unkrig.commons.text.scanner.AbstractScanner.Token;
 import de.unkrig.commons.text.scanner.ScanException;
 import de.unkrig.commons.text.scanner.StatefulScanner;
+import de.unkrig.lfr.core.Sequences.GreedyQuantifierSequence;
 import de.unkrig.lfr.core.Sequences.LiteralString;
 import de.unkrig.lfr.core.Sequences.ReluctantQuantifierSequence;
 
@@ -849,10 +850,6 @@ class Pattern {
             throw pse;
         }
 
-        if (sequence instanceof LiteralString) {
-            sequence = ((LiteralString) sequence).optimize();
-        }
-
         return new Pattern(regex, flags, sequence, rs.groupCount, rs.namedGroups);
     }
 
@@ -1021,15 +1018,16 @@ class Pattern {
                     }
                 }
 
-                // Optimize, if possible and reasonable,  ".*?ABC" by using "StringUtil.newIndexOf()".
+                // Optimize greedy quantifiers on "any char", followed by a literal string, by using
+                // "StringUtil.newIndexOf().lastIndexOf()".
                 for (int i = 0; i < elements.size() - 1; i++) {
 
                     // Is the current element ".{x,y}"?
                     Sequence e0 = elements.get(i);
-                    if (!(e0 instanceof ReluctantQuantifierSequence)) continue;
-                    final ReluctantQuantifierSequence rq = (ReluctantQuantifierSequence) e0;
+                    if (!(e0 instanceof GreedyQuantifierSequence)) continue;
+                    final GreedyQuantifierSequence gqs = (GreedyQuantifierSequence) e0;
 
-                    if (rq.op.getClass() != CharacterClasses.anyCharacter().getClass()) continue;
+                    if (gqs.op.getClass() != CharacterClasses.anyCharacter().getClass()) continue;
 
                     // Is the next-but-one element a literal string?
                     Sequence e1 = elements.get(i + 1);
@@ -1038,7 +1036,60 @@ class Pattern {
 
                     final String infix       = ls.s;
                     final int    infixLength = infix.length();
-                    if (infixLength < StringUtil.MIN_KEY_LENGTH) continue;
+
+                    // Replace the two elements with ONE new element.
+                    elements.remove(i + 1);
+                    elements.set(i, new AbstractSequence() {
+
+                        final IndexOf indexOf = StringUtil.newIndexOf(infix);
+
+                        @Override public int
+                        matches(MatcherImpl matcher, int offset) {
+
+                            int fromIndex = matcher.regionEnd - infixLength;
+                            if (fromIndex - offset > gqs.max) fromIndex = offset + gqs.max; // Beware of overflow!
+
+                            int toIndex = offset + gqs.min;
+
+                            matcher.hitEnd = true;
+
+                            while (fromIndex >= toIndex) {
+
+                                // Find next match of the infix withing the subject string.
+                                fromIndex = this.indexOf.indexOf(matcher.subject, fromIndex, toIndex);
+                                if (fromIndex == -1) break;
+
+                                // See if the successor matches the rest of the subject.
+                                int result = this.successor.matches(matcher, fromIndex + infixLength);
+                                if (result != -1) return result;
+
+                                // Successor didn't match, continue with next character position.
+                                fromIndex--;
+                            }
+
+                            return -1;
+                        }
+                    });
+                }
+
+                // Optimize ruluctant quantifiers on "any char", followed by a literal string, by using
+                // "StringUtil.newIndexOf().indexOf()".
+                for (int i = 0; i < elements.size() - 1; i++) {
+
+                    // Is the current element ".{x,y}?"?
+                    Sequence e0 = elements.get(i);
+                    if (!(e0 instanceof ReluctantQuantifierSequence)) continue;
+                    final ReluctantQuantifierSequence rqs = (ReluctantQuantifierSequence) e0;
+
+                    if (rqs.op.getClass() != CharacterClasses.anyCharacter().getClass()) continue;
+
+                    // Is the next-but-one element a literal string?
+                    Sequence e1 = elements.get(i + 1);
+                    if (!(e1 instanceof LiteralString)) continue;
+                    final LiteralString ls = (LiteralString) e1;
+
+                    final String infix       = ls.s;
+                    final int    infixLength = infix.length();
 
                     // Replace the two elements with ONE new element.
                     elements.remove(i + 1);
@@ -1052,9 +1103,9 @@ class Pattern {
                             int limit = matcher.regionEnd;
 
                             // Beware of overflow!
-                            if (limit - offset > rq.max) limit = offset + rq.max;
+                            if (limit - offset > rqs.max) limit = offset + rqs.max;
 
-                            offset += rq.min;
+                            offset += rqs.min;
 
                             while (offset <= limit) {
 
