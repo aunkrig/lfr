@@ -31,6 +31,7 @@ import java.util.Arrays;
 import de.unkrig.commons.lang.StringUtil;
 import de.unkrig.commons.lang.StringUtil.IndexOf;
 import de.unkrig.commons.nullanalysis.Nullable;
+import de.unkrig.lfr.core.Pattern.AbstractSequence;
 
 /**
  * Classes and methods related to {@link Sequence}s.
@@ -41,13 +42,12 @@ class Sequences {
     private Sequences() {}
 
     static final
-    class GreedyQuantifierSequence extends Pattern.AbstractSequence {
+    class GreedyQuantifierSequence extends Pattern.LinkedAbstractSequence {
 
-        final Sequence operand;
-        final int      max;
-        final int      min;
+        private final Sequence operand;
+        private final int      max;
+        private final int      min;
 
-        private
         GreedyQuantifierSequence(Sequence operand, int min, int max) {
             this.operand = operand;
             this.min     = min;
@@ -77,28 +77,52 @@ class Sequences {
 
                 if (offset == -1) {
                     for (; i >= 0; i--) {
-                        offset = this.successor.matches(matcher, savedOffset[i]);
+                        offset = this.next.matches(matcher, savedOffset[i]);
                         if (offset != -1) return offset;
                     }
                     return -1;
                 }
             }
 
-            return this.successor.matches(matcher, offset);
+            return this.next.matches(matcher, offset);
+        }
+
+        @Override public Sequence
+        concat(Sequence that) {
+            that = (this.next = this.next.concat(that));
+
+            // Optimize for ".*", followed by a literal string.
+            if (this.operand instanceof CharacterClasses.AnyCharacter) {
+
+                if (that instanceof LiteralString) {
+                    final LiteralString ls = (LiteralString) that;
+
+                    return greedyQuantifierAnyCharLiteralString(ls.s, this.min, this.max).concat(ls.next);
+                }
+            }
+
+            // Optimize for bare character classes, e.g. "[...]*".
+            if (this.operand instanceof Pattern.CharacterClass) {
+                final Pattern.CharacterClass cc = (Pattern.CharacterClass) this.operand;
+                if (cc.next == Pattern.TERMINAL) {
+                    return Sequences.greedyQuantifierCharacterClass(cc, this.min, this.max).concat(this.next);
+                }
+            }
+
+            return this;
         }
 
         @Override public String
-        toString() { return this.operand + "{" + this.min + "," + this.max + "}" + this.successor; }
+        toString() { return this.operand + "{" + this.min + "," + this.max + "}" + this.next; }
     }
 
     static final
-    class ReluctantQuantifierSequence extends Pattern.AbstractSequence {
+    class ReluctantQuantifierSequence extends Pattern.LinkedAbstractSequence {
 
-        final Sequence operand;
-        final int      min;
-        final int      max;
+        private final Sequence operand;
+        private final int      min;
+        private final int      max;
 
-        private
         ReluctantQuantifierSequence(Sequence operand, int min, int max) {
             this.operand = operand;
             this.min     = min;
@@ -118,7 +142,7 @@ class Sequences {
             // Now try to match the operand (max-min) more times.
             for (;; i++) {
 
-                int offset2 = this.successor.matches(matcher, offset);
+                int offset2 = this.next.matches(matcher, offset);
                 if (offset2 != -1) return offset2;
 
                 if (i >= this.max) return -1;
@@ -128,18 +152,67 @@ class Sequences {
             }
         }
 
+        @Override public Sequence
+        concat(Sequence that) {
+            that = (this.next = this.next.concat(that));
+
+            // Is the reluctant quantifier's operand "any char"?
+            if (!(this.operand instanceof CharacterClasses.AnyCharacter)) return this;
+
+            // Is the successor a literal string?
+            Sequence e1 = this.next;
+            if (!(e1 instanceof LiteralString)) return this;
+            final LiteralString ls = (LiteralString) e1;
+
+            final String infix       = ls.s;
+            final int    infixLength = infix.length();
+
+            return new Pattern.LinkedAbstractSequence() {
+
+                final IndexOf indexOf = StringUtil.newIndexOf(infix);
+
+                @Override public int
+                matches(MatcherImpl matcher, int offset) {
+
+                    int limit = matcher.regionEnd;
+
+                    if (limit - offset > ReluctantQuantifierSequence.this.max) { // Beware of overflow!
+                        limit = offset + ReluctantQuantifierSequence.this.max;
+                    }
+
+                    offset += ReluctantQuantifierSequence.this.min;
+
+                    while (offset <= limit) {
+
+                        // Find next match of the infix withing the subject string.
+                        offset = this.indexOf.indexOf(matcher.subject, offset, limit);
+                        if (offset == -1) break;
+
+                        // See if the successor matches the rest of the subject.
+                        int result = this.next.matches(matcher, offset + infixLength);
+                        if (result != -1) return result;
+
+                        // Successor didn't match, continue with next character position.
+                        offset++;
+                    }
+
+                    matcher.hitEnd = true;
+                    return -1;
+                }
+            }.concat(ls.next);
+        }
+
         @Override public String
-        toString() { return this.operand + "{" + this.min + "," + this.max + "}?" + this.successor; }
+        toString() { return this.operand + "{" + this.min + "," + this.max + "}?" + this.next; }
     }
 
     static final
-    class PossessiveQuantifierSequence extends Pattern.AbstractSequence {
+    class PossessiveQuantifierSequence extends Pattern.LinkedAbstractSequence {
 
-        final Sequence operand;
-        final int      min;
-        final int      max;
+        private final Sequence operand;
+        private final int      min;
+        private final int      max;
 
-        private
         PossessiveQuantifierSequence(Sequence operand, int min, int max) {
             this.operand = operand;
             this.min     = min;
@@ -162,23 +235,50 @@ class Sequences {
 
                 int offset2 = this.operand.matches(matcher, offset);
 
-                if (offset2 == -1) return this.successor.matches(matcher, offset);
+                if (offset2 == -1) return this.next.matches(matcher, offset);
 
                 offset = offset2;
             }
 
-            return this.successor.matches(matcher, offset);
+            return this.next.matches(matcher, offset);
+        }
+
+        @Override public Sequence
+        concat(Sequence that) {
+            that = (this.next = this.next.concat(that));
+
+            // Is quantifier operand "any char"?
+            if (this.operand instanceof CharacterClasses.AnyCharacter) {
+
+                // Replace the possessive quantifier element.
+                return new Pattern.LinkedAbstractSequence() {
+
+                    @Override public int
+                    matches(MatcherImpl matcher, int offset) {
+
+                        if (PossessiveQuantifierSequence.this.max > matcher.regionEnd - offset) {
+                            offset = matcher.regionEnd;
+                        } else {
+                            offset += PossessiveQuantifierSequence.this.max;
+                        }
+
+                        return this.next.matches(matcher, offset);
+                    }
+                }.concat(this.next);
+            }
+
+            return this;
         }
 
         @Override public String
-        toString() { return this.operand + "{" + this.min + "," + this.max + "}+" + this.successor; }
+        toString() { return this.operand + "{" + this.min + "," + this.max + "}+" + this.next; }
     }
 
     /**
      * Representation of a sequence of literal, case-sensitive characters.
      */
     static
-    class LiteralString extends Pattern.AbstractSequence {
+    class LiteralString extends Pattern.LinkedAbstractSequence {
 
         /**
          * The literal string that this sequence represents.
@@ -193,7 +293,7 @@ class Sequences {
         matches(MatcherImpl matcher, int offset) {
             offset = matcher.peekRead(offset, this.s);
             if (offset == -1) return -1;
-            return this.successor.matches(matcher, offset);
+            return this.next.matches(matcher, offset);
         }
 
         @Override public boolean
@@ -209,7 +309,7 @@ class Sequences {
                 if (offset == -1) break;
 
                 // See if the rest of the pattern matches.
-                int result = LiteralString.this.successor.matches(matcher, offset + this.s.length());
+                int result = LiteralString.this.next.matches(matcher, offset + this.s.length());
                 if (result != -1) {
                     matcher.groups[0] = offset;
                     matcher.groups[1] = result;
@@ -232,15 +332,37 @@ class Sequences {
             return super.reverse();
         }
 
+        @Override public Sequence
+        concat(Sequence that) {
+            that = (this.next = this.next.concat(that));
+
+            if (that instanceof CharacterClasses.LiteralCharacter) {
+                CharacterClasses.LiteralCharacter thatLiteralCharacter = (CharacterClasses.LiteralCharacter) that;
+
+                String lhs = this.s;
+                int    rhs = thatLiteralCharacter.c;
+
+                return (
+                    new Sequences.LiteralString(new StringBuilder(lhs).appendCodePoint(rhs).toString())
+                    .concat(thatLiteralCharacter.next)
+                );
+            }
+
+            if (that instanceof Sequences.LiteralString) {
+                Sequences.LiteralString thatLiteralString = (Sequences.LiteralString) that;
+
+                String lhs = this.s;
+                String rhs = thatLiteralString.s;
+
+                return new Sequences.LiteralString(lhs + rhs).concat(thatLiteralString.next);
+            }
+
+            return this;
+        }
+
         @Override public String
-        toString() { return this.s + this.successor; }
+        toString() { return this.s + this.next; }
     }
-
-    public static Sequence
-    emptyStringSequence() { return new Pattern.EmptyStringSequence(); }
-
-    public static Sequence
-    literalString(final String s) { return new LiteralString(s); }
 
     /**
      * Creates and returns {@link Sequence} that returns the first match of one <var>alternatives</var> plus
@@ -250,42 +372,35 @@ class Sequences {
      *
      * @see #independentNonCapturingGroup(Sequence[])
      */
-    public static Sequence
+    static Sequence
     alternatives(final Sequence[] alternatives) {
 
-        if (alternatives.length == 0) return Sequences.emptyStringSequence();
+        if (alternatives.length == 0) return new Pattern.EmptyStringSequence();
 
         if (alternatives.length == 1) return alternatives[0];
 
-        return new Pattern.AbstractSequence() {
-
-            boolean successorAppended;
-
-            @Override public void
-            append(Sequence that) {
-
-                // On the first invocation, we append "that" to all alternatives. On subsequent invocations, we append
-                // "that" only to ONE alternative, because otherwise it would be added N times.
-                if (this.successorAppended) {
-                    alternatives[0].append(that);
-                } else {
-                    for (Sequence s : alternatives) s.append(that);
-                    this.successorAppended = true;
-                }
-            }
+        return new Pattern.LinkedAbstractSequence() {
 
             @Override public int
             matches(MatcherImpl matcher, int offset) {
 
-                int result = alternatives[0].matches(matcher, offset);
-                if (result != -1) return result;
-
-                for (int i = 1; i < alternatives.length; i++) {
-                    result = alternatives[i].matches(matcher, offset);
-                    if (result != -1) return result;
+                for (int i = 0; i < alternatives.length; i++) {
+                    int result = alternatives[i].matches(matcher, offset);
+                    if (result != -1) {
+                        result = this.next.matches(matcher, result);
+                        if (result != -1) return result;
+                    }
                 }
 
                 return -1;
+            }
+
+            @Override public Sequence
+            reverse() {
+
+                for (int i = 0; i < alternatives.length; i++) alternatives[i] = alternatives[i].reverse();
+
+                return this;
             }
 
             @Override public String
@@ -301,35 +416,35 @@ class Sequences {
      *
      * @see #alternatives(Sequence[])
      */
-    public static Sequence
+    static Sequence
     independentNonCapturingGroup(final Sequence[] alternatives) {
 
-        if (alternatives.length == 0) return Sequences.emptyStringSequence();
+        if (alternatives.length == 0) return new Pattern.EmptyStringSequence();
 
         if (alternatives.length == 1) return alternatives[0];
 
-        return new Pattern.AbstractSequence() {
+        return new Pattern.LinkedAbstractSequence() {
 
             @Override public int
             matches(MatcherImpl matcher, int offset) {
 
                 for (Sequence a : alternatives) {
                     int result = a.matches(matcher, offset);
-                    if (result != -1) return this.successor.matches(matcher, result);
+                    if (result != -1) return this.next.matches(matcher, result);
                 }
 
                 return -1;
             }
 
             @Override public String
-            toString() { return "(?>" + Sequences.join(alternatives, '|') + ')' + this.successor; }
+            toString() { return "(?>" + Sequences.join(alternatives, '|') + ')' + this.next; }
         };
     }
 
-    public static Sequence
+    static Sequence
     capturingGroupStart(final int groupNumber) {
 
-        return new Pattern.AbstractSequence() {
+        return new Pattern.LinkedAbstractSequence() {
 
             @Override public int
             matches(MatcherImpl matcher, int offset) {
@@ -340,7 +455,7 @@ class Sequences {
                 final int[] savedGroups = matcher.groups;
                 matcher.groups = newGroups;
 
-                int result = this.successor.matches(matcher, offset);
+                int result = this.next.matches(matcher, offset);
 
                 if (result == -1) {
                     matcher.groups = savedGroups;
@@ -354,42 +469,31 @@ class Sequences {
             }
 
             @Override public Sequence
-            reverse() {
-                Sequence result = this.successor.reverse();
-                result.append(Sequences.capturingGroupEnd(groupNumber));
-                return result;
-            }
+            reverse() { return this.next.reverse().concat(Sequences.capturingGroupEnd(groupNumber)); }
 
             @Override public String
-            toString() { return "(" + this.successor; }
+            toString() { return "(" + this.next; }
         };
     }
 
-    public static Sequence
+    static Sequence
     capturingGroupEnd(final int groupNumber) {
 
-        return new Pattern.AbstractSequence() {
+        return new Pattern.LinkedAbstractSequence() {
 
             @Override public int
             matches(MatcherImpl matcher, int offset) {
 
                 matcher.groups[2 * groupNumber + 1] = offset;
 
-                return this.successor.matches(matcher, offset);
+                return this.next.matches(matcher, offset);
             }
 
             @Override public Sequence
-            reverse() {
-                if (this.successor == Pattern.TERMINAL) {
-                    return Sequences.capturingGroupStart(groupNumber);
-                }
-                Sequence result = this.successor.reverse();
-                result.append(Sequences.capturingGroupStart(groupNumber));
-                return result;
-            }
+            reverse() { return Sequences.capturingGroupStart(groupNumber).concat(this.next.reverse()); }
 
             @Override public String
-            toString() { return ")" + this.successor; }
+            toString() { return ")" + this.next; }
         };
     }
 
@@ -401,10 +505,10 @@ class Sequences {
      * @return            Iff the <var>subsequence</var> and the successor match, the offset of the first character
      *                    after the match; otherwise {@code 0}
      */
-    public static Sequence
+    static Sequence
     capturingGroup(final int groupNumber, final Sequence subsequence) {
 
-        return new Pattern.AbstractSequence() {
+        return new Pattern.LinkedAbstractSequence() {
 
             @Override public int
             matches(MatcherImpl matcher, int offset) {
@@ -422,7 +526,7 @@ class Sequences {
                 gs[2 * groupNumber + 1] = end;
 
                 // Match the rest of the sequence.
-                return this.successor.matches(matcher, end);
+                return this.next.matches(matcher, end);
             }
 
             @Override public String
@@ -435,10 +539,10 @@ class Sequences {
      *
      * @param groupNumber 1...<var>groupCount</var>
      */
-    public static Sequence
+    static Sequence
     capturingGroupBackReference(final int groupNumber) {
 
-        return new Pattern.AbstractSequence() {
+        return new Pattern.LinkedAbstractSequence() {
 
             @Override public int
             matches(MatcherImpl matcher, int offset) {
@@ -453,7 +557,7 @@ class Sequences {
                 offset = matcher.peekRead(offset, matcher.subject.subSequence(start, end));
                 if (offset == -1) return -1;
 
-                return this.successor.matches(matcher, offset);
+                return this.next.matches(matcher, offset);
             }
 
             @Override public String
@@ -461,14 +565,14 @@ class Sequences {
         };
     }
 
-    public static Sequence
+    static Sequence
     beginningOfInput() {
 
-        return new Pattern.AbstractSequence() {
+        return new Pattern.LinkedAbstractSequence() {
 
             @Override public int
             matches(MatcherImpl matcher, int offset) {
-                return offset != matcher.anchoringRegionStart ? -1 : this.successor.matches(matcher, offset);
+                return offset != matcher.anchoringRegionStart ? -1 : this.next.matches(matcher, offset);
             }
 
             // Override "AbstractSequence.find()" such that we give the match only one shot.
@@ -487,27 +591,27 @@ class Sequences {
 
             @Override public Sequence
             reverse() {
-                Sequence result = this.successor.reverse();
-                result.append(Sequences.endOfInput());
+                Sequence result = this.next.reverse();
+                result.concat(Sequences.endOfInput());
                 return result;
             }
 
             @Override public String
-            toString() { return "^" + this.successor; }
+            toString() { return "^" + this.next; }
         };
     }
 
-    public static Sequence
+    static Sequence
     beginningOfLine(final String lineBreakCharacters) {
 
-        return new Pattern.AbstractSequence() {
+        return new Pattern.LinkedAbstractSequence() {
 
             @Override public int
             matches(MatcherImpl matcher, int offset) {
                 if (
                     offset == matcher.anchoringRegionStart
                     || lineBreakCharacters.indexOf(matcher.charAt(offset - 1)) != -1
-                ) return this.successor.matches(matcher, offset);
+                ) return this.next.matches(matcher, offset);
 
                 if (offset == matcher.anchoringRegionEnd) matcher.hitEnd = true;
 
@@ -516,20 +620,20 @@ class Sequences {
 
             @Override public Sequence
             reverse() {
-                Sequence result = this.successor.reverse();
-                result.append(Sequences.endOfLine(lineBreakCharacters));
+                Sequence result = this.next.reverse();
+                result.concat(Sequences.endOfLine(lineBreakCharacters));
                 return result;
             }
 
             @Override public String
-            toString() { return "^" + this.successor; }
+            toString() { return "^" + this.next; }
         };
     }
 
-    public static Sequence
+    static Sequence
     endOfInputButFinalTerminator() {
 
-        return new Pattern.AbstractSequence() {
+        return new Pattern.LinkedAbstractSequence() {
 
             @Override public int
             matches(MatcherImpl matcher, int offset) {
@@ -537,7 +641,7 @@ class Sequences {
                 if (offset >= matcher.anchoringRegionEnd) {
                     matcher.hitEnd     = true;
                     matcher.requireEnd = true;
-                    return this.successor.matches(matcher, offset);
+                    return this.next.matches(matcher, offset);
                 }
 
                 char c = matcher.charAt(offset);
@@ -550,13 +654,13 @@ class Sequences {
                 if (offset == matcher.anchoringRegionEnd - 1) {
                     matcher.hitEnd     = true;
                     matcher.requireEnd = true;
-                    return this.successor.matches(matcher, offset);
+                    return this.next.matches(matcher, offset);
                 }
 
                 if (c == '\r' && matcher.charAt(offset + 1) == '\n') {
                     if (offset == matcher.anchoringRegionEnd - 2) {
                         matcher.hitEnd = true;
-                        return this.successor.matches(matcher, offset);
+                        return this.next.matches(matcher, offset);
                     }
                 }
 
@@ -565,20 +669,20 @@ class Sequences {
 
             @Override public Sequence
             reverse() {
-                Sequence result = this.successor.reverse();
-                result.append(Sequences.beginningOfInput());
+                Sequence result = this.next.reverse();
+                result.concat(Sequences.beginningOfInput());
                 return result;
             }
 
             @Override public String
-            toString() { return "\\Z" + this.successor; }
+            toString() { return "\\Z" + this.next; }
         };
     }
 
-    public static Sequence
+    static Sequence
     endOfInput() {
 
-        return new Pattern.AbstractSequence() {
+        return new Pattern.LinkedAbstractSequence() {
 
             @Override public int
             matches(MatcherImpl matcher, int offset) {
@@ -588,25 +692,25 @@ class Sequences {
                 matcher.hitEnd     = true;
                 matcher.requireEnd = true;
 
-                return this.successor.matches(matcher, offset);
+                return this.next.matches(matcher, offset);
             }
 
             @Override public Sequence
             reverse() {
-                Sequence result = this.successor.reverse();
-                result.append(Sequences.beginningOfInput());
+                Sequence result = this.next.reverse();
+                result.concat(Sequences.beginningOfInput());
                 return result;
             }
 
             @Override public String
-            toString() { return "\\z" + this.successor; }
+            toString() { return "\\z" + this.next; }
         };
     }
 
-    public static Sequence
+    static Sequence
     endOfLine(final String lineBreakCharacters) {
 
-        return new Pattern.AbstractSequence() {
+        return new Pattern.LinkedAbstractSequence() {
 
             @Override public int
             matches(MatcherImpl matcher, int offset) {
@@ -614,30 +718,30 @@ class Sequences {
                 if (offset == matcher.anchoringRegionEnd) {
                     matcher.hitEnd     = true;
                     matcher.requireEnd = true;
-                    return this.successor.matches(matcher, offset);
+                    return this.next.matches(matcher, offset);
                 }
 
                 if (lineBreakCharacters.indexOf(matcher.charAt(offset)) == -1) return -1;
 
-                return this.successor.matches(matcher, offset);
+                return this.next.matches(matcher, offset);
             }
 
             @Override public Sequence
             reverse() {
-                Sequence result = this.successor.reverse();
-                result.append(Sequences.beginningOfLine(lineBreakCharacters));
+                Sequence result = this.next.reverse();
+                result.concat(Sequences.beginningOfLine(lineBreakCharacters));
                 return result;
             }
 
             @Override public String
-            toString() { return "$" + this.successor; }
+            toString() { return "$" + this.next; }
         };
     }
 
-    public static Sequence
+    static Sequence
     wordBoundary() {
 
-        return new Pattern.AbstractSequence() {
+        return new Pattern.LinkedAbstractSequence() {
 
             @Override public int
             matches(MatcherImpl matcher, int offset) {
@@ -658,18 +762,18 @@ class Sequences {
                     return -1;
                 }
 
-                return this.successor.matches(matcher, offset);
+                return this.next.matches(matcher, offset);
             }
 
             @Override public String
-            toString() { return "\\b" + this.successor; }
+            toString() { return "\\b" + this.next; }
         };
     }
 
-    public static Sequence
+    static Sequence
     endOfPreviousMatch() {
 
-        return new Pattern.AbstractSequence() {
+        return new Pattern.LinkedAbstractSequence() {
 
             boolean reverse;
 
@@ -678,12 +782,12 @@ class Sequences {
 
                 // The documentation of java.util.regex is totally unclear about the following case, but this seems to
                 // be how it works:
-                if (matcher.endOfPreviousMatch == -1) return this.successor.matches(matcher, offset);
+                if (matcher.endOfPreviousMatch == -1) return this.next.matches(matcher, offset);
 //                if (matcher.endOfPreviousMatch == -1) return -1;
 
                 if (offset != matcher.endOfPreviousMatch) return -1;
 
-                return this.successor.matches(matcher, offset);
+                return this.next.matches(matcher, offset);
             }
 
             @Override public Sequence
@@ -693,14 +797,14 @@ class Sequences {
             }
 
             @Override public String
-            toString() { return "\\G" + this.successor; }
+            toString() { return "\\G" + this.next; }
         };
     }
 
-    public static Sequence
+    static Sequence
     positiveLookahead(final Sequence op) {
 
-        return new Pattern.AbstractSequence() {
+        return new Pattern.LinkedAbstractSequence() {
 
             @Override public int
             matches(MatcherImpl matcher, int offset) {
@@ -719,15 +823,15 @@ class Sequences {
                 matcher.end       = savedEnd;
                 matcher.regionEnd = savedRegionEnd;
 
-                return lookaheadMatches ? this.successor.matches(matcher, offset) : -1;
+                return lookaheadMatches ? this.next.matches(matcher, offset) : -1;
             }
         };
     }
 
-    public static Sequence
+    static Sequence
     positiveLookbehind(final Sequence op) {
 
-        return new Pattern.AbstractSequence() {
+        return new Pattern.LinkedAbstractSequence() {
 
             @Override public int
             matches(MatcherImpl matcher, int offset) {
@@ -757,36 +861,19 @@ class Sequences {
                 matcher.requireStart = savedRequireStart;
                 matcher.regionStart  = savedRegionStart;
 
-                return lookbehindMatches ? this.successor.matches(matcher, offset) : -1;
+                return lookbehindMatches ? this.next.matches(matcher, offset) : -1;
             }
         };
-    }
-
-    public static Sequence
-    greedyQuantifierSequence(Sequence operand, int min, int max) {
-
-        // Optimize for bare character classes, e.g. "." or "[...]".
-        if (
-            operand instanceof Pattern.CharacterClass
-            && operand.getClass() != CharacterClasses.anyCharacter().getClass()
-        ) {
-            final Pattern.CharacterClass cc = (Pattern.CharacterClass) operand;
-            if (cc.successor == Pattern.TERMINAL) {
-                return Sequences.greedyQuantifierCharacterPredicate(cc, min, max);
-            }
-        }
-
-        return new GreedyQuantifierSequence(operand, min, max);
     }
 
     /**
      * Optimized version of {@link #greedyQuantifierSequence(Sequence, int, int)} when the operand is a bare
      * character predicate, e.g. a character class.
      */
-    public static Sequence
-    greedyQuantifierCharacterPredicate(final IntPredicate operand, final int min, final int max) {
+    static Sequence
+    greedyQuantifierCharacterClass(final IntPredicate operand, final int min, final int max) {
 
-        return new Pattern.AbstractSequence() {
+        return new Pattern.LinkedAbstractSequence() {
 
             @Override public int
             matches(MatcherImpl matcher, int offset) {
@@ -842,7 +929,7 @@ class Sequences {
 
                 for (;; i--) {
 
-                    int offset2 = this.successor.matches(matcher, offset);
+                    int offset2 = this.next.matches(matcher, offset);
                     if (offset2 != -1) return offset2;
 
                     if (i == min) break;
@@ -858,23 +945,53 @@ class Sequences {
             }
 
             @Override public String
-            toString() { return operand + "{" + min + "," + max + "}" + this.successor; }
+            toString() { return operand + "{" + min + "," + max + "}" + this.next; }
         };
     }
 
-    public static Sequence
-    reluctantQuantifierSequence(Sequence operand, int min, int max) {
+    /**
+     * Implements a greedy quantifier on an "any char" operand, followed by a literal String, e.g. ".*ABC" or
+     * ".{3,17}ABC".
+     */
+    private static AbstractSequence
+    greedyQuantifierAnyCharLiteralString(final String ls, final int min, final int max) {
 
-        return new ReluctantQuantifierSequence(operand, min, max);
+        return new Pattern.LinkedAbstractSequence() {
+
+            final IndexOf indexOf     = StringUtil.newIndexOf(ls);
+            final int     infixLength = ls.length();
+
+            @Override public int
+            matches(MatcherImpl matcher, int offset) {
+
+                int fromIndex = matcher.regionEnd - this.infixLength;
+
+                if (fromIndex - offset > max) fromIndex = offset + max; // Beware of overflow!
+
+                int toIndex = offset + min;
+
+                matcher.hitEnd = true;
+
+                while (fromIndex >= toIndex) {
+
+                    // Find next match of the infix withing the subject string.
+                    fromIndex = this.indexOf.indexOf(matcher.subject, fromIndex, toIndex);
+                    if (fromIndex == -1) break;
+
+                    // See if the successor matches the rest of the subject.
+                    int result = this.next.matches(matcher, fromIndex + this.infixLength);
+                    if (result != -1) return result;
+
+                    // Successor didn't match, continue with next character position.
+                    fromIndex--;
+                }
+
+                return -1;
+            }
+        };
     }
 
-    public static Sequence
-    possessiveQuantifierSequence(Sequence operand, int min, int max) {
-
-        return new PossessiveQuantifierSequence(operand, min, max);
-    }
-
-    static String
+    private static String
     join(@Nullable Object[] oa, char glue) {
 
         if (oa == null || oa.length == 0) return "";
@@ -890,10 +1007,10 @@ class Sequences {
      * Creates and returns a sequence that produces a zero-width match iff the <var>op</var> does <em>not</em> match,
      * and otherwise (iff the <var>op</var> <em>does</em> match) does <em>not</em> match.
      */
-    public static Sequence
+    static Sequence
     negate(final Sequence op) {
 
-        return new Pattern.AbstractSequence() {
+        return new Pattern.LinkedAbstractSequence() {
 
             @Override public int
             matches(MatcherImpl matcher, int offset) {
@@ -908,7 +1025,12 @@ class Sequences {
                 }
                 matcher.end = savedEnd;
 
-                return operandMatches ? -1 : this.successor.matches(matcher, offset);
+                return operandMatches ? -1 : this.next.matches(matcher, offset);
+            }
+
+            @Override public Sequence
+            reverse() {
+                return this.next.reverse().concat(Sequences.negate(op.reverse()));
             }
         };
     }

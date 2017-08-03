@@ -55,8 +55,37 @@ class CharacterClasses {
         @Override public boolean
         evaluate(int subject) { return subject == this.c; }
 
+        @Override public Sequence
+        concat(Sequence that) {
+            that = (this.next = this.next.concat(that));
+
+            if (that instanceof CharacterClasses.LiteralCharacter) {
+                CharacterClasses.LiteralCharacter thatLiteralCharacter = (CharacterClasses.LiteralCharacter) that;
+
+                int lhs = this.c;
+                int rhs = thatLiteralCharacter.c;
+
+                String ls = new StringBuilder(4).appendCodePoint(lhs).appendCodePoint(rhs).toString();
+
+                return new Sequences.LiteralString(ls).concat(thatLiteralCharacter.next);
+            }
+
+            if (that instanceof Sequences.LiteralString) {
+                Sequences.LiteralString thatLiteralString = (Sequences.LiteralString) that;
+
+                int    lhs = this.c;
+                String rhs = thatLiteralString.s;
+
+                String ls = new StringBuilder(rhs.length() + 2).appendCodePoint(lhs).append(rhs).toString();
+
+                return new Sequences.LiteralString(ls).concat(thatLiteralString.next);
+            }
+
+            return this;
+        }
+
         @Override public String
-        toString() { return this.toString + this.successor; }
+        toString() { return this.toString + this.next; }
     }
 
     /**
@@ -67,7 +96,7 @@ class CharacterClasses {
 
         return new Pattern.CharacterClass() {
             @Override public boolean evaluate(int subject) { return predicate.evaluate(subject); }
-            @Override public String  toString()            { return toString + this.successor;   }
+            @Override public String  toString()            { return toString + this.next;   }
         };
     }
 
@@ -119,7 +148,7 @@ class CharacterClasses {
             evaluate(int subject) { return subject == c1 || subject == c2; }
 
             @Override public String
-            toString() { return "[" + c1 + c2 + ']' + this.successor; }
+            toString() { return "[" + c1 + c2 + ']' + this.next; }
         };
     }
 
@@ -135,7 +164,7 @@ class CharacterClasses {
             evaluate(int subject) { return chars.indexOf(subject) != -1; }
 
             @Override public String
-            toString() { return '[' + chars + ']' + this.successor; }
+            toString() { return '[' + chars + ']' + this.next; }
         };
     }
 
@@ -171,7 +200,7 @@ class CharacterClasses {
             evaluate(int subject) { return lhs.evaluate(subject) && rhs.evaluate(subject); }
 
             @Override public String
-            toString() { return lhs + "&&" + rhs + this.successor; }
+            toString() { return lhs + "&&" + rhs + this.next; }
         };
     }
 
@@ -187,7 +216,7 @@ class CharacterClasses {
             evaluate(int subject) { return lhs.evaluate(subject) || rhs.evaluate(subject); }
 
             @Override public String
-            toString() { return lhs.toString() + rhs + this.successor; }
+            toString() { return lhs.toString() + rhs + this.next; }
         };
     }
 
@@ -203,7 +232,7 @@ class CharacterClasses {
             evaluate(int subject) { return subject >= lhs && subject <= rhs; }
 
             @Override public String
-            toString() { return lhs + "-" + rhs + this.successor; }
+            toString() { return lhs + "-" + rhs + this.next; }
         };
     }
 
@@ -215,7 +244,7 @@ class CharacterClasses {
 
         return new Pattern.CharacterClass() {
             @Override public boolean evaluate(int subject) { return subject >= '0' && subject <= '9'; }
-            @Override public String  toString()            { return "\\d" + this.successor;           }
+            @Override public String  toString()            { return "\\d" + this.next;           }
         };
     }
 
@@ -228,7 +257,7 @@ class CharacterClasses {
             evaluate(int subject) { return !delegate.evaluate(subject); }
 
             @Override public String
-            toString() { return toString + this.successor; }
+            toString() { return toString + this.next; }
         };
     }
 
@@ -250,7 +279,7 @@ class CharacterClasses {
             }
 
             @Override public String
-            toString() { return "\\h" + this.successor; }
+            toString() { return "\\h" + this.next; }
         };
     }
 
@@ -319,13 +348,9 @@ class CharacterClasses {
     }
 
     /** Matches <em>any</em> character. */
-    public static Pattern.CharacterClass
-    anyCharacter() {
-    	
-    	// Cannot use a constant, because ".append()" modifies the object.
-        return new Pattern.CharacterClass() {
-            @Override public boolean evaluate(int subject) { return true; }
-            @Override public String  toString()            { return ".";  }
-        };
+    public static
+    class AnyCharacter extends Pattern.CharacterClass {
+        @Override public boolean evaluate(int subject) { return true; }
+        @Override public String  toString()            { return ".";  }
     }
 }

@@ -70,13 +70,20 @@ interface Sequence {
     find(MatcherImpl matcherImpl, int start);
 
     /**
-     * Appends <var>that</var> to {@code this} sequence.
+     * @return A sequence that is composed of {@code this} and <var>that</var>
      */
-    void
-    append(Sequence that);
+    Sequence
+    concat(Sequence that);
 
     /**
-     * @return The last element of the sequence, linked to the last-but-one element, and so forth
+     * Returns a sequence that, when matching the reverse subject, produces the reverse order of reverse matches.
+     * Reversion of sequences is extremely useful when implementing look-behinds.
+     * <p>
+     *   This method may leave {@code this} object in an undefined state; only the <em>returned</em> object can be
+     *   used afterwards. This agreement makes it possible for implementations to either modify {@code this} object,
+     *   or create and return a new one, whichever is more efficient.
+     * </p>
      */
-    Sequence reverse();
+    Sequence
+    reverse();
 }
