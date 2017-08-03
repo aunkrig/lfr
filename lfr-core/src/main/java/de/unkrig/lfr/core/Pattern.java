@@ -84,6 +84,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.regex.PatternSyntaxException;
 
+import de.unkrig.commons.lang.AssertionUtil;
 import de.unkrig.commons.lang.Characters;
 import de.unkrig.commons.lang.protocol.Predicate;
 import de.unkrig.commons.lang.protocol.ProducerUtil;
@@ -94,9 +95,6 @@ import de.unkrig.commons.text.parser.ParseException;
 import de.unkrig.commons.text.scanner.AbstractScanner.Token;
 import de.unkrig.commons.text.scanner.ScanException;
 import de.unkrig.commons.text.scanner.StatefulScanner;
-import de.unkrig.lfr.core.Sequences.GreedyQuantifierSequence;
-import de.unkrig.lfr.core.Sequences.PossessiveQuantifierSequence;
-import de.unkrig.lfr.core.Sequences.ReluctantQuantifierSequence;
 
 /**
  * A drop-in replacement for {@link java.util.regex.Pattern}.
@@ -184,23 +182,6 @@ class Pattern {
     final Sequence             sequence;
     final int                  groupCount;
     final Map<String, Integer> namedGroups;
-
-    /**
-     * @see #END_OF_SUBJECT
-     * @see #ANY
-     */
-    enum End {
-
-        /**
-         * The match is successful if the pattern matches the entire rest of the sucject.
-         */
-        END_OF_SUBJECT,
-
-        /**
-         * The match is successful if the pattern matches the next characters of the sucject.
-         */
-        ANY,
-    }
 
     // SUPPRESS CHECKSTYLE JavadocVariable:59
     enum TokenType {
@@ -338,89 +319,6 @@ class Pattern {
         DEFAULT_X, CHAR_CLASS1_X, CHAR_CLASS2_X, CHAR_CLASS3_X, IN_QUOTATION_X,
     }
 
-    /**
-     * Implements {@link #find(MatcherImpl, int)} through {@link #matches(MatcherImpl, int)}.
-     */
-    abstract static
-    class AbstractSequence implements Sequence {
-
-        @Override public boolean
-        find(MatcherImpl matcher, int start) {
-
-            final int re = matcher.regionEnd;
-            for (; start <= re; start++) {
-
-                int newOffset = this.matches(matcher, start);
-
-                if (newOffset != -1) {
-                    matcher.groups[0] = start;
-                    matcher.groups[1] = newOffset;
-                    return true;
-                }
-            }
-
-            matcher.hitEnd = true;
-            return false;
-        }
-    }
-
-    /**
-     * Base class for sequences that consist of themselves and a "next" sequence. Implements {@link #concat(Sequence)}
-     * and {@link #reverse()} based on this pattern.
-     */
-    abstract static
-    class LinkedAbstractSequence extends AbstractSequence {
-
-        Sequence next;
-
-        LinkedAbstractSequence() { this.next = Pattern.TERMINAL; }
-
-        @Override public Sequence
-        concat(Sequence newSuccessor) {
-            this.next = this.next.concat(newSuccessor);
-            return this;
-        }
-
-        @Override public Sequence
-        reverse() {
-
-            Sequence result = this.next.reverse();
-            this.next = Pattern.TERMINAL;
-            return result.concat(this);
-        }
-    }
-
-    abstract static
-    class CharacterClass extends LinkedAbstractSequence implements IntPredicate {
-
-        @Override public final int
-        matches(MatcherImpl matcher, int offset) {
-
-            if (offset >= matcher.regionEnd) {
-                matcher.hitEnd = true;
-                return -1;
-            }
-
-            char c = matcher.charAt(offset++);
-
-            // Special handling for UTF-16 surrogates.
-            if (Character.isHighSurrogate(c)) {
-                if (offset < matcher.regionEnd) {
-                    char c2 = matcher.charAt(offset);
-                    if (Character.isLowSurrogate(c2)) {
-                        return (
-                            this.evaluate(Character.toCodePoint(c, c2))
-                            ? this.next.matches(matcher, offset + 1)
-                            : -1
-                        );
-                    }
-                }
-            }
-
-            return this.evaluate(c) ? this.next.matches(matcher, offset) : -1;
-        }
-    }
-
     // ==========================================================
 
     Pattern(String pattern, int flags, Sequence sequence, int groupCount, Map<String, Integer> namedGroups) {
@@ -433,7 +331,7 @@ class Pattern {
 
             @Override public int
             matches(MatcherImpl matcher, int offset) {
-                return matcher.end == End.ANY || offset >= matcher.regionEnd ? offset : -1;
+                return matcher.end == MatcherImpl.End.ANY || offset >= matcher.regionEnd ? offset : -1;
             }
 
             @Override public Sequence
@@ -451,19 +349,6 @@ class Pattern {
 
         this.sequence   = sequence;
         this.groupCount = groupCount;
-    }
-
-    /**
-     * @return Whether the given character is a "word character" in the sense of the "\b" pattern
-     */
-    static boolean
-    isWordCharacter(int c) {
-        return (
-            (c >= 'a' && c <= 'z')
-            || (c >= 'A' && c <= 'Z')
-            || (c >= '0' && c <= '9')
-            || c == '_'
-        );
     }
 
     static
@@ -632,39 +517,39 @@ class Pattern {
         // X*         X, zero or more times
         // X+         X, one or more times
         // X{n}       X, exactly n times
-        // X{min,}    X, at least n times
-        // X{min,max} X, at least n but not more than m times
+        // X{min,}    X, at least min times
+        // X{min,max} X, at least min but not more than max times
         ss.addRule(
             Pattern.DEFAULT_STATES,
-            "(?:\\?|\\*|\\+|\\{\\d+(?:,(?:\\d+)?)?})(?![?+])",
+            "(?:\\?|\\*|\\+|\\{(\\d+)(?:(,)(\\d+)?)?})(?![?+])", // $1=min, $2="," (opt), $3=max (opt)
             GREEDY_QUANTIFIER,
             ss.REMAIN
         );
 
         // Reluctant quantifiers
-        // X??     X, once or not at all
-        // X*?     X, zero or more times
-        // X+?     X, one or more times
-        // X{n}?   X, exactly n times
-        // X{n,}?  X, at least n times
-        // X{n,m}? X, at least n but not more than m times
+        // X??         X, once or not at all
+        // X*?         X, zero or more times
+        // X+?         X, one or more times
+        // X{n}?       X, exactly n times (identical with X{n})
+        // X{min,}?    X, at least min times
+        // X{min,max}? X, at least min but not more than max times
         ss.addRule(
             Pattern.DEFAULT_STATES,
-            "(?:\\?|\\*|\\+|\\{\\d+(?:,(?:\\d+)?)?})\\?",
+            "(?:\\?|\\*|\\+|\\{(\\d+)(?:(,)(\\d+)?)?})\\?", // $1=min, $2="," (opt), $3=max (opt)
             RELUCTANT_QUANTIFIER,
             ss.REMAIN
         );
 
         // Possessive quantifiers
-        // X?+     X, once or not at all
-        // X*+     X, zero or more times
-        // X++     X, one or more times
-        // X{n}+   X, exactly n times
-        // X{n,}+  X, at least n times
-        // X{n,m}+ X, at least n but not more than m times
+        // X?+         X, once or not at all
+        // X*+         X, zero or more times
+        // X++         X, one or more times
+        // X{n}+       X, exactly n times (identical with X{n})
+        // X{min,}+    X, at least min times
+        // X{min,max}+ X, at least min but not more than max times
         ss.addRule(
             Pattern.DEFAULT_STATES,
-            "(?:\\?|\\*|\\+|\\{\\d+(?:,(?:\\d+)?)?})\\+",
+            "(?:\\?|\\*|\\+|\\{(\\d+)(?:(,)(\\d+)?)?})\\+", // $1=min, $2="," (opt), $3=max (opt)
             POSSESSIVE_QUANTIFIER,
             ss.REMAIN
         );
@@ -785,38 +670,6 @@ class Pattern {
     }
 
     /**
-     * A sequence that simply delegates to its successor.
-     */
-    static final
-    class EmptyStringSequence extends LinkedAbstractSequence {
-
-        @Override public int
-        matches(MatcherImpl matcher, int offset) { return this.next.matches(matcher, offset); }
-
-        @Override public Sequence
-        concat(Sequence that) { return that; }
-
-        @Override public String
-        toString() { return ""; }
-    }
-
-    static final Sequence
-    TERMINAL = new AbstractSequence() {
-
-        @Override public int
-        matches(MatcherImpl matcher, int offset) { return offset; }
-
-        @Override public Sequence
-        concat(Sequence that) { return that; }
-
-        @Override public Sequence
-        reverse() { return this; }
-
-        @Override public String
-        toString() { return "[TERM]"; }
-    };
-
-    /**
      * @see java.util.regex.Pattern#compile(String)
      */
     public static Pattern
@@ -927,7 +780,7 @@ class Pattern {
 
         MatcherImpl mi = new MatcherImpl(this, subject);
 
-        mi.end = End.END_OF_SUBJECT;
+        mi.end = MatcherImpl.End.END_OF_SUBJECT;
 
         return this.sequence.matches(mi, offset) != -1;
     }
@@ -994,21 +847,12 @@ class Pattern {
             private Sequence
             parseSequence() throws ParseException {
 
-                if (this.peek() == null || this.peekRead("|")) return new Pattern.EmptyStringSequence();
+                Sequence result = Sequences.TERMINAL;
 
-                Sequence first = this.parseQuantified();
-                if (this.peek(null, "|", ")") != -1) return first;
-
-                // Parse all elements into a list.
-                List<Sequence> elements = new ArrayList<Sequence>();
-                elements.add(first);
                 while (this.peek(null, EITHER_OR, END_GROUP, QUOTATION_END) == -1) {
-                    elements.add(this.parseQuantified());
+                    result = result.concat(this.parseQuantified());
                 }
 
-                // Now link all sequence elements one to another.
-                Sequence result = TERMINAL;
-                for (int i = elements.size() - 1; i >= 0; i--) result = elements.get(i).concat(result);
                 return result;
             }
 
@@ -1027,26 +871,18 @@ class Pattern {
                 case POSSESSIVE_QUANTIFIER:
                     this.read();
 
-                    op.concat(Pattern.TERMINAL);
-
                     final int min, max;
                     switch (t.text.charAt(0)) {
 
-                    case '?': min = 0; max = 1;                     break;
-                    case '*': min = 0; max = Integer.MAX_VALUE - 1; break;
-                    case '+': min = 1; max = Integer.MAX_VALUE - 1; break;
+                    case '?': min = 0; max = 1;                 break;
+                    case '*': min = 0; max = Integer.MAX_VALUE; break;
+                    case '+': min = 1; max = Integer.MAX_VALUE; break;
 
                     case '{':
                         {
-                            String s    = Pattern.removeSpaces(t.text);
-                            int    idx1 = s.indexOf(',');
-                            int    idx2 = s.indexOf('}', idx1 + 1);
-                            if (idx1 == -1) {
-                                min = (max = Integer.parseInt(s.substring(1, idx2)));
-                            } else {
-                                min = Integer.parseInt(s.substring(1, idx1++));
-                                max = idx1 == idx2 ? Integer.MAX_VALUE - 1 : Integer.parseInt(s.substring(idx1, idx2));
-                            }
+                            String[] c = AssertionUtil.notNull(t.captured);
+                            min = Integer.parseInt(c[0]);
+                            max = c[1] == null ? min : c[2] == null ? Integer.MAX_VALUE : Integer.parseInt(c[2]);
                         }
                         break;
 
@@ -1056,14 +892,9 @@ class Pattern {
 
                     switch (t.type) {
 
-                    case GREEDY_QUANTIFIER:
-                        return new GreedyQuantifierSequence(op, min, max);
-
-                    case RELUCTANT_QUANTIFIER:
-                        return new ReluctantQuantifierSequence(op, min, max);
-
-                    case POSSESSIVE_QUANTIFIER:
-                        return new PossessiveQuantifierSequence(op, min, max);
+                    case GREEDY_QUANTIFIER:     return Sequences.greedyQuantifierSequence(op, min, max);
+                    case RELUCTANT_QUANTIFIER:  return Sequences.reluctantQuantifierSequence(op, min, max);
+                    case POSSESSIVE_QUANTIFIER: return Sequences.possessiveQuantifierSequence(op, min, max);
 
                     default:
                         throw new AssertionError(t);
@@ -1370,7 +1201,7 @@ class Pattern {
 
                 case MATCH_FLAGS:
                     this.setCurrentFlags(this.parseFlags(this.currentFlags, t.text.substring(2, t.text.length() - 1)));
-                    return new Pattern.EmptyStringSequence();
+                    return new Sequences.EmptyStringSequence();
 
                 case LINEBREAK_MATCHER:
                     return Pattern.linebreakSequence();

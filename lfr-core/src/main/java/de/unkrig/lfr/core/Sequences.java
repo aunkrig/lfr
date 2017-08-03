@@ -31,7 +31,6 @@ import java.util.Arrays;
 import de.unkrig.commons.lang.StringUtil;
 import de.unkrig.commons.lang.StringUtil.IndexOf;
 import de.unkrig.commons.nullanalysis.Nullable;
-import de.unkrig.lfr.core.Pattern.AbstractSequence;
 
 /**
  * Classes and methods related to {@link Sequence}s.
@@ -41,244 +40,256 @@ class Sequences {
 
     private Sequences() {}
 
-    static final
-    class GreedyQuantifierSequence extends Pattern.LinkedAbstractSequence {
-
-        private final Sequence operand;
-        private final int      max;
-        private final int      min;
-
-        GreedyQuantifierSequence(Sequence operand, int min, int max) {
-            this.operand = operand;
-            this.min     = min;
-            this.max     = max;
-        }
+    /**
+     * Matches the empty string, and is the last element of any {@link LinkedAbstractSequence} chain.
+     */
+    public static final Sequence
+    TERMINAL = new AbstractSequence() {
 
         @Override public int
-        matches(MatcherImpl matcher, int offset) {
-
-            // The operand MUST match (min) times;
-            for (int i = 0; i < this.min; i++) {
-                offset = this.operand.matches(matcher, offset);
-                if (offset == -1) return -1;
-            }
-
-            // Now try to match the operand (max-min-1) more times.
-            int     limit       = this.max - this.min;
-            int[]   savedOffset = new int[Math.min(limit, 20)];
-
-            for (int i = 0; i < limit; i++) {
-
-                if (i >= savedOffset.length) savedOffset = Arrays.copyOf(savedOffset, 2 * i);
-
-                savedOffset[i] = offset;
-
-                offset = this.operand.matches(matcher, offset);
-
-                if (offset == -1) {
-                    for (; i >= 0; i--) {
-                        offset = this.next.matches(matcher, savedOffset[i]);
-                        if (offset != -1) return offset;
-                    }
-                    return -1;
-                }
-            }
-
-            return this.next.matches(matcher, offset);
-        }
+        matches(MatcherImpl matcher, int offset) { return offset; }
 
         @Override public Sequence
-        concat(Sequence that) {
-            that = (this.next = this.next.concat(that));
+        concat(Sequence that) { return that; }
 
-            // Optimize for ".*", followed by a literal string.
-            if (this.operand instanceof CharacterClasses.AnyCharacter) {
-
-                if (that instanceof LiteralString) {
-                    final LiteralString ls = (LiteralString) that;
-
-                    return greedyQuantifierAnyCharLiteralString(ls.s, this.min, this.max).concat(ls.next);
-                }
-            }
-
-            // Optimize for bare character classes, e.g. "[...]*".
-            if (this.operand instanceof Pattern.CharacterClass) {
-                final Pattern.CharacterClass cc = (Pattern.CharacterClass) this.operand;
-                if (cc.next == Pattern.TERMINAL) {
-                    return Sequences.greedyQuantifierCharacterClass(cc, this.min, this.max).concat(this.next);
-                }
-            }
-
-            return this;
-        }
+        @Override public Sequence
+        reverse() { return this; }
 
         @Override public String
-        toString() { return this.operand + "{" + this.min + "," + this.max + "}" + this.next; }
-    }
+        toString() { return "[TERM]"; }
+    };
 
-    static final
-    class ReluctantQuantifierSequence extends Pattern.LinkedAbstractSequence {
+    /**
+     * Implements a "greedy" quantifier for an operand.
+     */
+    public static Sequence
+    greedyQuantifierSequence(final Sequence operand, final int min, final int max) {
 
-        private final Sequence operand;
-        private final int      min;
-        private final int      max;
+        return new LinkedAbstractSequence() {
 
-        ReluctantQuantifierSequence(Sequence operand, int min, int max) {
-            this.operand = operand;
-            this.min     = min;
-            this.max     = max;
-        }
+            @Override public int
+            matches(MatcherImpl matcher, int offset) {
 
-        @Override public int
-        matches(MatcherImpl matcher, int offset) {
-
-            // The operand MUST match min times;
-            int i;
-            for (i = 0; i < this.min; i++) {
-                offset = this.operand.matches(matcher, offset);
-                if (offset == -1) return -1;
-            }
-
-            // Now try to match the operand (max-min) more times.
-            for (;; i++) {
-
-                int offset2 = this.next.matches(matcher, offset);
-                if (offset2 != -1) return offset2;
-
-                if (i >= this.max) return -1;
-
-                offset = this.operand.matches(matcher, offset);
-                if (offset == -1) return -1;
-            }
-        }
-
-        @Override public Sequence
-        concat(Sequence that) {
-            that = (this.next = this.next.concat(that));
-
-            // Is the reluctant quantifier's operand "any char"?
-            if (!(this.operand instanceof CharacterClasses.AnyCharacter)) return this;
-
-            // Is the successor a literal string?
-            Sequence e1 = this.next;
-            if (!(e1 instanceof LiteralString)) return this;
-            final LiteralString ls = (LiteralString) e1;
-
-            final String infix       = ls.s;
-            final int    infixLength = infix.length();
-
-            return new Pattern.LinkedAbstractSequence() {
-
-                final IndexOf indexOf = StringUtil.newIndexOf(infix);
-
-                @Override public int
-                matches(MatcherImpl matcher, int offset) {
-
-                    int limit = matcher.regionEnd;
-
-                    if (limit - offset > ReluctantQuantifierSequence.this.max) { // Beware of overflow!
-                        limit = offset + ReluctantQuantifierSequence.this.max;
-                    }
-
-                    offset += ReluctantQuantifierSequence.this.min;
-
-                    while (offset <= limit) {
-
-                        // Find next match of the infix withing the subject string.
-                        offset = this.indexOf.indexOf(matcher.subject, offset, limit);
-                        if (offset == -1) break;
-
-                        // See if the successor matches the rest of the subject.
-                        int result = this.next.matches(matcher, offset + infixLength);
-                        if (result != -1) return result;
-
-                        // Successor didn't match, continue with next character position.
-                        offset++;
-                    }
-
-                    matcher.hitEnd = true;
-                    return -1;
+                // The operand MUST match (min) times;
+                for (int i = 0; i < min; i++) {
+                    offset = operand.matches(matcher, offset);
+                    if (offset == -1) return -1;
                 }
-            }.concat(ls.next);
-        }
 
-        @Override public String
-        toString() { return this.operand + "{" + this.min + "," + this.max + "}?" + this.next; }
+                // Now try to match the operand (max-min) more times.
+                int     limit       = max - min;
+                int[]   savedOffset = new int[Math.min(limit, 20)];
+
+                for (int i = 0; i < limit; i++) {
+
+                    if (i >= savedOffset.length) savedOffset = Arrays.copyOf(savedOffset, 2 * i);
+
+                    savedOffset[i] = offset;
+
+                    offset = operand.matches(matcher, offset);
+
+                    if (offset == -1) {
+                        for (; i >= 0; i--) {
+                            offset = this.next.matches(matcher, savedOffset[i]);
+                            if (offset != -1) return offset;
+                        }
+                        return -1;
+                    }
+                }
+
+                return this.next.matches(matcher, offset);
+            }
+
+            @Override public Sequence
+            concat(Sequence that) {
+                that = (this.next = this.next.concat(that));
+
+                // Optimize for operand ".", followed by a literal string.
+                if (
+                    operand instanceof CharacterClasses.AnyCharacter
+                    && ((LinkedAbstractSequence) operand).next == Sequences.TERMINAL
+                ) {
+
+                    if (that instanceof LiteralString) {
+                        final LiteralString ls = (LiteralString) that;
+
+                        return greedyQuantifierAnyCharLiteralString(ls.s, min, max).concat(ls.next);
+                    }
+                }
+
+                // Optimize for bare character class operands, e.g. "[...]".
+                if (operand instanceof CharacterClass) {
+                    CharacterClass cc = (CharacterClass) operand;
+                    if (cc.next == Sequences.TERMINAL) {
+                        return Sequences.greedyQuantifierCharacterClass(cc, min, max).concat(this.next);
+                    }
+                }
+
+                return this;
+            }
+
+            @Override public String
+            toString() { return operand + "{" + min + "," + max + "}" + this.next; }
+        };
     }
 
-    static final
-    class PossessiveQuantifierSequence extends Pattern.LinkedAbstractSequence {
+    /**
+     * Implements a "reluctant" quantifier for an operand.
+     */
+    public static Sequence
+    reluctantQuantifierSequence(final Sequence operand, final int min, final int max) {
 
-        private final Sequence operand;
-        private final int      min;
-        private final int      max;
+        return new LinkedAbstractSequence() {
 
-        PossessiveQuantifierSequence(Sequence operand, int min, int max) {
-            this.operand = operand;
-            this.min     = min;
-            this.max     = max;
-        }
+            @Override public int
+            matches(MatcherImpl matcher, int offset) {
 
-        @Override public int
-        matches(MatcherImpl matcher, int offset) {
+                // The operand MUST match min times;
+                int i;
+                for (i = 0; i < min; i++) {
+                    offset = operand.matches(matcher, offset);
+                    if (offset == -1) return -1;
+                }
 
-            // The operand MUST match (min) times;
-            for (int i = 0; i < this.min; i++) {
-                offset = this.operand.matches(matcher, offset);
-                if (offset == -1) return -1;
+                // Now try to match the operand (max-min) more times.
+                for (;; i++) {
+
+                    int offset2 = this.next.matches(matcher, offset);
+                    if (offset2 != -1) return offset2;
+
+                    if (i >= max) return -1;
+
+                    offset = operand.matches(matcher, offset);
+                    if (offset == -1) return -1;
+                }
             }
 
-            // Now try to match the operand (max-min-1) more times.
-            int limit = this.max - this.min;
+            @Override public Sequence
+            concat(Sequence that) {
+                that = (this.next = this.next.concat(that));
 
-            for (int i = 0; i < limit; i++) {
+                // Is the reluctant quantifier's operand "any char"?
+                if (!(operand instanceof CharacterClasses.AnyCharacter)) return this;
+                if (((LinkedAbstractSequence) operand).next != Sequences.TERMINAL) return this;
 
-                int offset2 = this.operand.matches(matcher, offset);
+                // Is the successor a literal string?
+                Sequence e1 = this.next;
+                if (!(e1 instanceof LiteralString)) return this;
+                final LiteralString ls = (LiteralString) e1;
 
-                if (offset2 == -1) return this.next.matches(matcher, offset);
+                final String infix       = ls.s;
+                final int    infixLength = infix.length();
 
-                offset = offset2;
-            }
+                return new LinkedAbstractSequence() {
 
-            return this.next.matches(matcher, offset);
-        }
-
-        @Override public Sequence
-        concat(Sequence that) {
-            that = (this.next = this.next.concat(that));
-
-            // Is quantifier operand "any char"?
-            if (this.operand instanceof CharacterClasses.AnyCharacter) {
-
-                // Replace the possessive quantifier element.
-                return new Pattern.LinkedAbstractSequence() {
+                    final IndexOf indexOf = StringUtil.newIndexOf(infix);
 
                     @Override public int
                     matches(MatcherImpl matcher, int offset) {
 
-                        if (PossessiveQuantifierSequence.this.max > matcher.regionEnd - offset) {
-                            offset = matcher.regionEnd;
-                        } else {
-                            offset += PossessiveQuantifierSequence.this.max;
+                        int limit = matcher.regionEnd;
+
+                        if (limit - offset > max) limit = offset + max; // Beware of overflow!
+
+                        offset += min;
+
+                        while (offset <= limit) {
+
+                            // Find next match of the infix withing the subject string.
+                            offset = this.indexOf.indexOf(matcher.subject, offset, limit);
+                            if (offset == -1) break;
+
+                            // See if the successor matches the rest of the subject.
+                            int result = this.next.matches(matcher, offset + infixLength);
+                            if (result != -1) return result;
+
+                            // Successor didn't match, continue with next character position.
+                            offset++;
                         }
 
-                        return this.next.matches(matcher, offset);
+                        matcher.hitEnd = true;
+                        return -1;
                     }
-                }.concat(this.next);
+                }.concat(ls.next);
             }
 
-            return this;
-        }
+            @Override public String
+            toString() { return operand + "{" + min + "," + max + "}?" + this.next; }
+        };
+    }
 
-        @Override public String
-        toString() { return this.operand + "{" + this.min + "," + this.max + "}+" + this.next; }
+    /**
+     * Implements a "possessive" quantifier for an operand.
+     */
+    public static Sequence
+    possessiveQuantifierSequence(final Sequence operand, final int min, final int max) {
+
+        return new LinkedAbstractSequence() {
+
+            @Override public int
+            matches(MatcherImpl matcher, int offset) {
+
+                // The operand MUST match (min) times;
+                for (int i = 0; i < min; i++) {
+                    offset = operand.matches(matcher, offset);
+                    if (offset == -1) return -1;
+                }
+
+                // Now try to match the operand (max-min) more times.
+                int limit = max - min;
+
+                for (int i = 0; i < limit; i++) {
+
+                    int offset2 = operand.matches(matcher, offset);
+
+                    if (offset2 == -1) return this.next.matches(matcher, offset);
+
+                    offset = offset2;
+                }
+
+                return this.next.matches(matcher, offset);
+            }
+
+            @Override public Sequence
+            concat(Sequence that) {
+                that = (this.next = this.next.concat(that));
+
+                // Optimize for "." operand.
+                if (
+                    operand instanceof CharacterClasses.AnyCharacter
+                    && ((LinkedAbstractSequence) operand).next == Sequences.TERMINAL
+                ) {
+
+                    // Replace the possessive quantifier element.
+                    return new LinkedAbstractSequence() {
+
+                        @Override public int
+                        matches(MatcherImpl matcher, int offset) {
+
+                            if (max > matcher.regionEnd - offset) {
+                                offset = matcher.regionEnd;
+                            } else {
+                                offset += max;
+                            }
+
+                            return this.next.matches(matcher, offset);
+                        }
+                    }.concat(this.next);
+                }
+
+                return this;
+            }
+
+            @Override public String
+            toString() { return operand + "{" + min + "," + max + "}+" + this.next; }
+        };
     }
 
     /**
      * Representation of a sequence of literal, case-sensitive characters.
      */
-    static
-    class LiteralString extends Pattern.LinkedAbstractSequence {
+    public static
+    class LiteralString extends LinkedAbstractSequence {
 
         /**
          * The literal string that this sequence represents.
@@ -365,6 +376,22 @@ class Sequences {
     }
 
     /**
+     * A sequence that simply delegates to its successor.
+     */
+    public static final
+    class EmptyStringSequence extends LinkedAbstractSequence {
+
+        @Override public int
+        matches(MatcherImpl matcher, int offset) { return this.next.matches(matcher, offset); }
+
+        @Override public Sequence
+        concat(Sequence that) { return that; }
+
+        @Override public String
+        toString() { return ""; }
+    }
+
+    /**
      * Creates and returns {@link Sequence} that returns the first match of one <var>alternatives</var> plus
      * <em>this</em> sequence's successor.
      * For example, {@code "a(b|bb)c"} will match both {@code "abc"} and {@code "abbc"}. (In the second case, matching
@@ -372,14 +399,14 @@ class Sequences {
      *
      * @see #independentNonCapturingGroup(Sequence[])
      */
-    static Sequence
+    public static Sequence
     alternatives(final Sequence[] alternatives) {
 
-        if (alternatives.length == 0) return new Pattern.EmptyStringSequence();
+        if (alternatives.length == 0) return new EmptyStringSequence();
 
         if (alternatives.length == 1) return alternatives[0];
 
-        return new Pattern.LinkedAbstractSequence() {
+        return new LinkedAbstractSequence() {
 
             @Override public int
             matches(MatcherImpl matcher, int offset) {
@@ -416,14 +443,14 @@ class Sequences {
      *
      * @see #alternatives(Sequence[])
      */
-    static Sequence
+    public static Sequence
     independentNonCapturingGroup(final Sequence[] alternatives) {
 
-        if (alternatives.length == 0) return new Pattern.EmptyStringSequence();
+        if (alternatives.length == 0) return new EmptyStringSequence();
 
         if (alternatives.length == 1) return alternatives[0];
 
-        return new Pattern.LinkedAbstractSequence() {
+        return new LinkedAbstractSequence() {
 
             @Override public int
             matches(MatcherImpl matcher, int offset) {
@@ -441,10 +468,13 @@ class Sequences {
         };
     }
 
-    static Sequence
+    /**
+     * Implements {@code "("}.
+     */
+    public static Sequence
     capturingGroupStart(final int groupNumber) {
 
-        return new Pattern.LinkedAbstractSequence() {
+        return new LinkedAbstractSequence() {
 
             @Override public int
             matches(MatcherImpl matcher, int offset) {
@@ -476,10 +506,13 @@ class Sequences {
         };
     }
 
-    static Sequence
+    /**
+     * Implements {@code ")"}.
+     */
+    public static Sequence
     capturingGroupEnd(final int groupNumber) {
 
-        return new Pattern.LinkedAbstractSequence() {
+        return new LinkedAbstractSequence() {
 
             @Override public int
             matches(MatcherImpl matcher, int offset) {
@@ -508,7 +541,7 @@ class Sequences {
     static Sequence
     capturingGroup(final int groupNumber, final Sequence subsequence) {
 
-        return new Pattern.LinkedAbstractSequence() {
+        return new LinkedAbstractSequence() {
 
             @Override public int
             matches(MatcherImpl matcher, int offset) {
@@ -542,7 +575,7 @@ class Sequences {
     static Sequence
     capturingGroupBackReference(final int groupNumber) {
 
-        return new Pattern.LinkedAbstractSequence() {
+        return new LinkedAbstractSequence() {
 
             @Override public int
             matches(MatcherImpl matcher, int offset) {
@@ -565,10 +598,13 @@ class Sequences {
         };
     }
 
-    static Sequence
+    /**
+     * Implements {@code "^"} with !MULTILINE, and {@code "\A"}.
+     */
+    public static Sequence
     beginningOfInput() {
 
-        return new Pattern.LinkedAbstractSequence() {
+        return new LinkedAbstractSequence() {
 
             @Override public int
             matches(MatcherImpl matcher, int offset) {
@@ -601,10 +637,13 @@ class Sequences {
         };
     }
 
-    static Sequence
+    /**
+     * Implements {@code "^"} with MULTILINE.
+     */
+    public static Sequence
     beginningOfLine(final String lineBreakCharacters) {
 
-        return new Pattern.LinkedAbstractSequence() {
+        return new LinkedAbstractSequence() {
 
             @Override public int
             matches(MatcherImpl matcher, int offset) {
@@ -630,10 +669,13 @@ class Sequences {
         };
     }
 
-    static Sequence
+    /**
+     * Implements {@code "\Z"}.
+     */
+    public static Sequence
     endOfInputButFinalTerminator() {
 
-        return new Pattern.LinkedAbstractSequence() {
+        return new LinkedAbstractSequence() {
 
             @Override public int
             matches(MatcherImpl matcher, int offset) {
@@ -679,10 +721,13 @@ class Sequences {
         };
     }
 
-    static Sequence
+    /**
+     * Implements {@code "$"} with !MULTILINE, and {@code "\z"}.
+     */
+    public static Sequence
     endOfInput() {
 
-        return new Pattern.LinkedAbstractSequence() {
+        return new LinkedAbstractSequence() {
 
             @Override public int
             matches(MatcherImpl matcher, int offset) {
@@ -707,10 +752,13 @@ class Sequences {
         };
     }
 
-    static Sequence
+    /**
+     * Implements {@code "$"} with MULTILINE.
+     */
+    public static Sequence
     endOfLine(final String lineBreakCharacters) {
 
-        return new Pattern.LinkedAbstractSequence() {
+        return new LinkedAbstractSequence() {
 
             @Override public int
             matches(MatcherImpl matcher, int offset) {
@@ -738,10 +786,13 @@ class Sequences {
         };
     }
 
-    static Sequence
+    /**
+     * Implements {@code "\b"}, and, negated, {@code "\B"}.
+     */
+    public static Sequence
     wordBoundary() {
 
-        return new Pattern.LinkedAbstractSequence() {
+        return new LinkedAbstractSequence() {
 
             @Override public int
             matches(MatcherImpl matcher, int offset) {
@@ -750,14 +801,14 @@ class Sequences {
                     matcher.hitEnd     = true;
                     matcher.requireEnd = true;
                     if (offset == matcher.transparentRegionStart) return -1; // Zero-length region.
-                    if (!Pattern.isWordCharacter(matcher.charAt(offset - 1))) return -1;
+                    if (!Sequences.isWordCharacter(matcher.charAt(offset - 1))) return -1;
                 } else
                 if (offset <= matcher.transparentRegionStart) {
-                    if (!Pattern.isWordCharacter(matcher.charAt(offset))) return -1;
+                    if (!Sequences.isWordCharacter(matcher.charAt(offset))) return -1;
                 } else
                 if (
-                    Pattern.isWordCharacter(matcher.charAt(offset - 1))
-                    == Pattern.isWordCharacter(matcher.charAt(offset))
+                    Sequences.isWordCharacter(matcher.charAt(offset - 1))
+                    == Sequences.isWordCharacter(matcher.charAt(offset))
                 ) {
                     return -1;
                 }
@@ -770,10 +821,13 @@ class Sequences {
         };
     }
 
-    static Sequence
+    /**
+     * Implements {@code "\G"}.
+     */
+    public static Sequence
     endOfPreviousMatch() {
 
-        return new Pattern.LinkedAbstractSequence() {
+        return new LinkedAbstractSequence() {
 
             boolean reverse;
 
@@ -801,20 +855,23 @@ class Sequences {
         };
     }
 
-    static Sequence
+    /**
+     * Implements {@code "(?=X)"}.
+     */
+    public static Sequence
     positiveLookahead(final Sequence op) {
 
-        return new Pattern.LinkedAbstractSequence() {
+        return new LinkedAbstractSequence() {
 
             @Override public int
             matches(MatcherImpl matcher, int offset) {
 
                 boolean lookaheadMatches;
 
-                final Pattern.End savedEnd       = matcher.end;
-                final int         savedRegionEnd = matcher.regionEnd;
+                final MatcherImpl.End savedEnd       = matcher.end;
+                final int             savedRegionEnd = matcher.regionEnd;
                 {
-                    matcher.end       = Pattern.End.ANY;
+                    matcher.end       = MatcherImpl.End.ANY;
                     matcher.regionEnd = matcher.transparentRegionEnd;
 
                     lookaheadMatches   = op.matches(matcher, offset) != -1;
@@ -828,10 +885,13 @@ class Sequences {
         };
     }
 
-    static Sequence
+    /**
+     * Implements {@code "(?<=X)"}.
+     */
+    public static Sequence
     positiveLookbehind(final Sequence op) {
 
-        return new Pattern.LinkedAbstractSequence() {
+        return new LinkedAbstractSequence() {
 
             @Override public int
             matches(MatcherImpl matcher, int offset) {
@@ -840,14 +900,14 @@ class Sequences {
 
                 boolean lookbehindMatches;
 
-                final Pattern.End savedEnd          = matcher.end;
-                final boolean     savedHitStart     = matcher.hitStart;
-                final boolean     savedRequireStart = matcher.requireStart;
-                final int         savedRegionStart  = matcher.regionStart;
+                final MatcherImpl.End savedEnd          = matcher.end;
+                final boolean         savedHitStart     = matcher.hitStart;
+                final boolean         savedRequireStart = matcher.requireStart;
+                final int             savedRegionStart  = matcher.regionStart;
                 {
                     matcher.reverse();
                     {
-                        matcher.end        = Pattern.End.ANY;
+                        matcher.end        = MatcherImpl.End.ANY;
                         matcher.hitEnd     = false;
                         matcher.regionEnd  = matcher.transparentRegionEnd;
                         lookbehindMatches  = op.matches(matcher, l1 - offset) != -1;
@@ -870,10 +930,10 @@ class Sequences {
      * Optimized version of {@link #greedyQuantifierSequence(Sequence, int, int)} when the operand is a bare
      * character predicate, e.g. a character class.
      */
-    static Sequence
+    public static Sequence
     greedyQuantifierCharacterClass(final IntPredicate operand, final int min, final int max) {
 
-        return new Pattern.LinkedAbstractSequence() {
+        return new LinkedAbstractSequence() {
 
             @Override public int
             matches(MatcherImpl matcher, int offset) {
@@ -953,10 +1013,10 @@ class Sequences {
      * Implements a greedy quantifier on an "any char" operand, followed by a literal String, e.g. ".*ABC" or
      * ".{3,17}ABC".
      */
-    private static AbstractSequence
+    public static AbstractSequence
     greedyQuantifierAnyCharLiteralString(final String ls, final int min, final int max) {
 
-        return new Pattern.LinkedAbstractSequence() {
+        return new LinkedAbstractSequence() {
 
             final IndexOf indexOf     = StringUtil.newIndexOf(ls);
             final int     infixLength = ls.length();
@@ -1007,19 +1067,19 @@ class Sequences {
      * Creates and returns a sequence that produces a zero-width match iff the <var>op</var> does <em>not</em> match,
      * and otherwise (iff the <var>op</var> <em>does</em> match) does <em>not</em> match.
      */
-    static Sequence
+    public static Sequence
     negate(final Sequence op) {
 
-        return new Pattern.LinkedAbstractSequence() {
+        return new LinkedAbstractSequence() {
 
             @Override public int
             matches(MatcherImpl matcher, int offset) {
 
                 boolean operandMatches;
 
-                Pattern.End savedEnd = matcher.end;
+                MatcherImpl.End savedEnd = matcher.end;
                 {
-                    matcher.end = Pattern.End.ANY;
+                    matcher.end = MatcherImpl.End.ANY;
 
                     operandMatches = op.matches(matcher, offset) != -1;
                 }
@@ -1033,5 +1093,18 @@ class Sequences {
                 return this.next.reverse().concat(Sequences.negate(op.reverse()));
             }
         };
+    }
+
+    /**
+     * @return Whether the given character is a "word character" in the sense of the "\b" pattern
+     */
+    public static boolean
+    isWordCharacter(int c) {
+        return (
+            (c >= 'a' && c <= 'z')
+            || (c >= 'A' && c <= 'Z')
+            || (c >= '0' && c <= '9')
+            || c == '_'
+        );
     }
 }

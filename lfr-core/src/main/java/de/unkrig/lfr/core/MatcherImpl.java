@@ -32,7 +32,6 @@ import java.util.regex.MatchResult;
 
 import de.unkrig.commons.lang.protocol.Predicate;
 import de.unkrig.commons.nullanalysis.Nullable;
-import de.unkrig.lfr.core.Pattern.End;
 
 /**
  * {@code de.unkrig.lfr.core}'s implementation of {@link Matcher}.
@@ -42,18 +41,41 @@ class MatcherImpl implements Matcher {
 
     // CONFIGURATION
 
-    Pattern      pattern;
+    /**
+     * @see #END_OF_SUBJECT
+     * @see #ANY
+     */
+    enum End {
 
+        /**
+         * The match is successful if the pattern matches the entire rest of the sucject.
+         */
+        END_OF_SUBJECT,
+
+        /**
+         * The match is successful if the pattern matches the next characters of the sucject.
+         */
+        ANY,
+    }
+
+    private Pattern pattern;
+    private boolean reverseSubject;
+    private boolean hasTransparentBounds;
+    private boolean hasAnchoringBounds = true;
+
+    /**
+     * The "subject" string, i.e. the string that is currently subject to pattern matching.
+     */
     CharSequence subject;
-    boolean      reverseSubject;
 
-    int          regionStart, regionEnd;
+    /**
+     * The region within the {@link #subject} that is subject to pattern matching.
+     */
+    int regionStart, regionEnd;
 
-    boolean      hasTransparentBounds;
-    int          transparentRegionStart, transparentRegionEnd;
+    int transparentRegionStart, transparentRegionEnd;
 
-    boolean      hasAnchoringBounds = true;
-    int          anchoringRegionStart, anchoringRegionEnd;
+    int anchoringRegionStart, anchoringRegionEnd;
 
     // STATE
 
@@ -99,9 +121,9 @@ class MatcherImpl implements Matcher {
      */
     int endOfPreviousMatch = -1;
 
-    int lastAppendPosition;
+    private int lastAppendPosition;
 
-    @Nullable End end;
+    @Nullable MatcherImpl.End end;
 
     MatcherImpl(Pattern pattern, CharSequence subject) {
         this.pattern   = pattern;
@@ -232,7 +254,7 @@ class MatcherImpl implements Matcher {
         this.hitEnd       = false;
         this.requireEnd   = false;
 
-        this.end = End.END_OF_SUBJECT;
+        this.end = MatcherImpl.End.END_OF_SUBJECT;
         int newOffset = this.pattern.sequence.matches(this, this.regionStart);
 
         if (newOffset == -1) {
@@ -256,7 +278,7 @@ class MatcherImpl implements Matcher {
         this.hitEnd       = false;
         this.requireEnd   = false;
 
-        this.end = End.ANY;
+        this.end = MatcherImpl.End.ANY;
         int newOffset = this.pattern.sequence.matches(this, this.regionStart);
 
         if (newOffset == -1) {
@@ -295,7 +317,7 @@ class MatcherImpl implements Matcher {
         }
 
         this.groups = this.initialGroups;
-        this.end    = End.ANY;
+        this.end    = MatcherImpl.End.ANY;
         if (this.pattern.sequence.find(this, start)) {
             this.endOfPreviousMatch = this.groups[1];
             return true;
@@ -508,6 +530,9 @@ class MatcherImpl implements Matcher {
         return predicate.evaluate(this.charAt(offset));
     }
 
+    /**
+     * @see String#charAt(int)
+     */
     char
     charAt(int offset) {
         return this.subject.charAt(this.reverseSubject ? this.subject.length() - 1 - offset : offset);
@@ -536,7 +561,7 @@ class MatcherImpl implements Matcher {
     }
 
     int
-    sequenceEndMatches(int offset) { return this.end == End.ANY || offset == this.regionEnd ? offset : -1; }
+    sequenceEndMatches(int offset) { return this.end == MatcherImpl.End.ANY || offset == this.regionEnd ? offset : -1; }
 
     /**
      * Reverses this matcher, i.e. the subject and all capturing groups are reversed.
