@@ -28,7 +28,6 @@ package de.unkrig.lfr.core;
 
 import de.unkrig.commons.lang.Characters;
 import de.unkrig.commons.lang.protocol.Predicate;
-import de.unkrig.lfr.core.Pattern.CharacterClass;
 
 /**
  * Classes and utility methods related to {@link CharacterClass}es.
@@ -42,10 +41,14 @@ class CharacterClasses {
      * Representation of a literal character, like "a" or "\.".
      */
     public static
-    class LiteralCharacter extends Pattern.CharacterClass {
+    class LiteralCharacter extends CharacterClass {
 
-        int    c;
-        String toString;
+        /**
+         * The literal character that this sequence represents.
+         */
+        final int c;
+
+        private final String toString;
 
         LiteralCharacter(int c, String toString) {
             this.c        = c;
@@ -91,10 +94,10 @@ class CharacterClasses {
     /**
      * Delegates to an {@link Predicate Predicate&lt;Integer>}, where the subject is the character's code point.
      */
-    public static Pattern.CharacterClass
+    public static CharacterClass
     characterClass(final Predicate<Integer> predicate, final String toString) {
 
-        return new Pattern.CharacterClass() {
+        return new CharacterClass() {
             @Override public boolean evaluate(int subject) { return predicate.evaluate(subject); }
             @Override public String  toString()            { return toString + this.next;   }
         };
@@ -105,10 +108,10 @@ class CharacterClasses {
      *
      * @see Character.UnicodeBlock#of(int)
      */
-    public static Pattern.CharacterClass
+    public static CharacterClass
     inUnicodeBlock(final Character.UnicodeBlock block) {
 
-        return new Pattern.CharacterClass() {
+        return new CharacterClass() {
 
             @Override public boolean
             evaluate(int subject) { return Character.UnicodeBlock.of(subject) == block; }
@@ -120,10 +123,10 @@ class CharacterClasses {
      *
      * @param generalCategory One of the "general category" constants in {@link Character}
      */
-    public static Pattern.CharacterClass
+    public static CharacterClass
     inUnicodeGeneralCategory(final int generalCategory) {
 
-        return new Pattern.CharacterClass() {
+        return new CharacterClass() {
 
             @Override public boolean
             evaluate(int subject) { return Character.getType(subject) == generalCategory; }
@@ -133,16 +136,16 @@ class CharacterClasses {
     /**
      * Checks whether a code point equals the given <var>codePoint</var>
      */
-    public static Pattern.CharacterClass
+    public static CharacterClass
     literalCharacter(int codePoint, String toString) { return new LiteralCharacter(codePoint, toString); }
 
     /**
      * Representation of a two-characters union, e.g. "[oO]".
      */
-    public static Pattern.CharacterClass
+    public static CharacterClass
     oneOf(final int c1, final int c2) {
 
-        return new Pattern.CharacterClass() {
+        return new CharacterClass() {
 
             @Override public boolean
             evaluate(int subject) { return subject == c1 || subject == c2; }
@@ -155,10 +158,10 @@ class CharacterClasses {
     /**
      * Checks whether a code point is one of those in in <var>chars</var>.
      */
-    public static Pattern.CharacterClass
+    public static CharacterClass
     oneOf(final String chars) {
 
-        return new Pattern.CharacterClass() {
+        return new CharacterClass() {
 
             @Override public boolean
             evaluate(int subject) { return chars.indexOf(subject) != -1; }
@@ -171,7 +174,7 @@ class CharacterClasses {
     /**
      * Representation of an (ASCII-)case-insensitive literal character.
      */
-    public static Pattern.CharacterClass
+    public static CharacterClass
     caseInsensitiveLiteralCharacter(final int c) {
         if (c >= 'A' && c <= 'Z') return CharacterClasses.oneOf(c, c + 32);
         if (c >= 'a' && c <= 'z') return CharacterClasses.oneOf(c, c - 32);
@@ -181,7 +184,7 @@ class CharacterClasses {
     /**
      * Representation of a (UNICODE-)case-insensitive literal character.
      */
-    public static Pattern.CharacterClass
+    public static CharacterClass
     unicodeCaseInsensitiveLiteralCharacter(final int c) {
         if (Character.isLowerCase(c)) return CharacterClasses.oneOf(c, Character.toUpperCase(c));
         if (Character.isUpperCase(c)) return CharacterClasses.oneOf(c, Character.toLowerCase(c));
@@ -191,10 +194,10 @@ class CharacterClasses {
     /**
      * Representation of a character class intersection like {@code "\w&&[^abc]"}.
      */
-    public static Pattern.CharacterClass
+    public static CharacterClass
     intersection(final IntPredicate lhs, final IntPredicate rhs) {
 
-        return new Pattern.CharacterClass() {
+        return new CharacterClass() {
 
             @Override public boolean
             evaluate(int subject) { return lhs.evaluate(subject) && rhs.evaluate(subject); }
@@ -207,10 +210,10 @@ class CharacterClasses {
     /**
      * Representation of a character class union like {@code "ab"}.
      */
-    public static Pattern.CharacterClass
+    public static CharacterClass
     union(final IntPredicate lhs, final IntPredicate rhs) {
 
-        return new Pattern.CharacterClass() {
+        return new CharacterClass() {
 
             @Override public boolean
             evaluate(int subject) { return lhs.evaluate(subject) || rhs.evaluate(subject); }
@@ -223,10 +226,10 @@ class CharacterClasses {
     /**
      * Representation of a character class range like {@code "a-k"}.
      */
-    public static Pattern.CharacterClass
+    public static CharacterClass
     range(final int lhs, final int rhs) {
 
-        return new Pattern.CharacterClass() {
+        return new CharacterClass() {
 
             @Override public boolean
             evaluate(int subject) { return subject >= lhs && subject <= rhs; }
@@ -237,21 +240,24 @@ class CharacterClasses {
     }
 
     /**  An (ASCII) digit: [0-9] */
-    public static Pattern.CharacterClass
+    public static CharacterClass
     isDigit(boolean unicode) {
 
         if (unicode) return CharacterClasses.characterClass(Characters.IS_UNICODE_DIGIT, "\\d");
 
-        return new Pattern.CharacterClass() {
+        return new CharacterClass() {
             @Override public boolean evaluate(int subject) { return subject >= '0' && subject <= '9'; }
             @Override public String  toString()            { return "\\d" + this.next;           }
         };
     }
 
-    public static Pattern.CharacterClass
-    negate(final Pattern.CharacterClass delegate, final String toString) {
+    /**
+     * @return A character class that evaluates to the inversion of the <var>delegate</var>
+     */
+    public static CharacterClass
+    negate(final CharacterClass delegate, final String toString) {
 
-        return new Pattern.CharacterClass() {
+        return new CharacterClass() {
 
             @Override public boolean
             evaluate(int subject) { return !delegate.evaluate(subject); }
@@ -265,10 +271,10 @@ class CharacterClasses {
      * A horizontal whitespace character:
      * <code>[ \t\xA0&#92;u1680&#92;u180e&#92;u2000-&#92;u200a&#92;u202f&#92;u205f&#92;u3000]</code>
      */
-    public static Pattern.CharacterClass
+    public static CharacterClass
     isHorizontalWhitespace() {
 
-        return new Pattern.CharacterClass() {
+        return new CharacterClass() {
 
             @Override public boolean
             evaluate(int subject) {
@@ -284,7 +290,7 @@ class CharacterClasses {
     }
 
     /**  A whitespace character: [ \t\n\x0B\f\r] */
-    public static Pattern.CharacterClass
+    public static CharacterClass
     isWhitespace(boolean unicode) {
 
         if (unicode) return CharacterClasses.characterClass(Characters.IS_UNICODE_WHITE_SPACE, "\\s");
@@ -293,14 +299,14 @@ class CharacterClasses {
     }
 
     /**  A vertical whitespace character: [\n\x0B\f\r\x85/u2028/u2029] */
-    public static Pattern.CharacterClass
+    public static CharacterClass
     isVerticalWhitespace() { return CharacterClasses.oneOf(Pattern.VERTICAL_WHITESPACE_CHARACTERS); }
 
     /**  A word character: [a-zA-Z_0-9] */
-    public static Pattern.CharacterClass
+    public static CharacterClass
     isWord(final boolean unicode) {
 
-        return new Pattern.CharacterClass() {
+        return new CharacterClass() {
 
             @Override public boolean
             evaluate(int subject) {
@@ -323,7 +329,7 @@ class CharacterClasses {
                     );
                 }
 
-                return Pattern.isWordCharacter(subject);
+                return Sequences.isWordCharacter(subject);
             }
 
             @Override public String
@@ -331,10 +337,13 @@ class CharacterClasses {
         };
     }
 
+    /**
+     * Implements {@code "."} (negated) iff !DOTALL and !UNIX_LINES
+     */
     public static CharacterClass
     lineBreakCharacter() {
 
-        return new Pattern.CharacterClass() {
+        return new CharacterClass() {
 
             @Override public boolean
             evaluate(int subject) {
@@ -347,9 +356,11 @@ class CharacterClasses {
         };
     }
 
-    /** Matches <em>any</em> character. */
+    /**
+     * Matches <em>any</em> character.
+     */
     public static
-    class AnyCharacter extends Pattern.CharacterClass {
+    class AnyCharacter extends CharacterClass {
         @Override public boolean evaluate(int subject) { return true; }
         @Override public String  toString()            { return ".";  }
     }
