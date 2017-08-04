@@ -138,7 +138,7 @@ class Pattern {
 
     private static final int SUPPORTED_FLAGS = (
         0
-//        | Pattern.CANON_EQ
+//        | Pattern.CANON_EQ   <= currently not implemented
         | Pattern.CASE_INSENSITIVE
         | Pattern.COMMENTS
         | Pattern.DOTALL
@@ -171,16 +171,31 @@ class Pattern {
         ScannerState.CHAR_CLASS3_X
     );
 
-    // Interestingly, the following two are equal!
-    static final String LINE_BREAK_CHARACTERS          = "\r\n\u000B\f\u0085\u2028\u2029";
-    static final String VERTICAL_WHITESPACE_CHARACTERS = "\r\n\u000B\f\u0085\u2028\u2029";
-    static final String UNIX_LINE_BREAK_CHARACTERS     = "\n";
-    static final String WHITESPACE_CHARACTERS          = " \t\n\u000B\f\r";
+    /**
+     * The flags configured at compile time.
+     * 
+     * @see #compile(String, int)
+     */
+    int flags;
 
-    int                        flags;
-    final String               pattern;
-    final Sequence             sequence;
-    final int                  groupCount;
+    /**
+     * The uncompiled regular expression; only needed for {@link #pattern()} and {@link #toString()}.
+     */
+    final String pattern;
+
+    /**
+     * Internal representation of the parsed regular expression.
+     */
+    final Sequence sequence;
+
+    /**
+     * The number of capturing groups that this regular expression declares (zero or more).
+     */
+    final int groupCount;
+
+    /**
+     * The mapping of named capturing group to group number.
+     */
     final Map<String, Integer> namedGroups;
 
     // SUPPRESS CHECKSTYLE JavadocVariable:59
@@ -624,52 +639,6 @@ class Pattern {
     }
 
     /**
-     * A sequence that matches a linebreak.
-     */
-    static Sequence
-    linebreakSequence() {
-
-        return new LinkedAbstractSequence() {
-
-            char c1 = '\r', c2 = '\n';
-
-            @Override public int
-            matches(MatcherImpl matcher, int offset) {
-
-                if (offset >= matcher.regionEnd) return -1;
-
-                char c = matcher.charAt(offset);
-
-                // Check for linebreak characters in a highly optimized manner.
-                if (c <= 0x0d) {
-                    if (c == this.c1 && offset < matcher.regionEnd - 1 && matcher.charAt(offset + 1) == this.c2) {
-                        return this.next.matches(matcher, offset + 2);
-                    }
-                    return c >= 0x0a ? this.next.matches(matcher, offset + 1) : -1;
-                }
-
-                if (c == 0x85 || (c >= 0x2028 && c <= 0x2029)) {
-                    return this.next.matches(matcher, offset + 1);
-                }
-
-                return -1;
-            }
-
-            @Override public Sequence
-            reverse() {
-                char tmp = this.c1;
-                this.c1 = this.c2;
-                this.c2 = tmp;
-                return super.reverse();
-            }
-
-
-            @Override public String
-            toString() { return "linebreak"; }
-        };
-    }
-
-    /**
      * @see java.util.regex.Pattern#compile(String)
      */
     public static Pattern
@@ -728,7 +697,9 @@ class Pattern {
     sequenceToString() { return this.sequence.toString().replace(" . terminal", ""); }
 
     /**
-     * @see java.util.regex.Pattern#toString()
+     * @return The uncompiled regular expression
+     * @see    java.util.regex.Pattern#toString()
+     * @see    #pattern()
      */
     @Override public String
     toString() { return this.pattern; }
@@ -970,15 +941,15 @@ class Pattern {
 
                 case CC_PREDEFINED:
                     {
-                        boolean u = (this.currentFlags & Pattern.UNICODE_CHARACTER_CLASS) != 0;
+                        boolean unicode = (this.currentFlags & Pattern.UNICODE_CHARACTER_CLASS) != 0;
 
                         CharacterClass result;
                         switch (t.text.charAt(1)) {
-                        case 'd': case 'D': result = CharacterClasses.isDigit(u);               break;
-                        case 'h': case 'H': result = CharacterClasses.isHorizontalWhitespace(); break;
-                        case 's': case 'S': result = CharacterClasses.isWhitespace(u);          break;
-                        case 'v': case 'V': result = CharacterClasses.isVerticalWhitespace();   break;
-                        case 'w': case 'W': result = CharacterClasses.isWord(u);                break;
+                        case 'd': case 'D': result = CharacterClasses.digit(unicode);         break;
+                        case 'h': case 'H': result = CharacterClasses.horizontalWhitespace(); break;
+                        case 's': case 'S': result = CharacterClasses.whitespace(unicode);    break;
+                        case 'v': case 'V': result = CharacterClasses.verticalWhitespace();   break;
+                        case 'w': case 'W': result = CharacterClasses.word(unicode);          break;
                         default:            throw new AssertionError(t);
                         }
 
@@ -1010,7 +981,7 @@ class Pattern {
                         );
                         assert codePointPredicate != null;
 
-                        CharacterClass result = CharacterClasses.characterClass(codePointPredicate, t.text);
+                        CharacterClass result = CharacterClasses.characterClass(codePointPredicate);
 
                         if (t.text.charAt(1) == 'P') result = CharacterClasses.negate(result, t.text);
 
@@ -1029,7 +1000,7 @@ class Pattern {
                         );
                         assert codePointPredicate != null;
 
-                        CharacterClass result = CharacterClasses.characterClass(codePointPredicate, t.text);
+                        CharacterClass result = CharacterClasses.characterClass(codePointPredicate);
 
                         if (t.text.charAt(1) == 'P') result = CharacterClasses.negate(result, t.text);
 
@@ -1043,7 +1014,7 @@ class Pattern {
                         // A UNICODE preperty, e.g. "TITLECASE"?
                         Predicate<Integer> codePointPredicate = Characters.unicodePropertyFromName(name);
                         if (codePointPredicate != null) {
-                            return CharacterClasses.characterClass(codePointPredicate, t.text);
+                            return CharacterClasses.characterClass(codePointPredicate);
                         }
 
                         // A UNICODE character property, e.g. category "Lu"?
@@ -1181,8 +1152,8 @@ class Pattern {
                         ? Sequences.beginningOfInput()
                         : Sequences.beginningOfLine(
                             (this.currentFlags & Pattern.UNIX_LINES) != 0
-                            ? Pattern.UNIX_LINE_BREAK_CHARACTERS
-                            : Pattern.LINE_BREAK_CHARACTERS
+                            ? Sequences.UNIX_LINE_BREAK_CHARACTERS
+                            : Sequences.LINE_BREAK_CHARACTERS
                         )
                     );
 
@@ -1192,8 +1163,8 @@ class Pattern {
                         ? Sequences.endOfInput()
                         : Sequences.endOfLine(
                             (this.currentFlags & Pattern.UNIX_LINES) != 0
-                            ? Pattern.UNIX_LINE_BREAK_CHARACTERS
-                            : Pattern.LINE_BREAK_CHARACTERS
+                            ? Sequences.UNIX_LINE_BREAK_CHARACTERS
+                            : Sequences.LINE_BREAK_CHARACTERS
                         )
                     );
 
@@ -1220,7 +1191,7 @@ class Pattern {
                     return Sequences.TERMINAL;
 
                 case LINEBREAK_MATCHER:
-                    return Pattern.linebreakSequence();
+                    return Sequences.linebreakSequence();
 
                 case NAMED_CAPTURING_GROUP:
                     {
@@ -1394,20 +1365,21 @@ class Pattern {
                         this.read("]");
 
                         if (negate) cc = CharacterClasses.negate(cc, '^' + cc.toString());
+
                         return cc;
                     }
 
                 case CC_PREDEFINED:
                     {
-                        boolean u = (this.currentFlags & Pattern.UNICODE_CHARACTER_CLASS) != 0;
+                        boolean unicode = (this.currentFlags & Pattern.UNICODE_CHARACTER_CLASS) != 0;
 
                         CharacterClass result;
                         switch (t.text.charAt(1)) {
-                        case 'd': case 'D': result = CharacterClasses.isDigit(u);               break;
-                        case 'h': case 'H': result = CharacterClasses.isHorizontalWhitespace(); break;
-                        case 's': case 'S': result = CharacterClasses.isWhitespace(u);          break;
-                        case 'v': case 'V': result = CharacterClasses.isVerticalWhitespace();   break;
-                        case 'w': case 'W': result = CharacterClasses.isWord(u);                break;
+                        case 'd': case 'D': result = CharacterClasses.digit(unicode);         break;
+                        case 'h': case 'H': result = CharacterClasses.horizontalWhitespace(); break;
+                        case 's': case 'S': result = CharacterClasses.whitespace(unicode);    break;
+                        case 'v': case 'V': result = CharacterClasses.verticalWhitespace();   break;
+                        case 'w': case 'W': result = CharacterClasses.word(unicode);          break;
                         default:            throw new AssertionError(t);
                         }
 
@@ -1439,7 +1411,7 @@ class Pattern {
                         );
                         assert codePointPredicate != null;
 
-                        CharacterClass result = CharacterClasses.characterClass(codePointPredicate, t.text);
+                        CharacterClass result = CharacterClasses.characterClass(codePointPredicate);
 
                         if (t.text.charAt(1) == 'P') result = CharacterClasses.negate(result, t.text);
 
@@ -1458,7 +1430,7 @@ class Pattern {
                         );
                         assert codePointPredicate != null;
 
-                        CharacterClass result = CharacterClasses.characterClass(codePointPredicate, t.text);
+                        CharacterClass result = CharacterClasses.characterClass(codePointPredicate);
 
                         if (t.text.charAt(1) == 'P') result = CharacterClasses.negate(result, t.text);
 
@@ -1472,7 +1444,7 @@ class Pattern {
                         // A UNICODE preperty, e.g. "TITLECASE"?
                         Predicate<Integer> codePointPredicate = Characters.unicodePropertyFromName(name);
                         if (codePointPredicate != null) {
-                            return CharacterClasses.characterClass(codePointPredicate, t.text);
+                            return CharacterClasses.characterClass(codePointPredicate);
                         }
 
                         // A UNICODE character property, e.g. category "Lu"?

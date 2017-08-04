@@ -27,7 +27,6 @@
 package de.unkrig.lfr.core;
 
 import java.io.IOException;
-import java.util.regex.MatchResult;
 
 import de.unkrig.commons.nullanalysis.Nullable;
 
@@ -35,7 +34,7 @@ import de.unkrig.commons.nullanalysis.Nullable;
  * A drop-in replacement for {@link java.util.regex.Matcher}.
  */
 public
-interface Matcher extends MatchResult {
+interface Matcher extends java.util.regex.MatchResult {
 
     /**
      * @see java.util.regex.Matcher#pattern()
@@ -45,7 +44,7 @@ interface Matcher extends MatchResult {
     /**
      * @see java.util.regex.Matcher#toMatchResult()
      */
-    MatchResult toMatchResult();
+    java.util.regex.MatchResult toMatchResult();
 
     /**
      * @see java.util.regex.Matcher#usePattern(java.util.regex.Pattern)
