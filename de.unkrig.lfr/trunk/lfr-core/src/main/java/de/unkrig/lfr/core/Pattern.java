@@ -1217,7 +1217,7 @@ class Pattern {
 
                 case MATCH_FLAGS:
                     this.setCurrentFlags(this.parseFlags(this.currentFlags, t.text.substring(2, t.text.length() - 1)));
-                    return new Sequences.EmptyStringSequence();
+                    return Sequences.TERMINAL;
 
                 case LINEBREAK_MATCHER:
                     return Pattern.linebreakSequence();
