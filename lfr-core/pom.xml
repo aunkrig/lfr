@@ -22,4 +22,33 @@
 		<maven.compiler.target>1.6</maven.compiler.target>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 	</properties>
+	
+	<build>
+		<plugins>
+			
+			<!-- Javadoc plug-in: -->
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-javadoc-plugin</artifactId>
+				<version>2.10.4</version>
+				<executions>
+					<execution>
+						<id>attach-javadocs</id>
+						<goals>
+							<goal>jar</goal>
+						</goals>
+					</execution>
+				</executions>
+
+				<configuration>
+					<author>false</author>
+					<use>false</use>
+					<version>false</version>
+					<additionalparam>-Xdoclint:none</additionalparam>
+					<encoding>UTF-8</encoding>
+					<quiet>true</quiet>
+				</configuration>
+			</plugin>
+		</plugins>
+	</build>
 </project>
