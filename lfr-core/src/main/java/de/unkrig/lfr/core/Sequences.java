@@ -113,7 +113,7 @@ class Sequences {
                     if (that instanceof LiteralString) {
                         final LiteralString ls = (LiteralString) that;
 
-                        return greedyQuantifierAnyCharLiteralString(ls.get(), min, max).concat(ls.next);
+                        return Sequences.greedyQuantifierAnyCharLiteralString(ls.get(), min, max).concat(ls.next);
                     }
                 }
 
@@ -136,7 +136,7 @@ class Sequences {
                     + ", min="
                     + min
                     + ", max="
-                    + maxToString(max)
+                    + Sequences.maxToString(max)
                     + ") . "
                     + this.next
                 );
@@ -230,7 +230,7 @@ class Sequences {
                             + ", min="
                             + min
                             + ", max="
-                            + maxToString(max)
+                            + Sequences.maxToString(max)
                             + ", ls="
                             + ls
                             + ") . "
@@ -246,7 +246,7 @@ class Sequences {
                     "reluctantQuantifierSequenceOfAnyChar(min="
                     + min
                     + ", max="
-                    + maxToString(max)
+                    + Sequences.maxToString(max)
                     + ") . "
                     + this.next
                 );
@@ -317,7 +317,7 @@ class Sequences {
                                 "possessiveQuantifierSequenceOfAnyChar(min="
                                 + min
                                 + ", max="
-                                + maxToString(max)
+                                + Sequences.maxToString(max)
                                 + ") . "
                                 + this.next
                             );
@@ -336,7 +336,7 @@ class Sequences {
                     + ", min="
                     + min
                     + ", max="
-                    + maxToString(max)
+                    + Sequences.maxToString(max)
                     + ") . "
                     + this.next
                 );
@@ -448,22 +448,6 @@ class Sequences {
     }
 
     /**
-     * A sequence that simply delegates to its successor.
-     */
-    public static final
-    class EmptyStringSequence extends LinkedAbstractSequence {
-
-        @Override public int
-        matches(MatcherImpl matcher, int offset) { return this.next.matches(matcher, offset); }
-
-        @Override public Sequence
-        concat(Sequence that) { return that; }
-
-        @Override public String
-        toString() { return "empty"; }
-    }
-
-    /**
      * Creates and returns {@link Sequence} that returns the first match of one <var>alternatives</var> plus
      * <em>this</em> sequence's successor.
      * For example, {@code "a(b|bb)c"} will match both {@code "abc"} and {@code "abbc"}. (In the second case, matching
@@ -474,7 +458,7 @@ class Sequences {
     public static Sequence
     alternatives(final Sequence[] alternatives) {
 
-        if (alternatives.length == 0) return new EmptyStringSequence();
+        if (alternatives.length == 0) return Sequences.TERMINAL;
 
         if (alternatives.length == 1) return alternatives[0];
 
@@ -518,7 +502,7 @@ class Sequences {
     public static Sequence
     independentNonCapturingGroup(final Sequence[] alternatives) {
 
-        if (alternatives.length == 0) return new EmptyStringSequence();
+        if (alternatives.length == 0) return Sequences.TERMINAL;
 
         if (alternatives.length == 1) return alternatives[0];
 
@@ -1092,7 +1076,7 @@ class Sequences {
                     + ", min="
                     + min
                     + ", max="
-                    + maxToString(max)
+                    + Sequences.maxToString(max)
                     + ") . "
                     + this.next
                 );
@@ -1146,7 +1130,7 @@ class Sequences {
                     "greedyQuantifierAnyChar(min="
                     + min
                     + ", max="
-                    + maxToString(max)
+                    + Sequences.maxToString(max)
                     + ", ls="
                     + this.indexOf
                     + ") . "
