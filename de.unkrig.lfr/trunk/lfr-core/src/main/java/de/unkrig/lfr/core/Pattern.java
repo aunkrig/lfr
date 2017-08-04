@@ -344,7 +344,7 @@ class Pattern {
             find(MatcherImpl matcherImpl, int start) { throw new UnsupportedOperationException(); }
 
             @Override public String
-            toString() { return "[END]"; }
+            toString() { return "end"; }
         });
 
         this.sequence   = sequence;
@@ -665,7 +665,7 @@ class Pattern {
 
 
             @Override public String
-            toString() { return "\\R"; }
+            toString() { return "linebreak"; }
         };
     }
 
@@ -719,6 +719,13 @@ class Pattern {
      */
     public String
     pattern() { return this.pattern; }
+
+    /**
+     * Returns the parsed {@link Sequence} in an internal syntax. This is useful for testing how a pattern was
+     * compiled, e.g., whether certain optimizations have taken place.
+     */
+    public String
+    sequenceToString() { return this.sequence.toString().replace(" . terminal", ""); }
 
     /**
      * @see java.util.regex.Pattern#toString()
@@ -847,12 +854,21 @@ class Pattern {
             private Sequence
             parseSequence() throws ParseException {
 
-                Sequence result = Sequences.TERMINAL;
+                if (this.peek(null, EITHER_OR, END_GROUP, QUOTATION_END) != -1) return Sequences.TERMINAL;
 
-                while (this.peek(null, EITHER_OR, END_GROUP, QUOTATION_END) == -1) {
-                    result = result.concat(this.parseQuantified());
+                Sequence result = this.parseQuantified();
+                if (this.peek(null, EITHER_OR, END_GROUP, QUOTATION_END) != -1) return result;
+
+                List<Sequence> tmp = new ArrayList<Sequence>();
+                tmp.add(result);
+                do {
+                    tmp.add(this.parseQuantified());
+                } while (this.peek(null, EITHER_OR, END_GROUP, QUOTATION_END) == -1);
+
+                result = Sequences.TERMINAL;
+                for (int i = tmp.size() - 1; i >= 0; i--) {
+                    result = tmp.get(i).concat(result);
                 }
-
                 return result;
             }
 
@@ -916,7 +932,7 @@ class Pattern {
                     int c = t.text.codePointAt(0);
                     return (
                         (this.currentFlags & Pattern.CASE_INSENSITIVE) == 0
-                        ? CharacterClasses.literalCharacter(c, t.text)
+                        ? CharacterClasses.literalCharacter(c)
                         : (this.currentFlags & Pattern.UNICODE_CASE) == 0
                         ? CharacterClasses.caseInsensitiveLiteralCharacter(c)
                         : CharacterClasses.unicodeCaseInsensitiveLiteralCharacter(c)
@@ -927,9 +943,9 @@ class Pattern {
                         int idx = "ctnrfae".indexOf(t.text.charAt(1));
                         assert idx != -1;
                         if (idx == 0) {
-                            return CharacterClasses.literalCharacter((char) (t.text.charAt(2) & 0x1f), t.text);
+                            return CharacterClasses.literalCharacter((char) (t.text.charAt(2) & 0x1f));
                         }
-                        return CharacterClasses.literalCharacter("c\t\n\r\f\u0007\u001b".charAt(idx), t.text);
+                        return CharacterClasses.literalCharacter("c\t\n\r\f\u0007\u001b".charAt(idx));
                     }
 
                 case LITERAL_HEXADECIMAL:
@@ -937,10 +953,10 @@ class Pattern {
                         t.text.charAt(2) == '{'
                         ? t.text.substring(3, t.text.length() - 1)
                         : t.text.substring(2)
-                    ), t.text);
+                    ));
 
                 case LITERAL_OCTAL:
-                    return CharacterClasses.literalCharacter(Integer.parseInt(t.text.substring(2), 8), t.text);
+                    return CharacterClasses.literalCharacter(Integer.parseInt(t.text.substring(2), 8));
 
                 case LEFT_BRACKET:
                     {
@@ -1080,12 +1096,12 @@ class Pattern {
                         (this.currentFlags & Pattern.DOTALL) != 0
                         ? new CharacterClasses.AnyCharacter()
                         : (this.currentFlags & Pattern.UNIX_LINES) != 0
-                        ? CharacterClasses.negate(CharacterClasses.literalCharacter('\n', "?"), ".")
+                        ? CharacterClasses.negate(CharacterClasses.literalCharacter('\n'), ".")
                         : CharacterClasses.negate(CharacterClasses.lineBreakCharacter(), ".")
                     );
 
                 case QUOTED_CHARACTER:
-                    return CharacterClasses.literalCharacter(t.text.codePointAt(1), t.text);
+                    return CharacterClasses.literalCharacter(t.text.codePointAt(1));
 
                 case QUOTATION_BEGIN:
                     {
@@ -1345,7 +1361,7 @@ class Pattern {
                     int c = t.text.codePointAt(0);
                     return (
                         (this.currentFlags & Pattern.CASE_INSENSITIVE) == 0
-                        ? CharacterClasses.literalCharacter(c, t.text)
+                        ? CharacterClasses.literalCharacter(c)
                         : (this.currentFlags & Pattern.UNICODE_CASE) == 0
                         ? CharacterClasses.caseInsensitiveLiteralCharacter(c)
                         : CharacterClasses.unicodeCaseInsensitiveLiteralCharacter(c)
@@ -1356,9 +1372,9 @@ class Pattern {
                         int idx = "ctnrfae".indexOf(t.text.charAt(1));
                         assert idx != -1;
                         if (idx == 0) {
-                            return CharacterClasses.literalCharacter((char) (t.text.charAt(2) & 0x1f), t.text);
+                            return CharacterClasses.literalCharacter((char) (t.text.charAt(2) & 0x1f));
                         }
-                        return CharacterClasses.literalCharacter("c\t\n\r\f\u0007\u001b".charAt(idx), t.text);
+                        return CharacterClasses.literalCharacter("c\t\n\r\f\u0007\u001b".charAt(idx));
                     }
 
                 case LITERAL_HEXADECIMAL:
@@ -1366,10 +1382,10 @@ class Pattern {
                         t.text.charAt(2) == '{'
                         ? t.text.substring(3, t.text.length() - 1)
                         : t.text.substring(2)
-                    ), t.text);
+                    ));
 
                 case LITERAL_OCTAL:
-                    return CharacterClasses.literalCharacter(Integer.parseInt(t.text.substring(2, 8)), t.text);
+                    return CharacterClasses.literalCharacter(Integer.parseInt(t.text.substring(2, 8)));
 
                 case LEFT_BRACKET:
                     {
@@ -1541,7 +1557,7 @@ class Pattern {
 
                 int lhsCp = lhs.codePointAt(0);
 
-                if (!this.peekRead("-")) return CharacterClasses.literalCharacter(lhsCp, lhs);
+                if (!this.peekRead("-")) return CharacterClasses.literalCharacter(lhsCp);
 
                 int rhsCp = this.read(LITERAL_CHARACTER).codePointAt(0);
 

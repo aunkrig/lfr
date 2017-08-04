@@ -86,4 +86,11 @@ interface Sequence {
      */
     Sequence
     reverse();
+
+    /**
+     * Returns an unambiguous string form of {@code this} sequence; practical for verifying a compiled sequence e.g.
+     * for correctness, efficiency, etc. The syntax resembles Java.
+     */
+    @Override String
+    toString();
 }

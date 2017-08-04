@@ -41,8 +41,8 @@ class LinkedAbstractSequence extends AbstractSequence {
     LinkedAbstractSequence() { this.next = Sequences.TERMINAL; }
 
     @Override public Sequence
-    concat(Sequence newSuccessor) {
-        this.next = this.next.concat(newSuccessor);
+    concat(Sequence that) {
+        this.next = this.next.concat(that);
         return this;
     }
 

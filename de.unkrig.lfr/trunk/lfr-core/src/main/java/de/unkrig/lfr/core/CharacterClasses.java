@@ -48,12 +48,7 @@ class CharacterClasses {
          */
         final int c;
 
-        private final String toString;
-
-        LiteralCharacter(int c, String toString) {
-            this.c        = c;
-            this.toString = toString;
-        }
+        LiteralCharacter(int c) { this.c = c; }
 
         @Override public boolean
         evaluate(int subject) { return subject == this.c; }
@@ -77,7 +72,7 @@ class CharacterClasses {
                 Sequences.LiteralString thatLiteralString = (Sequences.LiteralString) that;
 
                 int    lhs = this.c;
-                String rhs = thatLiteralString.s;
+                String rhs = thatLiteralString.get();
 
                 String ls = new StringBuilder(rhs.length() + 2).appendCodePoint(lhs).append(rhs).toString();
 
@@ -88,7 +83,7 @@ class CharacterClasses {
         }
 
         @Override public String
-        toString() { return this.toString + this.next; }
+        toString() { return "'" + (char) this.c + "' . " + this.next; }
     }
 
     /**
@@ -98,8 +93,8 @@ class CharacterClasses {
     characterClass(final Predicate<Integer> predicate, final String toString) {
 
         return new CharacterClass() {
-            @Override public boolean evaluate(int subject) { return predicate.evaluate(subject); }
-            @Override public String  toString()            { return toString + this.next;   }
+            @Override public boolean evaluate(int subject) { return predicate.evaluate(subject);   }
+            @Override public String  toString()            { return predicate + " . " + this.next; }
         };
     }
 
@@ -112,9 +107,8 @@ class CharacterClasses {
     inUnicodeBlock(final Character.UnicodeBlock block) {
 
         return new CharacterClass() {
-
-            @Override public boolean
-            evaluate(int subject) { return Character.UnicodeBlock.of(subject) == block; }
+            @Override public boolean evaluate(int subject) { return Character.UnicodeBlock.of(subject) == block; }
+            @Override public String  toString()            { return "inUnicodeBlock . " + this.next;             }
         };
     }
 
@@ -130,6 +124,9 @@ class CharacterClasses {
 
             @Override public boolean
             evaluate(int subject) { return Character.getType(subject) == generalCategory; }
+
+            @Override public String
+            toString() { return "inUnicodeGeneralCategory(" + generalCategory + ") . " + this.next; }
         };
     }
 
@@ -137,7 +134,7 @@ class CharacterClasses {
      * Checks whether a code point equals the given <var>codePoint</var>
      */
     public static CharacterClass
-    literalCharacter(int codePoint, String toString) { return new LiteralCharacter(codePoint, toString); }
+    literalCharacter(int codePoint) { return new LiteralCharacter(codePoint); }
 
     /**
      * Representation of a two-characters union, e.g. "[oO]".
@@ -151,7 +148,7 @@ class CharacterClasses {
             evaluate(int subject) { return subject == c1 || subject == c2; }
 
             @Override public String
-            toString() { return "[" + c1 + c2 + ']' + this.next; }
+            toString() { return "oneOf(" + c1 + ", " + c2 + ") . " + this.next; }
         };
     }
 
@@ -167,7 +164,7 @@ class CharacterClasses {
             evaluate(int subject) { return chars.indexOf(subject) != -1; }
 
             @Override public String
-            toString() { return '[' + chars + ']' + this.next; }
+            toString() { return "oneOf(\"" + chars + "\") . " + this.next; }
         };
     }
 
@@ -178,7 +175,7 @@ class CharacterClasses {
     caseInsensitiveLiteralCharacter(final int c) {
         if (c >= 'A' && c <= 'Z') return CharacterClasses.oneOf(c, c + 32);
         if (c >= 'a' && c <= 'z') return CharacterClasses.oneOf(c, c - 32);
-        return CharacterClasses.literalCharacter(c, new String(new int[] { c }, 0, 1));
+        return CharacterClasses.literalCharacter(c);
     }
 
     /**
@@ -188,7 +185,7 @@ class CharacterClasses {
     unicodeCaseInsensitiveLiteralCharacter(final int c) {
         if (Character.isLowerCase(c)) return CharacterClasses.oneOf(c, Character.toUpperCase(c));
         if (Character.isUpperCase(c)) return CharacterClasses.oneOf(c, Character.toLowerCase(c));
-        return CharacterClasses.literalCharacter(c, new String(new int[] { c }, 0, 1));
+        return CharacterClasses.literalCharacter(c);
     }
 
     /**
@@ -203,7 +200,7 @@ class CharacterClasses {
             evaluate(int subject) { return lhs.evaluate(subject) && rhs.evaluate(subject); }
 
             @Override public String
-            toString() { return lhs + "&&" + rhs + this.next; }
+            toString() { return "intersection(" + lhs + ", " + rhs + ") . " + this.next; }
         };
     }
 
@@ -219,7 +216,7 @@ class CharacterClasses {
             evaluate(int subject) { return lhs.evaluate(subject) || rhs.evaluate(subject); }
 
             @Override public String
-            toString() { return lhs.toString() + rhs + this.next; }
+            toString() { return "union(" + lhs.toString() + ", " + rhs + ") . " + this.next; }
         };
     }
 
@@ -230,12 +227,8 @@ class CharacterClasses {
     range(final int lhs, final int rhs) {
 
         return new CharacterClass() {
-
-            @Override public boolean
-            evaluate(int subject) { return subject >= lhs && subject <= rhs; }
-
-            @Override public String
-            toString() { return lhs + "-" + rhs + this.next; }
+            @Override public boolean evaluate(int subject) { return subject >= lhs && subject <= rhs;                  }
+            @Override public String  toString()            { return "range(" + lhs + " - " + rhs + ") . " + this.next; }
         };
     }
 
@@ -247,7 +240,7 @@ class CharacterClasses {
 
         return new CharacterClass() {
             @Override public boolean evaluate(int subject) { return subject >= '0' && subject <= '9'; }
-            @Override public String  toString()            { return "\\d" + this.next;           }
+            @Override public String  toString()            { return "digit . " + this.next;           }
         };
     }
 
@@ -255,15 +248,15 @@ class CharacterClasses {
      * @return A character class that evaluates to the inversion of the <var>delegate</var>
      */
     public static CharacterClass
-    negate(final CharacterClass delegate, final String toString) {
+    negate(final CharacterClass operand, final String toString) {
 
         return new CharacterClass() {
 
             @Override public boolean
-            evaluate(int subject) { return !delegate.evaluate(subject); }
+            evaluate(int subject) { return !operand.evaluate(subject); }
 
             @Override public String
-            toString() { return toString + this.next; }
+            toString() { return "negate(" + operand + ") . " + this.next; }
         };
     }
 
@@ -285,7 +278,7 @@ class CharacterClasses {
             }
 
             @Override public String
-            toString() { return "\\h" + this.next; }
+            toString() { return "horizontalWhitespace . " + this.next; }
         };
     }
 
@@ -333,7 +326,7 @@ class CharacterClasses {
             }
 
             @Override public String
-            toString() { return "\\w";  }
+            toString() { return "wordCharacter . " + this.next;  }
         };
     }
 
@@ -353,6 +346,9 @@ class CharacterClasses {
                     || (subject >= 0x2028 && subject <= 0x2029)
                 );
             }
+
+            @Override public String
+            toString() { return "lineBreakCharacter . " + this.next; }
         };
     }
 
@@ -362,6 +358,6 @@ class CharacterClasses {
     public static
     class AnyCharacter extends CharacterClass {
         @Override public boolean evaluate(int subject) { return true; }
-        @Override public String  toString()            { return ".";  }
+        @Override public String  toString()            { return "anyCharacter . " + this.next;  }
     }
 }
