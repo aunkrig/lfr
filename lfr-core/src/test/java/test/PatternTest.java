@@ -81,17 +81,17 @@ class PatternTest {
 
         String infix = "ABCDEFGHIJKLMNOP";
 
+        String regex = infix;
+
+        Assert.assertEquals(
+            "knuthMorrisPratt(\"ABCDEFGHIJKLMNOP\") . end",
+            de.unkrig.lfr.core.Pattern.compile(regex).sequenceToString()
+        );
+
         Producer<String> sp = randomSubjectProducer(infix);
-
-//        // Verify that the "long literal string" optimization has NOT taken place yet.
-//        Assert.assertFalse(classIsLoaded("de.unkrig.commons.lang.StringUtil$6"));
-
         for (int i = 0; i < 1000; i++) {
-            OracleEssentials.harnessFull(infix, AssertionUtil.notNull(sp.produce()));
+            OracleEssentials.harnessFull(regex, AssertionUtil.notNull(sp.produce()));
         }
-
-//        // Verify that the "long literal string" optimization HAS taken place now.
-//        Assert.assertTrue(classIsLoaded("de.unkrig.commons.lang.StringUtil$6"));
     }
 
     private static Producer<String>
@@ -327,6 +327,9 @@ class PatternTest {
         OracleEssentials.harnessFull("(?<=\\R )a", " \r\n a ");
         OracleEssentials.harnessFull("(?<=\\R )a", " \r a ");
         OracleEssentials.harnessFull("(?<=\\R )a", " \n a ");
+
+        OracleEssentials.harnessFull("(?<=^\t*)\t", "\t\t\tpublic static void main()");
+        harnessReplaceAll("(?<=^\\s*)    ", "        public static void main()", "\t");
     }
 
     @Test @SuppressWarnings("static-method") public void
@@ -411,18 +414,18 @@ class PatternTest {
 
         String infix = "ABCDEFGHIJKLMNOP";
 
+        String regex = ".*" + infix;
+
+        assertSequenceToString(
+            "greedyQuantifier(negate(lineBreakCharacter), min=0, max=infinite) . knuthMorrisPratt(\"ABCDEFGHIJKLMNOP\") . end", // SUPPRESS CHECKSTYLE LineLength
+            regex
+        );
+
         Producer<String> rsp = randomSubjectProducer(infix);
-
-//        // Verify that the "long literal string" optimization has NOT taken place yet.
-//        Assert.assertFalse(classIsLoaded("de.unkrig.lfr.core.Pattern$5$1"));
-
         for (int i = 0; i < 1000; i++) {
             String subject = AssertionUtil.notNull(rsp.produce());
-            harnessMatches(".*" + infix, subject, java.util.regex.Pattern.DOTALL);
+            harnessMatches(regex, subject, java.util.regex.Pattern.DOTALL);
         }
-
-//        // Verify that the "long literal string" optimization HAS taken place now.
-//        Assert.assertTrue(classIsLoaded("de.unkrig.lfr.core.Pattern$5$1"));
     }
 
     @Test @SuppressWarnings("static-method") public void
@@ -432,15 +435,14 @@ class PatternTest {
 
         Producer<String> rsp = randomSubjectProducer(infix);
 
-//        // Verify that the "long literal string" optimization has NOT taken place yet.
-//        Assert.assertFalse(classIsLoaded("de.unkrig.lfr.core.Pattern$5$1"));
+        Assert.assertEquals(
+            "knuthMorrisPratt(\"ABCDEFGHIJKLMNOP\") . end",
+            de.unkrig.lfr.core.Pattern.compile(infix).sequenceToString()
+        );
 
         for (int i = 0; i < 1000; i++) {
             harnessMatches(".*?" + infix, AssertionUtil.notNull(rsp.produce()), java.util.regex.Pattern.DOTALL);
         }
-
-//        // Verify that the "long literal string" optimization HAS taken place now.
-//        Assert.assertTrue(classIsLoaded("de.unkrig.lfr.core.Pattern$5$1"));
     }
 
     @Test @SuppressWarnings("static-method") public void
@@ -610,12 +612,59 @@ class PatternTest {
 
     @Test @SuppressWarnings("static-method") public void
     testReplaceAll() {
-        PatternTest.harnessReplaceAll("(a)b", " ababaabaaaba ", "$1+", 0);
+        PatternTest.harnessReplaceAll("(a)b", " ababaabaaaba ", "$1+");
     }
 
     @Test @SuppressWarnings("static-method") public void
     testReplaceFirst() {
-        PatternTest.harnessReplaceFirst("(a)b", " ababaabaaaba ", "$1+", 0);
+        PatternTest.harnessReplaceFirst("(a)b", " ababaabaaaba ", "$1+");
+    }
+
+    @Test @SuppressWarnings("static-method") public void
+    testOptimizations() {
+        assertSequenceToString("'A' . end", "A");
+
+        assertSequenceToString(
+            "'A' . greedyQuantifier(negate(lineBreakCharacter), min=0, max=infinite) . 'B' . end",
+            "A.*B"
+        );
+
+        assertSequenceToString(
+            "'A' . greedyQuantifier(negate(lineBreakCharacter), min=0, max=infinite) . naive(\"BC\") . end",
+            "A.*BC"
+        );
+
+        assertSequenceToString(
+            "'A' . greedyQuantifierAnyChar(min=0, max=infinite, ls=naive(\"BC\")) . end",
+            "A.*BC",
+            de.unkrig.lfr.core.Pattern.DOTALL
+        );
+
+        assertSequenceToString(
+            "'A' . reluctantQuantifierSequence(anyCharacter, min=0, max=infinite, ls=naive(\"BC\")) . end",
+            "A.*?BC",
+            de.unkrig.lfr.core.Pattern.DOTALL
+        );
+
+        assertSequenceToString(
+            "'A' . possessiveQuantifierSequenceOfAnyChar(min=0, max=infinite) . naive(\"BC\") . end",
+            "A.*+BC",
+            de.unkrig.lfr.core.Pattern.DOTALL
+        );
+
+        // Naive string search, because the string literal is only 14 characters long.
+        assertSequenceToString(
+            "'A' . greedyQuantifierAnyChar(min=0, max=infinite, ls=naive(\"abcdefghijklmno\")) . end",
+            "A.*abcdefghijklmno",
+            de.unkrig.lfr.core.Pattern.DOTALL
+        );
+
+        // Knuth-Morris-Pratt string search, because the string literal is 15 characters long.
+        assertSequenceToString(
+            "'A' . greedyQuantifierAnyChar(min=0, max=infinite, ls=knuthMorrisPratt(\"abcdefghijklmnop\")) . end",
+            "A.*abcdefghijklmnop",
+            de.unkrig.lfr.core.Pattern.DOTALL
+        );
     }
 
     // ===================================
@@ -659,6 +708,11 @@ class PatternTest {
     }
 
     private static void
+    harnessReplaceAll(final String regex, final String subject, final String replacement) {
+        harnessReplaceAll(regex, subject, replacement, 0);
+    }
+
+    private static void
     harnessReplaceAll(final String regex, final String subject, final String replacement, int flags) {
 
         RegexTest rt = new RegexTest(regex);
@@ -678,6 +732,11 @@ class PatternTest {
                 );
             }
         });
+    }
+
+    private static void
+    harnessReplaceFirst(final String regex, final String subject, final String replacement) {
+        harnessReplaceFirst(regex, subject, replacement, 0);
     }
 
     private static void
@@ -702,6 +761,16 @@ class PatternTest {
         });
     }
 
+    private static void
+    assertSequenceToString(String expected, String regex) {
+        assertSequenceToString(expected, regex, 0);
+    }
+
+    private static void
+    assertSequenceToString(String expected, String regex, int flags) {
+        Assert.assertEquals(expected, de.unkrig.lfr.core.Pattern.compile(regex, flags).sequenceToString());
+    }
+
     // =====================================
 
     private static char
@@ -714,24 +783,5 @@ class PatternTest {
     lowSurrogateOf(int codepoint) {
         if (codepoint < 0x10000 || codepoint > 0x10FFFF) throw new IllegalArgumentException();
         return (char) (((codepoint - 0x10000) & 0x3ff) + 0xDC00);
-    }
-
-    private static boolean
-    classIsLoaded(String className) {
-
-        try {
-            return FIND_LOADED_CLASS.invoke(ClassLoader.getSystemClassLoader(), className) != null;
-        } catch (Exception e) {
-            throw new AssertionError(e);
-        }
-    }
-    private static final java.lang.reflect.Method FIND_LOADED_CLASS;
-    static {
-        try {
-            FIND_LOADED_CLASS = ClassLoader.class.getDeclaredMethod("findLoadedClass", String.class);
-            FIND_LOADED_CLASS.setAccessible(true);
-        } catch (Exception e) {
-            throw new ExceptionInInitializerError(e);
-        }
     }
 }

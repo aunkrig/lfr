@@ -50,4 +50,6 @@ class AbstractSequence implements Sequence {
         matcher.hitEnd = true;
         return false;
     }
+
+    @Override public abstract String toString();
 }
