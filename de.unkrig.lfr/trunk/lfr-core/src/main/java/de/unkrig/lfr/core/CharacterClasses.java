@@ -30,7 +30,7 @@ import de.unkrig.commons.lang.Characters;
 import de.unkrig.commons.lang.protocol.Predicate;
 
 /**
- * Classes and utility methods related to {@link CharacterClass}es.
+ * Utility methods that create all kinds of {@link CharacterClass}es.
  */
 final
 class CharacterClasses {
@@ -90,7 +90,7 @@ class CharacterClasses {
      * Delegates to an {@link Predicate Predicate&lt;Integer>}, where the subject is the character's code point.
      */
     public static CharacterClass
-    characterClass(final Predicate<Integer> predicate, final String toString) {
+    characterClass(final Predicate<Integer> predicate) {
 
         return new CharacterClass() {
             @Override public boolean evaluate(int subject) { return predicate.evaluate(subject);   }
@@ -234,14 +234,8 @@ class CharacterClasses {
 
     /**  An (ASCII) digit: [0-9] */
     public static CharacterClass
-    isDigit(boolean unicode) {
-
-        if (unicode) return CharacterClasses.characterClass(Characters.IS_UNICODE_DIGIT, "\\d");
-
-        return new CharacterClass() {
-            @Override public boolean evaluate(int subject) { return subject >= '0' && subject <= '9'; }
-            @Override public String  toString()            { return "digit . " + this.next;           }
-        };
+    digit(boolean unicode) {
+        return CharacterClasses.characterClass(unicode ? Characters.IS_UNICODE_DIGIT : Characters.IS_DIGIT);
     }
 
     /**
@@ -265,69 +259,29 @@ class CharacterClasses {
      * <code>[ \t\xA0&#92;u1680&#92;u180e&#92;u2000-&#92;u200a&#92;u202f&#92;u205f&#92;u3000]</code>
      */
     public static CharacterClass
-    isHorizontalWhitespace() {
-
-        return new CharacterClass() {
-
-            @Override public boolean
-            evaluate(int subject) {
-                return (
-                    "\t\u00A0\u1680\u180e\u202f\u205f\u3000".indexOf(subject) != -1
-                    || (subject >= '\u2000' && subject <= '\u200a')
-                );
-            }
-
-            @Override public String
-            toString() { return "horizontalWhitespace . " + this.next; }
-        };
+    horizontalWhitespace() {
+        return CharacterClasses.characterClass(Characters.IS_HORIZONTAL_WHITESPACE);
     }
 
     /**  A whitespace character: [ \t\n\x0B\f\r] */
     public static CharacterClass
-    isWhitespace(boolean unicode) {
+    whitespace(boolean unicode) {
 
-        if (unicode) return CharacterClasses.characterClass(Characters.IS_UNICODE_WHITE_SPACE, "\\s");
-
-        return CharacterClasses.oneOf(Pattern.WHITESPACE_CHARACTERS);
+        return (
+            unicode
+            ? CharacterClasses.characterClass(Characters.IS_UNICODE_WHITE_SPACE)
+            : CharacterClasses.oneOf(" \t\n\u000B\f\r")
+        );
     }
 
     /**  A vertical whitespace character: [\n\x0B\f\r\x85/u2028/u2029] */
     public static CharacterClass
-    isVerticalWhitespace() { return CharacterClasses.oneOf(Pattern.VERTICAL_WHITESPACE_CHARACTERS); }
+    verticalWhitespace() { return CharacterClasses.oneOf("\r\n\u000B\f\u0085\u2028\u2029"); }
 
     /**  A word character: [a-zA-Z_0-9] */
     public static CharacterClass
-    isWord(final boolean unicode) {
-
-        return new CharacterClass() {
-
-            @Override public boolean
-            evaluate(int subject) {
-
-                if (unicode) {
-                    int type = Character.getType(subject);
-                    return (
-                        type == Character.UPPERCASE_LETTER
-                        || type == Character.LOWERCASE_LETTER
-                        || type == Character.TITLECASE_LETTER
-                        || type == Character.MODIFIER_LETTER
-                        || type == Character.OTHER_LETTER
-                        || type == Character.LETTER_NUMBER
-                        || type == Character.NON_SPACING_MARK
-                        || type == Character.ENCLOSING_MARK
-                        || type == Character.COMBINING_SPACING_MARK
-                        || Character.isDigit(subject)
-                        || type == Character.CONNECTOR_PUNCTUATION
-                        // || join_control  -- What is that??
-                    );
-                }
-
-                return Sequences.isWordCharacter(subject);
-            }
-
-            @Override public String
-            toString() { return "wordCharacter . " + this.next;  }
-        };
+    word(final boolean unicode) {
+        return CharacterClasses.characterClass(unicode ? Characters.IS_UNICODE_WORD : Characters.IS_WORD);
     }
 
     /**

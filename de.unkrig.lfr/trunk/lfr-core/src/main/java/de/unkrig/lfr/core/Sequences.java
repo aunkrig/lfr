@@ -28,17 +28,21 @@ package de.unkrig.lfr.core;
 
 import java.util.Arrays;
 
+import de.unkrig.commons.lang.Characters;
 import de.unkrig.commons.lang.StringUtil;
 import de.unkrig.commons.lang.StringUtil.IndexOf;
 import de.unkrig.commons.nullanalysis.Nullable;
 
 /**
- * Classes and methods related to {@link Sequence}s.
+ * Methods that create all kinds of {@link Sequence}s.
  */
-final
+public final
 class Sequences {
 
     private Sequences() {}
+
+    public static final String LINE_BREAK_CHARACTERS      = "\r\n\u000B\f\u0085\u2028\u2029";
+    public static final String UNIX_LINE_BREAK_CHARACTERS = "\n";
 
     /**
      * Matches the empty string, and is the last element of any {@link LinkedAbstractSequence} chain.
@@ -697,6 +701,9 @@ class Sequences {
 
     /**
      * Implements {@code "^"} with MULTILINE.
+     *
+     * @param lineBreakCharacters All characters that are recognized line breaks; often {@value
+     *                            #LINE_BREAK_CHARACTERS} or {@link #UNIX_LINE_BREAK_CHARACTERS}
      */
     public static Sequence
     beginningOfLine(final String lineBreakCharacters) {
@@ -812,6 +819,9 @@ class Sequences {
 
     /**
      * Implements {@code "$"} with MULTILINE.
+     *
+     * @param lineBreakCharacters All characters that are recognized line breaks; often {@value
+     *                            #LINE_BREAK_CHARACTERS} or {@link #UNIX_LINE_BREAK_CHARACTERS}
      */
     public static Sequence
     endOfLine(final String lineBreakCharacters) {
@@ -845,6 +855,52 @@ class Sequences {
     }
 
     /**
+     * A sequence that matches a linebreak; implements {@code "\R"}.
+     */
+    public static Sequence
+    linebreakSequence() {
+
+        return new LinkedAbstractSequence() {
+
+            char c1 = '\r', c2 = '\n';
+
+            @Override public int
+            matches(MatcherImpl matcher, int offset) {
+
+                if (offset >= matcher.regionEnd) return -1;
+
+                char c = matcher.charAt(offset);
+
+                // Check for linebreak characters in a highly optimized manner.
+                if (c <= 0x0d) {
+                    if (c == this.c1 && offset < matcher.regionEnd - 1 && matcher.charAt(offset + 1) == this.c2) {
+                        return this.next.matches(matcher, offset + 2);
+                    }
+                    return c >= 0x0a ? this.next.matches(matcher, offset + 1) : -1;
+                }
+
+                if (c == 0x85 || c == 0x2028 || c == 0x2029) {
+                    return this.next.matches(matcher, offset + 1);
+                }
+
+                return -1;
+            }
+
+            @Override public Sequence
+            reverse() {
+                char tmp = this.c1;
+                this.c1 = this.c2;
+                this.c2 = tmp;
+                return super.reverse();
+            }
+
+
+            @Override public String
+            toString() { return "linebreak"; }
+        };
+    }
+
+    /**
      * Implements {@code "\b"}, and, negated, {@code "\B"}.
      */
     public static Sequence
@@ -859,14 +915,14 @@ class Sequences {
                     matcher.hitEnd     = true;
                     matcher.requireEnd = true;
                     if (offset == matcher.transparentRegionStart) return -1; // Zero-length region.
-                    if (!Sequences.isWordCharacter(matcher.charAt(offset - 1))) return -1;
+                    if (!Characters.isWordCharacter(matcher.charAt(offset - 1))) return -1;
                 } else
                 if (offset <= matcher.transparentRegionStart) {
-                    if (!Sequences.isWordCharacter(matcher.charAt(offset))) return -1;
+                    if (!Characters.isWordCharacter(matcher.charAt(offset))) return -1;
                 } else
                 if (
-                    Sequences.isWordCharacter(matcher.charAt(offset - 1))
-                    == Sequences.isWordCharacter(matcher.charAt(offset))
+                    Characters.isWordCharacter(matcher.charAt(offset - 1))
+                    == Characters.isWordCharacter(matcher.charAt(offset))
                 ) {
                     return -1;
                 }
@@ -1088,7 +1144,7 @@ class Sequences {
      * Implements a greedy quantifier on an "any char" operand, followed by a literal String, e.g. ".*ABC" or
      * ".{3,17}ABC".
      */
-    public static AbstractSequence
+    public static Sequence
     greedyQuantifierAnyCharLiteralString(final String ls, final int min, final int max) {
 
         return new LinkedAbstractSequence() {
@@ -1187,18 +1243,6 @@ class Sequences {
         };
     }
 
-    /**
-     * @return Whether the given character is a "word character" in the sense of the "\b" pattern
-     */
-    public static boolean
-    isWordCharacter(int c) {
-        return (
-            (c >= 'a' && c <= 'z')
-            || (c >= 'A' && c <= 'Z')
-            || (c >= '0' && c <= '9')
-            || c == '_'
-        );
-    }
 
     private static String
     maxToString(int n) { return n == Integer.MAX_VALUE ? "infinite" : Integer.toString(n); }
