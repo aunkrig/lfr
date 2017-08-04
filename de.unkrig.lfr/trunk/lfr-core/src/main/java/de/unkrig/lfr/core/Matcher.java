@@ -62,7 +62,7 @@ interface Matcher extends java.util.regex.MatchResult {
     Matcher reset(CharSequence input);
 
     /**
-     * @see MatchResult#start()
+     * @see java.util.regex.MatchResult#start()
      * @see java.util.regex.Matcher#start()
      */
     @Override int start();
@@ -73,19 +73,19 @@ interface Matcher extends java.util.regex.MatchResult {
     int start(String name);
 
     /**
-     * @see MatchResult#start(int)
+     * @see java.util.regex.MatchResult#start(int)
      * @see java.util.regex.Matcher#start(int)
      */
     @Override int start(int group);
 
     /**
-     * @see MatchResult#end()
+     * @see java.util.regex.MatchResult#end()
      * @see java.util.regex.Matcher#end()
      */
     @Override int end();
 
     /**
-     * @see MatchResult#end(int)
+     * @see java.util.regex.MatchResult#end(int)
      * @see java.util.regex.Matcher#end(int)
      */
     @Override int end(int group);
@@ -96,13 +96,13 @@ interface Matcher extends java.util.regex.MatchResult {
     int end(String name);
 
     /**
-     * @see MatchResult#group()
+     * @see java.util.regex.MatchResult#group()
      * @see java.util.regex.Matcher#group()
      */
     @Override @Nullable String group();
 
     /**
-     * @see MatchResult#group(int)
+     * @see java.util.regex.MatchResult#group(int)
      * @see java.util.regex.Matcher#group(int)
      */
     @Override @Nullable String group(int group);
@@ -113,7 +113,7 @@ interface Matcher extends java.util.regex.MatchResult {
     @Nullable String group(String name);
 
     /**
-     * @see MatchResult#groupCount()
+     * @see java.util.regex.MatchResult#groupCount()
      * @see java.util.regex.Matcher#groupCount()
      */
     @Override int groupCount();
@@ -146,7 +146,7 @@ interface Matcher extends java.util.regex.MatchResult {
 
     /**
      * @param appendable Must not throw any {@link IOException}s
-     * @see              java.util.regex.Matcher#appendReplacement(StrigBuffer, String)
+     * @see              java.util.regex.Matcher#appendReplacement(StringBuffer, String)
      */
     Matcher appendReplacement(Appendable appendable, String replacement);
 
