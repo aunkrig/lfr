@@ -1,5 +1,4 @@
-# lfr
-Lightning-fast regular expressions
+# Lightning-fast Regular Expressions
 
 Lightning-fast Regular Expressions ("LFR") is a 99%-complete reimplementation of <code>java.util.regex</code> ("JUR") with better <code>match()</code> and <code>find()</code> performance. Yet the design is much cleaner and easier to understand and extend (only 3,300 LOC compared to 7,850 in JRE 8).
 
@@ -7,96 +6,63 @@ Lightning-fast Regular Expressions ("LFR") is a 99%-complete reimplementation of
   
 ### FUNCTIONAL DIFFERENCES
   
-
 All features of JUR are available and functionally identical, except for the following differences:
 
-  <dl>
-    <dt>(-)</dt><dd>
-      <code>Pattern.CANON_EQ</code> is not implemented (a really obscure, hopefully rarely used feature). You get an
-      <code>IllegalArgumentException</code> when you invoke LFR <code>Pattern.compile()</code> with this flag.
-    </dd>
+Minus:
 
-    <dt>(-)</dt><dd>
-      Unicode scripts (e.g. <code>"\p{IsLatin}"</code>) are <em>not</em> implemented. All other Unicode character
-      classes (blocks, categories and properties) <em>are</em> supported.
-    </dd>
+* <dd><code>Pattern.CANON_EQ</code> (a really obscure, hopefully rarely used feature) is not implemented. You get an <code>IllegalArgumentException</code> when you invoke LFR <code>Pattern.compile()</code> with this flag.
 
-    <dt>(-)</dt><dd>
-      In a few, obscure cases, LFR <code>Matcher.hitEnd()</code> produces different results; to me it seems that the
-      JUR implementation is buggy.
-    </dd>
+* Unicode scripts (e.g. <code>"\p{IsLatin}"</code>) are <em>not</em> implemented. All other Unicode character classes (blocks, categories and properties) <em>are</em> supported.
 
-    <dt>(-)</dt><dd>
-      Because the LFR <code>Matcher</code> is an <em>interface</em> (as opposed to JUR, where it is a class), it cannot
-      reeimplement the static method <code>quoteReplacement()</code>; you'd have to use the JUR method instead.
-    </dd>
+* In a few, obscure cases, LFR <code>Matcher.hitEnd()</code> produces different results; to me it seems that the JUR implementation is buggy.
 
-    <dt>(*)</dt><dd>
-      JUR compiles invalid back references (e.g. "\9" if there are less than 9 capturing groups) without an error and
-      treats them as "no match" when evaluated, while LFR throws a <code>PatternSyntaxException</code> at compile time.
-    </dd>
+* Because the LFR <code>Matcher</code> is an <em>interface</em> (as opposed to JUR, where it is a class), it cannot reeimplement the static method <code>quoteReplacement()</code>; you'd have to use the JUR method instead.
 
-    <dt>(+)</dt><dd>
-      Lookbehinds are no longer limited to fixed-length expressions.
-    </dd>
-  </dl>
-  
+Neutral:
+
+* JUR compiles invalid back references (e.g. <code>"\9"</code> if there are less than 9 capturing groups) without an error and treats them as "no match" when evaluated, while LFR throws a <code>PatternSyntaxException</code> at compile time.
+
+Plus:
+
+* Lookbehinds are no longer limited to fixed-length expressions.
+
 ### API DIFFERENCES
 
 Classes <code>Pattern</code> and <code>Matcher</code> were duplicated from JUR to LFR with identical fields and methods. The JUR <code>MatchResult</code> and <code>PatternSyntaxException</code> were re-used instead of being duplicated.
 
 There are the following differences in the API:
+
+Plus:
+
+* The LFR <code>Matcher</code> has additional methods <code>hitStart()</code> and <code>requireStart()</code>, as counterparts for the <code>hit/requireEnd()</code> methods (useful for regexes with lookbehinds).
+
+* The LFR <code>Pattern</code> interface has an additional method <code>matches(CharSequence subject, int offset)</code>, which is particularly fast because it does not expose the <code>Matcher</code> and can thus save some overhead.
+
+* The LFR <code>Pattern</code> interface has an additional method <code>sequenceToString()</code> which returns a human-readable form of the compiled regex. For example, <code>compile("A.*abcdefghijklmnop", DOTALL).sequenceToString()</code> returns
+
+  &nbsp;&nbsp;&nbsp;<code>'A' . greedyQuantifierAnyChar(min=0, max=infinite, ls=knuthMorrisPratt("abcdefghijklmnop")) . end</code>
   
-  <dl>
-    <dt>(+)</dt><dd>
-      The LFR <code>Matcher</code> has additional methods <code>hitStart()</code> and <code>requireStart()</code>, as
-      counterparts for the <code>hit/requireEnd()</code> methods (useful for regexes with lookbehinds).
-    </dd>
-    
-    <dt>(+)</dt><dd>
-      The LFR <code>Pattern</code> interface has an additional method <code>matches(CharSequence subject, int
-      offset)</code>, which is particularly fast because it does not expose the <code>Matcher</code> and can thus save
-      some overhead.
-    </dd>
-    
-    <dt>(+)</dt><dd>
-      The LFR <code>Pattern</code> interface has an additional method <code>sequenceToString()</code> which returns a
-      human-readable form of the compiled regex, e.g. for <code>compile("A.*abcdefghijklmnop",
-      DOTALL).sequenceToString()</code> returns<br />
-      &nbsp;&nbsp;&nbsp;<code>'A' . greedyQuantifierAnyChar(min=0, max=infinite,
-      ls=knuthMorrisPratt("abcdefghijklmnop")) . end</code><br />
-      This is useful for testing how a regex compiled, and especially which optimizations have taken place.
-    </dd>
-  </dl>
+  This is useful for testing how a regex compiled, and especially which optimizations have taken place.
 
 ## Performance
-  
-  <dl>
-    <dt>(-)</dt>
-    <dd>
-      Regex <em>compilation</em> performance was not measured and is probably much slower than JUR. There is surely a
-      lot of room for optimization in this aera, if someone needs it.
-    </dd>
-    
-    <dt>(+)</dt><dd>
-      Regex <em>evaluation</em> (<code>Matcher.matches()</code>, <code>find()</code>, <code>lookingAt()</code>, ...) is
-      roughly 30% faster than with JUR. This was measured with the LFR test case suite; other use cases (other regexes,
-      other subjects, other API calls, ...) may yield different results.
-    </dd>
-    
-    <dt>(+)</dt><dd>
-      LFR drastically improves the evaluation performance of the following special cases:
-      <ul>
-        <li>Patterns that start with 16 or more literal characters (for <code>Matcher.find()</code>)</li>
-        <li>
-          Patterns that contain a greedy or reluctant quantifier of ANY, followed by 16 or more literal characters;
-          e.g. "xxx.*ABCDEFGHIJKLMNOPxxx" or "xxx.{4,39}?ABCDEFGHIJKLMNOPxxx"
-        </li>
-        <li>Patterns that contain a possessive quantifier of ANY; e.g. "xxxA++xxx"</li>
-      </ul>
-      ("ANY" means the "." pattern, and the DOTALL flag being active.)
-    </dd>
-  </dl>
+
+Minus:
+
+* Regex <em>compilation</em> performance was not measured and is probably much slower than JUR. There is surely a lot of room for optimization in this aera, if someone needs it.
+
+Plus:
+
+* Regex <em>evaluation</em> (<code>Matcher.matches()</code>, <code>find()</code>, <code>lookingAt()</code>, ...) is roughly 30% faster than with JUR. This was measured with the LFR test case suite; other use cases (other regexes, other subjects, other API calls, ...) may yield different results.
+
+* LFR drastically improves the evaluation performance of the following special cases:
+
+  * Patterns that start with 16 or more literal characters (for <code>Matcher.find()</code>)
+
+  * Patterns that contain a greedy or reluctant quantifier of ANY, followed by 16 or more literal characters; e.g. <code>"xxx.*ABCDEFGHIJKLMNOPxxx"</code> or <code>"xxx.{4,39}?ABCDEFGHIJKLMNOPxxx"</code>
+
+  * Patterns that contain a possessive quantifier of ANY; e.g. <code>"xxxA++xxx"</code>
+
+  ("ANY" means the "." pattern, and the DOTALL flag being active.)
 
 ## License
 
