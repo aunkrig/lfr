@@ -1,0 +1,4 @@
+
+# The "lightening-fast regular expressions" implementation of de.unkrig.ref4j.PatternFactory:
+de.unkrig.lfr.core.PatternFactory
+de.unkrig.lfr.core.PatternFactory.instanceField = INSTANCE

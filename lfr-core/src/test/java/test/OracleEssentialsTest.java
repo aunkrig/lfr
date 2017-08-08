@@ -33,6 +33,8 @@ import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
+import de.unkrig.ref4j.Pattern;
+
 /**
  * This test case executes all the regex examples presented in <a
  * href="https://docs.oracle.com/javase/tutorial/essential/regex/index.html">Essential Classes: Lesson: Regular
@@ -217,7 +219,7 @@ class OracleEssentialsTest {
      */
     @Test @SuppressWarnings("static-method") public void
     testEmbeddedFlagExpressions() {
-        OracleEssentials.harnessFull("foo",     "FOOfooFoOfoO", de.unkrig.lfr.core.Pattern.CASE_INSENSITIVE);
+        OracleEssentials.harnessFull("foo",     "FOOfooFoOfoO", Pattern.CASE_INSENSITIVE);
         OracleEssentials.harnessFull("(?i)foo", "FOOfooFoOfoO");
         OracleEssentials.harnessFull("foo",     "FOOfooFoOfoO");
     }
@@ -228,7 +230,7 @@ class OracleEssentialsTest {
      */
     @Test @SuppressWarnings("static-method") public void
     testUsingTheMatchesMethod() {
-        Assert.assertTrue(de.unkrig.lfr.core.Pattern.matches("\\d", "1"));
+        Assert.assertTrue(OracleEssentials.LFR.matches("\\d", "1"));
     }
 
     /**
@@ -240,12 +242,12 @@ class OracleEssentialsTest {
 
         Assert.assertArrayEquals(
             new Object[] { "one", "two", "three", "four", "five" },
-            de.unkrig.lfr.core.Pattern.compile(":").split("one:two:three:four:five")
+            OracleEssentials.LFR.compile(":").split("one:two:three:four:five")
         );
 
         Assert.assertArrayEquals(
             new Object[] { "one", "two", "three", "four", "five" },
-            de.unkrig.lfr.core.Pattern.compile("\\d").split("one9two4three7four1five")
+            OracleEssentials.LFR.compile("\\d").split("one9two4three7four1five")
         );
     }
 }

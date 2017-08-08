@@ -33,6 +33,8 @@ import org.junit.Assert;
 import de.unkrig.commons.lang.AssertionUtil;
 import de.unkrig.commons.lang.protocol.Transformer;
 import de.unkrig.commons.nullanalysis.Nullable;
+import de.unkrig.ref4j.Matcher;
+import de.unkrig.ref4j.Pattern;
 
 public final
 class RegexTest {
@@ -45,8 +47,46 @@ class RegexTest {
         /**
          * @see #assertMatchers(java.util.regex.Matcher, de.unkrig.lfr.core.Matcher)
          */
-        void assertMatchers(java.util.regex.Matcher matcher1, de.unkrig.lfr.core.Matcher matcher2);
+        void assertMatchers(Matcher matcher1, Matcher matcher2);
     }
+
+    public static final MatcherAssertion
+    ASSERT_LOOKING_AT = new MatcherAssertion() {
+
+        @Override public void
+        assertMatchers(Matcher expected, Matcher actual) {
+            Assert.assertEquals("lookingAt()", expected.lookingAt(), actual.lookingAt());
+        }
+    };
+
+    public static final MatcherAssertion
+    ASSERT_MATCHES = new MatcherAssertion() {
+
+        @Override public void
+        assertMatchers(Matcher expected, Matcher actual) {
+            Assert.assertEquals("matches()", expected.matches(), actual.matches());
+        }
+    };
+
+    public static final MatcherAssertion ASSERT_FIND = new MatcherAssertion() {
+
+        @Override public void
+        assertMatchers(Matcher expected, Matcher actual) {
+
+            int matchCount;
+            for (matchCount = 0;; matchCount++) {
+                String message2 = "Pattern \"" + expected.pattern() + "\", Match #" + (matchCount + 1);
+
+                boolean found1 = expected.find();
+                boolean found2 = actual.find();
+                Assert.assertEquals(message2 + ", find()", found1, found2);
+
+                if (!found1 || !found2) break;
+
+                RegexTest.ASSERT_EQUAL_STATE.assertMatchers(expected, actual);
+            }
+        }
+    };
 
     /**
      * Whether this running JVM is 1.6.
@@ -112,7 +152,7 @@ class RegexTest {
     patternSyntaxExceptionJur() {
 
         // Ignore tests that use constructs that are not supported by java.util.regex.
-        if (regexUsesFeatureNotSupportedByJur(this.regex)) return;
+        if (RegexTest.regexUsesFeatureNotSupportedByJur(this.regex)) return;
 
         try {
             if (this.flags != null) {
@@ -131,9 +171,9 @@ class RegexTest {
 
         try {
             if (this.flags != null) {
-                de.unkrig.lfr.core.Pattern.compile(this.regex, this.flags);
+                OracleEssentials.LFR.compile(this.regex, this.flags);
             } else {
-                de.unkrig.lfr.core.Pattern.compile(this.regex);
+                OracleEssentials.LFR.compile(this.regex);
             }
             Assert.fail("LFR did not throw a PatternSyntaxException");
         } catch (PatternSyntaxException pse) {
@@ -151,27 +191,25 @@ class RegexTest {
     assertMatchers(String subject, MatcherAssertion matcherAssertion) {
 
         // Ignore tests that use constructs that are not supported by java.util.regex.
-        if (regexUsesFeatureNotSupportedByJur(this.regex)) return;
+        if (RegexTest.regexUsesFeatureNotSupportedByJur(this.regex)) return;
 
-        final java.util.regex.Pattern pattern1 = (
+        final Pattern pattern1 = (
             this.flags != null
-            ? java.util.regex.Pattern.compile(this.regex, this.flags)
-            : java.util.regex.Pattern.compile(this.regex)
+            ? OracleEssentials.JUR.compile(this.regex, this.flags)
+            : OracleEssentials.JUR.compile(this.regex)
         );
 
-        final de.unkrig.lfr.core.Pattern pattern2 = (
+        final Pattern pattern2 = (
             this.flags != null
-            ? de.unkrig.lfr.core.Pattern.compile(this.regex, this.flags)
-            : de.unkrig.lfr.core.Pattern.compile(this.regex)
+            ? OracleEssentials.LFR.compile(this.regex, this.flags)
+            : OracleEssentials.LFR.compile(this.regex)
         );
-
-        final String message = "regex=\"" + this.regex + "\", subject=\"" + subject + "\"";
 
         // FUNCTIONAL tests (as opposed to PERFORMANCE testing).
 
         // Set up the matchers.
-        java.util.regex.Matcher    matcher1 = pattern1.matcher(subject);
-        de.unkrig.lfr.core.Matcher matcher2 = pattern2.matcher(subject);
+        Matcher matcher1 = pattern1.matcher(subject);
+        Matcher matcher2 = pattern2.matcher(subject);
 
         {
             Boolean tb = this.transparentBounds;
@@ -199,20 +237,20 @@ class RegexTest {
 
         matcherAssertion.assertMatchers(matcher1, matcher2);
 
-        OracleEssentials.assertEqualState(message, matcher1, matcher2);
+        RegexTest.ASSERT_EQUAL_STATE.assertMatchers(matcher1, matcher2);
     }
 
     private static boolean
     regexUsesFeatureNotSupportedByJur(String regex) {
 
-        if (IS_JAVA_6 && ( // Java 6 doesn't support...
+        if (RegexTest.IS_JAVA_6 && ( // Java 6 doesn't support...
             regex.contains("(?U")                    // ... the "U" flag (Pattern.UNICODE_CHARACTER_CLASS)
             || regex.matches(".*\\( ?\\?<\\s*\\w.*") // ... named capturing groups
             || regex.contains("\\R")                 // ... the linebreak matcher
             || regex.contains("\\p{Is")              // ... UNICODE properties
         )) return true;
 
-        if (IS_JAVA_7 && ( // Java 7 doesn't support...
+        if (RegexTest.IS_JAVA_7 && ( // Java 7 doesn't support...
             regex.contains("\\R")                    // ... the linebreak matcher
         )) return true;
 
@@ -227,19 +265,19 @@ class RegexTest {
      */
     public <T> void
     assertEqual(
-        String                                           subject,
-        final Transformer<java.util.regex.Matcher, T>    transformer1,
-        final Transformer<de.unkrig.lfr.core.Matcher, T> transformer2
+        String                        subject,
+        final Transformer<Matcher, T> transformer1,
+        final Transformer<Matcher, T> transformer2
     ) {
         this.assertMatchers(subject, new MatcherAssertion() {
 
             @Override public void
-            assertMatchers(java.util.regex.Matcher matcher1, de.unkrig.lfr.core.Matcher matcher2) {
+            assertMatchers(Matcher expected, Matcher actual) {
 
                 T         result1;
                 Exception exception1;
                 try {
-                    result1    = transformer1.transform(matcher1);
+                    result1    = transformer1.transform(expected);
                     exception1 = null;
                 } catch (Exception e) {
                     result1    = null;
@@ -249,7 +287,7 @@ class RegexTest {
                 T         result2;
                 Exception exception2;
                 try {
-                    result2    = transformer2.transform(matcher2);
+                    result2    = transformer2.transform(actual);
                     exception2 = null;
                 } catch (Exception e) {
                     result2    = null;
@@ -269,4 +307,54 @@ class RegexTest {
             }
         });
     }
+
+    public static final MatcherAssertion
+    ASSERT_EQUAL_STATE = new MatcherAssertion() {
+
+        @Override public void
+        assertMatchers(Matcher expected, Matcher actual) {
+
+            boolean hasMatch1;
+            try {
+                hasMatch1 = expected.group() != null;
+            } catch (IllegalStateException ise) {
+                hasMatch1 = false;
+            }
+
+            boolean hasMatch2;
+            try {
+                hasMatch2 = actual.group() != null;
+            } catch (IllegalStateException ise) {
+                hasMatch2 = false;
+            }
+
+            Assert.assertEquals(expected + "/" + actual + ": hasMatch", hasMatch1, hasMatch2);
+
+            if (hasMatch1) {
+
+                Assert.assertEquals("groupCount()", expected.groupCount(), actual.groupCount());
+
+                for (int i = 0; i <= expected.groupCount(); i++) {
+
+                    int start1 = expected.start(i);
+                    int start2 = actual.start(i);
+                    Assert.assertEquals("start(" + i + ")", start1, start2);
+
+                    int end1 = expected.end(i);
+                    int end2 = actual.end(i);
+                    Assert.assertEquals("end(" + i + ")", end1, end2);
+
+                    String group1 = expected.group(i);
+                    String group2 = actual.group(i);
+                    Assert.assertEquals("group(" + i + ")", group1, group2);
+                }
+
+                Assert.assertEquals("requireEnd()", expected.requireEnd(), actual.requireEnd());
+            }
+
+            boolean hitEnd1 = expected.hitEnd();
+            boolean hitEnd2 = actual.hitEnd();
+            Assert.assertEquals("hitEnd()", hitEnd1, hitEnd2);
+        }
+    };
 }

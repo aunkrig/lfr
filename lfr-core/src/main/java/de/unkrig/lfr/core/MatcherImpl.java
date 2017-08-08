@@ -140,9 +140,9 @@ class MatcherImpl implements Matcher {
     pattern() { return this.pattern; }
 
     @Override public Matcher
-    usePattern(Pattern newPattern) {
-        this.pattern = newPattern;
-        this.groups  = (this.initialGroups = new int[2 + 2 * newPattern.groupCount]);
+    usePattern(de.unkrig.ref4j.Pattern newPattern) {
+        this.pattern = (Pattern) newPattern;
+        this.groups  = (this.initialGroups = new int[2 + 2 * this.pattern.groupCount]);
         Arrays.fill(this.groups, -1);
         return this;
     }
@@ -338,11 +338,6 @@ class MatcherImpl implements Matcher {
     @Override public boolean hasAnchoringBounds()   { return this.hasAnchoringBounds;   }
 
     // SEARCH/REPLACE LOGIC
-
-    @Override public String
-    quoteReplacement(String s) {
-        throw new AssertionError("Use \"java.util.regex.Matcher.quoteReplacement(String)\" instead");
-    }
 
     @Override public Matcher
     appendReplacement(Appendable appendable, String replacement) {

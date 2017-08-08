@@ -28,10 +28,6 @@
 
 package test;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
-
 import java.util.Random;
 
 import org.junit.AfterClass;
@@ -44,6 +40,8 @@ import de.unkrig.commons.lang.ObjectUtil;
 import de.unkrig.commons.lang.protocol.Producer;
 import de.unkrig.commons.lang.protocol.Transformer;
 import de.unkrig.commons.nullanalysis.Nullable;
+import de.unkrig.ref4j.Matcher;
+import de.unkrig.ref4j.Pattern;
 import test.RegexTest.MatcherAssertion;
 
 public
@@ -57,23 +55,23 @@ class PatternTest {
 
     @SuppressWarnings("static-method") @Test public void
     testMatches() {
-        harnessMatches("abc", "abc");
-        harnessMatches("abc", "abcxx");
-        harnessMatches("abc", "xxabc");
-        harnessMatches("a.c", "aBc");
-        harnessMatches("a.c", "aBcxx");
-        harnessMatches("a.*c", "axxxc");
-        harnessMatches("a.*c", "axxxcxxxc");
-        harnessMatches("a.*c", "axxx");
+        PatternTest.harnessMatches("abc", "abc");
+        PatternTest.harnessMatches("abc", "abcxx");
+        PatternTest.harnessMatches("abc", "xxabc");
+        PatternTest.harnessMatches("a.c", "aBc");
+        PatternTest.harnessMatches("a.c", "aBcxx");
+        PatternTest.harnessMatches("a.*c", "axxxc");
+        PatternTest.harnessMatches("a.*c", "axxxcxxxc");
+        PatternTest.harnessMatches("a.*c", "axxx");
     }
 
     @SuppressWarnings("static-method") @Test public void
     testLiteralOctals() {
-        harnessMatches("\\00xx",   "\0xx");
-        harnessMatches("\\01xx",   "\01xx");
-        harnessMatches("\\011xx",  "\011xx");
-        harnessMatches("\\0101xx",  "Axx");
-        harnessMatches("\\0111xx",  "\0111xx");
+        PatternTest.harnessMatches("\\00xx",   "\0xx");
+        PatternTest.harnessMatches("\\01xx",   "\01xx");
+        PatternTest.harnessMatches("\\011xx",  "\011xx");
+        PatternTest.harnessMatches("\\0101xx",  "Axx");
+        PatternTest.harnessMatches("\\0111xx",  "\0111xx");
     }
 
     @SuppressWarnings("static-method") @Test public void
@@ -85,10 +83,10 @@ class PatternTest {
 
         Assert.assertEquals(
             "knuthMorrisPratt(\"ABCDEFGHIJKLMNOP\") . end",
-            de.unkrig.lfr.core.Pattern.compile(regex).sequenceToString()
+            OracleEssentials.LFR.compile(regex).sequenceToString()
         );
 
-        Producer<String> sp = randomSubjectProducer(infix);
+        Producer<String> sp = PatternTest.randomSubjectProducer(infix);
         for (int i = 0; i < 1000; i++) {
             OracleEssentials.harnessFull(regex, AssertionUtil.notNull(sp.produce()));
         }
@@ -130,9 +128,9 @@ class PatternTest {
 
     @Test @SuppressWarnings("static-method") public void
     testLookingAt() {
-        harnessLookingAt("abc", "abcdef");
-        harnessLookingAt("aBc", "abcdef");
-        harnessLookingAt("a.c", "abcdef");
+        PatternTest.harnessLookingAt("abc", "abcdef");
+        PatternTest.harnessLookingAt("aBc", "abcdef");
+        PatternTest.harnessLookingAt("a.c", "abcdef");
     }
 
     @Test @SuppressWarnings("static-method") public void
@@ -140,8 +138,8 @@ class PatternTest {
         OracleEssentials.harnessFull("(?i)A", "xxxAxxx");
         OracleEssentials.harnessFull("(?i)A", "xxxaxxx");
         OracleEssentials.harnessFull("(?i)Ä", "xxxäxxx");
-        assertTrue(de.unkrig.lfr.core.Pattern.matches("(?i)Ä", "Ä"));
-        assertFalse(de.unkrig.lfr.core.Pattern.matches("(?i)Ä", "ä"));
+        Assert.assertTrue(OracleEssentials.LFR.matches("(?i)Ä", "Ä"));
+        Assert.assertFalse(OracleEssentials.LFR.matches("(?i)Ä", "ä"));
     }
 
     @Test @SuppressWarnings("static-method") public void
@@ -149,21 +147,21 @@ class PatternTest {
         OracleEssentials.harnessFull("(?ui)A", "xxxAxxx");
         OracleEssentials.harnessFull("(?ui)A", "xxxaxxx");
         OracleEssentials.harnessFull("(?ui)Ä", "xxxäxxx");
-        assertTrue(de.unkrig.lfr.core.Pattern.matches("(?ui)Ä", "Ä"));
-        assertTrue(de.unkrig.lfr.core.Pattern.matches("(?ui)Ä", "ä"));
+        Assert.assertTrue(OracleEssentials.LFR.matches("(?ui)Ä", "Ä"));
+        Assert.assertTrue(OracleEssentials.LFR.matches("(?ui)Ä", "ä"));
     }
 
     @Test @SuppressWarnings("static-method") public void
     testDotall() {
         OracleEssentials.harnessFull(".",     " \r  ");
-        OracleEssentials.harnessFull(".",     " \r  ", de.unkrig.lfr.core.Pattern.DOTALL);
+        OracleEssentials.harnessFull(".",     " \r  ", Pattern.DOTALL);
         OracleEssentials.harnessFull("(?s).", " \r  ");
     }
 
     @Test @SuppressWarnings("static-method") public void
     testLiteralRegex() {
-        OracleEssentials.harnessFull("$\\*", "$\\*xxx$\\*xxx", de.unkrig.lfr.core.Pattern.LITERAL);
-        OracleEssentials.harnessFull("a\\", "a\\xxxA\\xxx",    de.unkrig.lfr.core.Pattern.LITERAL | de.unkrig.lfr.core.Pattern.CASE_INSENSITIVE); // SUPPRESS CHECKSTYLE LineLength
+        OracleEssentials.harnessFull("$\\*", "$\\*xxx$\\*xxx", Pattern.LITERAL);
+        OracleEssentials.harnessFull("a\\", "a\\xxxA\\xxx",    Pattern.LITERAL | Pattern.CASE_INSENSITIVE); // SUPPRESS CHECKSTYLE LineLength
         OracleEssentials.harnessFull(".\\Q.\\E.", " ___ ");
         OracleEssentials.harnessFull(".\\Q.\\E.", " _._ ");
     }
@@ -172,8 +170,8 @@ class PatternTest {
     testBoundaries() {
         OracleEssentials.harnessFull("^.", "___\r___\r\n___\u2028___");
         OracleEssentials.harnessFull(".$", "___\r___\r\n___\u2028___");
-        OracleEssentials.harnessFull("^.", "___\r___\r\n___\u2028___", de.unkrig.lfr.core.Pattern.MULTILINE);
-        OracleEssentials.harnessFull(".$", "___\r___\r\n___\u2028___", de.unkrig.lfr.core.Pattern.MULTILINE);
+        OracleEssentials.harnessFull("^.", "___\r___\r\n___\u2028___", Pattern.MULTILINE);
+        OracleEssentials.harnessFull(".$", "___\r___\r\n___\u2028___", Pattern.MULTILINE);
         OracleEssentials.harnessFull("\\b",  " a b c");
         OracleEssentials.harnessFull("\\B",  " a b c");
         OracleEssentials.harnessFull("\\A",  "bla\rbla");
@@ -184,9 +182,9 @@ class PatternTest {
         OracleEssentials.harnessFull(".\\z", "abc\n");
 //        OracleEssentials.harnessFull(".\\z", "abc\r\nd"); JRE says !requireEnd !?
 
-        OracleEssentials.harnessFull(".", "abc",      de.unkrig.lfr.core.Pattern.MULTILINE);
-        OracleEssentials.harnessFull(".", "abc\n",    de.unkrig.lfr.core.Pattern.MULTILINE);
-        OracleEssentials.harnessFull(".", "abc\r\nd", de.unkrig.lfr.core.Pattern.MULTILINE);
+        OracleEssentials.harnessFull(".", "abc",      Pattern.MULTILINE);
+        OracleEssentials.harnessFull(".", "abc\n",    Pattern.MULTILINE);
+        OracleEssentials.harnessFull(".", "abc\r\nd", Pattern.MULTILINE);
     }
 
     @Test @SuppressWarnings("static-method") public void
@@ -275,18 +273,18 @@ class PatternTest {
     testNamedCapturingGroups() {
         OracleEssentials.harnessFull("(?<xxx>a+)", " a aa aaa");
 
-        de.unkrig.lfr.core.Matcher matcher = de.unkrig.lfr.core.Pattern.compile("(?<xxx>a+)").matcher(" a aa aaa");
+        Matcher matcher = OracleEssentials.LFR.compile("(?<xxx>a+)").matcher(" a aa aaa");
 
-        assertTrue(matcher.find());
-        assertEquals("a", matcher.group("xxx"));
+        Assert.assertTrue(matcher.find());
+        Assert.assertEquals("a", matcher.group("xxx"));
 
-        assertTrue(matcher.find());
-        assertEquals("aa", matcher.group("xxx"));
+        Assert.assertTrue(matcher.find());
+        Assert.assertEquals("aa", matcher.group("xxx"));
 
-        assertTrue(matcher.find());
-        assertEquals("aaa", matcher.group("xxx"));
+        Assert.assertTrue(matcher.find());
+        Assert.assertEquals("aaa", matcher.group("xxx"));
 
-        assertFalse(matcher.find());
+        Assert.assertFalse(matcher.find());
     }
 
     @Test @SuppressWarnings("static-method") public void
@@ -295,7 +293,7 @@ class PatternTest {
         // JUR compiles invalid group references ok, and treats them as "no match". DULC, however, is more accurate
         // and reports invalid group references already at COMPILE TIME.
         String regex = "(\\d\\d)\\2";
-        assertEquals("  12  ", java.util.regex.Pattern.compile(regex).matcher("  12  ").replaceAll("x"));
+        Assert.assertEquals("  12  ", java.util.regex.Pattern.compile(regex).matcher("  12  ").replaceAll("x"));
 
         new RegexTest(regex).patternSyntaxExceptionDulc();
     }
@@ -329,7 +327,7 @@ class PatternTest {
         OracleEssentials.harnessFull("(?<=\\R )a", " \n a ");
 
         OracleEssentials.harnessFull("(?<=^\t*)\t", "\t\t\tpublic static void main()");
-        harnessReplaceAll("(?<=^\\s*)    ", "        public static void main()", "\t");
+        PatternTest.harnessReplaceAll("(?<=^\\s*)    ", "        public static void main()", "\t");
     }
 
     @Test @SuppressWarnings("static-method") public void
@@ -372,9 +370,9 @@ class PatternTest {
     @Test @SuppressWarnings("static-method") public void
     testUnixLines() {
         OracleEssentials.harnessFull("\\R",  "  \n  \r\n \u2028 ");
-        OracleEssentials.harnessFull("\\R",  "  \n  \r\n \u2028 ", de.unkrig.lfr.core.Pattern.UNIX_LINES);
+        OracleEssentials.harnessFull("\\R",  "  \n  \r\n \u2028 ", Pattern.UNIX_LINES);
         OracleEssentials.harnessFull("^",    "  \n  \r\n \u2028 ");
-        OracleEssentials.harnessFull("^",    "  \n  \r\n \u2028 ", de.unkrig.lfr.core.Pattern.UNIX_LINES);
+        OracleEssentials.harnessFull("^",    "  \n  \r\n \u2028 ", Pattern.UNIX_LINES);
     }
 
     @Test @SuppressWarnings("static-method") public void
@@ -416,15 +414,15 @@ class PatternTest {
 
         String regex = ".*" + infix;
 
-        assertSequenceToString(
+        PatternTest.assertSequenceToString(
             "greedyQuantifier(negate(lineBreakCharacter), min=0, max=infinite) . knuthMorrisPratt(\"ABCDEFGHIJKLMNOP\") . end", // SUPPRESS CHECKSTYLE LineLength
             regex
         );
 
-        Producer<String> rsp = randomSubjectProducer(infix);
+        Producer<String> rsp = PatternTest.randomSubjectProducer(infix);
         for (int i = 0; i < 1000; i++) {
             String subject = AssertionUtil.notNull(rsp.produce());
-            harnessMatches(regex, subject, java.util.regex.Pattern.DOTALL);
+            PatternTest.harnessMatches(regex, subject, java.util.regex.Pattern.DOTALL);
         }
     }
 
@@ -433,23 +431,23 @@ class PatternTest {
 
         String infix = "ABCDEFGHIJKLMNOP";
 
-        Producer<String> rsp = randomSubjectProducer(infix);
+        Producer<String> rsp = PatternTest.randomSubjectProducer(infix);
 
         Assert.assertEquals(
             "knuthMorrisPratt(\"ABCDEFGHIJKLMNOP\") . end",
-            de.unkrig.lfr.core.Pattern.compile(infix).sequenceToString()
+            OracleEssentials.LFR.compile(infix).sequenceToString()
         );
 
         for (int i = 0; i < 1000; i++) {
-            harnessMatches(".*?" + infix, AssertionUtil.notNull(rsp.produce()), java.util.regex.Pattern.DOTALL);
+            PatternTest.harnessMatches(".*?" + infix, AssertionUtil.notNull(rsp.produce()), java.util.regex.Pattern.DOTALL);
         }
     }
 
     @Test @SuppressWarnings("static-method") public void
     testSurrogates() {
         int    clef              = 0x1d120;
-        char   clefHighSurrogate = highSurrogateOf(clef);
-        char   clefLowSurrogate  = lowSurrogateOf(clef);
+        char   clefHighSurrogate = PatternTest.highSurrogateOf(clef);
+        char   clefLowSurrogate  = PatternTest.lowSurrogateOf(clef);
         String clefUnicode       = "" + clefHighSurrogate + clefLowSurrogate;
 
         OracleEssentials.harnessFull(clefUnicode,       clefUnicode);
@@ -495,7 +493,7 @@ class PatternTest {
 
     @Test @SuppressWarnings("static-method") public void
     testComments() {
-        OracleEssentials.harnessFull(" a# comment \nb ",    " ab a# comment \nb", de.unkrig.lfr.core.Pattern.COMMENTS);
+        OracleEssentials.harnessFull(" a# comment \nb ",    " ab a# comment \nb", Pattern.COMMENTS);
         OracleEssentials.harnessFull("(?x)  a  ",           " a ");
         OracleEssentials.harnessFull("(?x)  a  (?-x) b",    " ab ");
         OracleEssentials.harnessFull("(?x)  a  (?-x) b",    " a b ");
@@ -525,19 +523,19 @@ class PatternTest {
         // Verify that "appendReplacement()" without a preceding match throws an Exception.
         new RegexTest("foo").assertEqual(
             " Hello foo and foo!",
-            new Transformer<java.util.regex.Matcher, String>() {
+            new Transformer<Matcher, String>() {
 
                 @Override public String
-                transform(java.util.regex.Matcher m) {
+                transform(Matcher m) {
                     StringBuffer sb = new StringBuffer();
                     Assert.assertSame(m, m.appendReplacement(sb, "bar"));
                     return sb.toString();
                 }
             },
-            new Transformer<de.unkrig.lfr.core.Matcher, String>() {
+            new Transformer<Matcher, String>() {
 
                 @Override public String
-                transform(de.unkrig.lfr.core.Matcher m) {
+                transform(Matcher m) {
                     StringBuilder sb = new StringBuilder();
                     Assert.assertSame(m, m.appendReplacement(sb, "bar"));
                     return sb.toString();
@@ -549,10 +547,10 @@ class PatternTest {
         final String replacement = "bar";
         new RegexTest("foo").assertEqual(
             " Hello foo and foo!",
-            new Transformer<java.util.regex.Matcher, Void>() {
+            new Transformer<Matcher, Void>() {
 
                 @Override public Void
-                transform(java.util.regex.Matcher m) {
+                transform(Matcher m) {
 
                     {
                         Assert.assertTrue(m.find());
@@ -578,10 +576,10 @@ class PatternTest {
                     return ObjectUtil.almostNull();
                 }
             },
-            new Transformer<de.unkrig.lfr.core.Matcher, Void>() {
+            new Transformer<Matcher, Void>() {
 
                 @Override public Void
-                transform(de.unkrig.lfr.core.Matcher m) {
+                transform(Matcher m) {
 
                     {
                         Assert.assertTrue(m.find());
@@ -622,48 +620,48 @@ class PatternTest {
 
     @Test @SuppressWarnings("static-method") public void
     testOptimizations() {
-        assertSequenceToString("'A' . end", "A");
+        PatternTest.assertSequenceToString("'A' . end", "A");
 
-        assertSequenceToString(
+        PatternTest.assertSequenceToString(
             "'A' . greedyQuantifier(negate(lineBreakCharacter), min=0, max=infinite) . 'B' . end",
             "A.*B"
         );
 
-        assertSequenceToString(
+        PatternTest.assertSequenceToString(
             "'A' . greedyQuantifier(negate(lineBreakCharacter), min=0, max=infinite) . naive(\"BC\") . end",
             "A.*BC"
         );
 
-        assertSequenceToString(
+        PatternTest.assertSequenceToString(
             "'A' . greedyQuantifierAnyChar(min=0, max=infinite, ls=naive(\"BC\")) . end",
             "A.*BC",
-            de.unkrig.lfr.core.Pattern.DOTALL
+            Pattern.DOTALL
         );
 
-        assertSequenceToString(
+        PatternTest.assertSequenceToString(
             "'A' . reluctantQuantifierSequenceAnyChar(min=0, max=infinite, ls=naive(\"BC\")) . end",
             "A.*?BC",
-            de.unkrig.lfr.core.Pattern.DOTALL
+            Pattern.DOTALL
         );
 
-        assertSequenceToString(
+        PatternTest.assertSequenceToString(
             "'A' . possessiveQuantifierSequenceOfAnyChar(min=0, max=infinite) . naive(\"BC\") . end",
             "A.*+BC",
-            de.unkrig.lfr.core.Pattern.DOTALL
+            Pattern.DOTALL
         );
 
         // Naive string search, because the string literal is only 14 characters long.
-        assertSequenceToString(
+        PatternTest.assertSequenceToString(
             "'A' . greedyQuantifierAnyChar(min=0, max=infinite, ls=naive(\"abcdefghijklmno\")) . end",
             "A.*abcdefghijklmno",
-            de.unkrig.lfr.core.Pattern.DOTALL
+            Pattern.DOTALL
         );
 
         // Knuth-Morris-Pratt string search, because the string literal is 15 characters long.
-        assertSequenceToString(
+        PatternTest.assertSequenceToString(
             "'A' . greedyQuantifierAnyChar(min=0, max=infinite, ls=knuthMorrisPratt(\"abcdefghijklmnop\")) . end",
             "A.*abcdefghijklmnop",
-            de.unkrig.lfr.core.Pattern.DOTALL
+            Pattern.DOTALL
         );
     }
 
@@ -674,7 +672,7 @@ class PatternTest {
      * the same result.
      */
     private static void
-    harnessMatches(String regex, String subject) { harnessMatches(regex, subject, 0); }
+    harnessMatches(String regex, String subject) { PatternTest.harnessMatches(regex, subject, 0); }
 
     /**
      * Verifies that {@link java.util.regex.Matcher#matches()} and {@link de.unkrig.lfr.core.Matcher#matches()} yield
@@ -683,16 +681,14 @@ class PatternTest {
     private static void
     harnessMatches(String regex, String subject, int flags) {
 
-        String message = "regex=\"" + regex + "\", subject=\"" + subject + "\"";
-
-        java.util.regex.Matcher    matcher1 = java.util.regex.Pattern.compile(regex, flags).matcher(subject);
-        de.unkrig.lfr.core.Matcher matcher2 = de.unkrig.lfr.core.Pattern.compile(regex, flags).matcher(subject);
+        Matcher matcher1 = OracleEssentials.JUR.compile(regex, flags).matcher(subject);
+        Matcher matcher2 = OracleEssentials.LFR.compile(regex, flags).matcher(subject);
 
         boolean m1Matches = matcher1.matches();
         boolean m2Matches = matcher2.matches();
-        assertEquals("regex=\"" + regex + "\", subject=\"" + subject + "\", matches()", m1Matches, m2Matches);
+        Assert.assertEquals("regex=\"" + regex + "\", subject=\"" + subject + "\", matches()", m1Matches, m2Matches);
 
-        OracleEssentials.assertEqualState(message, matcher1, matcher2);
+        RegexTest.ASSERT_EQUAL_STATE.assertMatchers(matcher1, matcher2);
     }
 
     /**
@@ -701,15 +697,15 @@ class PatternTest {
      */
     private static void
     harnessLookingAt(String regex, String subject) {
-        java.util.regex.Matcher    m1 = java.util.regex.Pattern.compile(regex).matcher(subject);
-        de.unkrig.lfr.core.Matcher m2 = de.unkrig.lfr.core.Pattern.compile(regex).matcher(subject);
-        assertEquals(m1.lookingAt(), m2.lookingAt());
-        OracleEssentials.assertEqualState("regex=\"" + regex + "\", subject=\"" + subject + "\"", m1, m2);
+        Matcher m1 = OracleEssentials.JUR.compile(regex).matcher(subject);
+        Matcher m2 = OracleEssentials.LFR.compile(regex).matcher(subject);
+        RegexTest.ASSERT_LOOKING_AT.assertMatchers(m1, m2);
+        RegexTest.ASSERT_EQUAL_STATE.assertMatchers(m1, m2);
     }
 
     private static void
     harnessReplaceAll(final String regex, final String subject, final String replacement) {
-        harnessReplaceAll(regex, subject, replacement, 0);
+        PatternTest.harnessReplaceAll(regex, subject, replacement, 0);
     }
 
     private static void
@@ -720,10 +716,10 @@ class PatternTest {
         rt.assertMatchers(subject, new MatcherAssertion() {
 
             @Override public void
-            assertMatchers(java.util.regex.Matcher matcher1, de.unkrig.lfr.core.Matcher matcher2) {
+            assertMatchers(Matcher expected, Matcher actual) {
 
-                String result1 = matcher1.replaceAll(replacement);
-                String result2 = matcher2.replaceAll(replacement);
+                String result1 = expected.replaceAll(replacement);
+                String result2 = actual.replaceAll(replacement);
 
                 Assert.assertEquals(
                     "regex=\"" + regex + "\", subject=\"" + subject + "\", replacement=\"" + replacement + "\"",
@@ -736,7 +732,7 @@ class PatternTest {
 
     private static void
     harnessReplaceFirst(final String regex, final String subject, final String replacement) {
-        harnessReplaceFirst(regex, subject, replacement, 0);
+        PatternTest.harnessReplaceFirst(regex, subject, replacement, 0);
     }
 
     private static void
@@ -747,10 +743,10 @@ class PatternTest {
         rt.assertMatchers(subject, new MatcherAssertion() {
 
             @Override public void
-            assertMatchers(java.util.regex.Matcher matcher1, de.unkrig.lfr.core.Matcher matcher2) {
+            assertMatchers(Matcher expected, Matcher actual) {
 
-                String result1 = matcher1.replaceFirst(replacement);
-                String result2 = matcher2.replaceFirst(replacement);
+                String result1 = expected.replaceFirst(replacement);
+                String result2 = actual.replaceFirst(replacement);
 
                 Assert.assertEquals(
                     "regex=\"" + regex + "\", subject=\"" + subject + "\", replacement=\"" + replacement + "\"",
@@ -763,12 +759,12 @@ class PatternTest {
 
     private static void
     assertSequenceToString(String expected, String regex) {
-        assertSequenceToString(expected, regex, 0);
+        PatternTest.assertSequenceToString(expected, regex, 0);
     }
 
     private static void
     assertSequenceToString(String expected, String regex, int flags) {
-        Assert.assertEquals(expected, de.unkrig.lfr.core.Pattern.compile(regex, flags).sequenceToString());
+        Assert.assertEquals(expected, OracleEssentials.LFR.compile(regex, flags).sequenceToString());
     }
 
     // =====================================

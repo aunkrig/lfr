@@ -32,7 +32,9 @@ import java.util.Locale;
 import org.junit.Assert;
 
 import de.unkrig.commons.nullanalysis.Nullable;
-import test.RegexTest.MatcherAssertion;
+import de.unkrig.ref4j.Matcher;
+import de.unkrig.ref4j.Pattern;
+import de.unkrig.ref4j.PatternFactory;
 import test.Sampler.CallTree;
 
 public final
@@ -51,6 +53,9 @@ class OracleEssentials {
     private static double gainSum;
     private static double gainProduct;
     private static int    totalCount = -1;
+
+    public static final PatternFactory                    JUR = de.unkrig.ref4j.jur.PatternFactory.INSTANCE;
+    public static final de.unkrig.lfr.core.PatternFactory LFR = de.unkrig.lfr.core.PatternFactory.INSTANCE;
 
     /**
      * Shorthand for "{@link #harnessFull(String, String, int, Integer, int, Boolean, Boolean) harness(regex, subject,
@@ -115,61 +120,25 @@ class OracleEssentials {
         rt.setAnchoringBounds(anchoringBounds);
 
         // Test "Matcher.lookingAt()".
-        rt.assertMatchers(subject, new MatcherAssertion() {
-
-            @Override public void
-            assertMatchers(java.util.regex.Matcher matcher1, de.unkrig.lfr.core.Matcher matcher2) {
-
-                boolean lookingAt1 = matcher1.lookingAt();
-                boolean lookingAt2 = matcher2.lookingAt();
-                Assert.assertEquals("lookingAt()", lookingAt1, lookingAt2);
-            }
-        });
+        rt.assertMatchers(subject, RegexTest.ASSERT_LOOKING_AT);
 
         // Test "Matcher.matches()".
-        rt.assertMatchers(subject, new MatcherAssertion() {
-
-            @Override public void
-            assertMatchers(java.util.regex.Matcher matcher1, de.unkrig.lfr.core.Matcher matcher2) {
-
-                boolean matches1 = matcher1.matches();
-                boolean matches2 = matcher2.matches();
-                Assert.assertEquals("matches()", matches1, matches2);
-            }
-        });
+        rt.assertMatchers(subject, RegexTest.ASSERT_MATCHES);
 
         // Test "Matcher.find()".
-        rt.assertMatchers(subject, new MatcherAssertion() {
-
-            @Override public void
-            assertMatchers(java.util.regex.Matcher matcher1, de.unkrig.lfr.core.Matcher matcher2) {
-
-                int matchCount;
-                for (matchCount = 0;; matchCount++) {
-                    String message2 = "Pattern \"" + matcher1.pattern() + "\", Match #" + (matchCount + 1);
-
-                    boolean found1 = matcher1.find();
-                    boolean found2 = matcher2.find();
-                    Assert.assertEquals(message2 + ", find()", found1, found2);
-
-                    if (!found1 || !found2) break;
-
-                    OracleEssentials.assertEqualState(message2, matcher1, matcher2);
-                }
-            }
-        });
+        rt.assertMatchers(subject, RegexTest.ASSERT_FIND);
 
         if (OracleEssentials.ALSO_COMPARE_PERFORMANCE) {
 
-            final java.util.regex.Pattern    pattern1 = java.util.regex.Pattern.compile(regex, flags);
-            final de.unkrig.lfr.core.Pattern pattern2 = de.unkrig.lfr.core.Pattern.compile(regex, flags);
+            final Pattern pattern1 = OracleEssentials.JUR.compile(regex, flags);
+            final Pattern pattern2 = OracleEssentials.LFR.compile(regex, flags);
 
             Runnable r1 = new Runnable() {
 
                 @Override public void
                 run() {
 
-                    java.util.regex.Matcher m = pattern1.matcher(subject);
+                    Matcher m = pattern1.matcher(subject);
 
                     while (m.find()) {
                         m.group();
@@ -184,7 +153,7 @@ class OracleEssentials {
                 @Override public void
                 run() {
 
-                    de.unkrig.lfr.core.Matcher m = pattern2.matcher(subject);
+                    Matcher m = pattern2.matcher(subject);
 
                     while (m.find()) {
                         m.group();
@@ -220,14 +189,14 @@ class OracleEssentials {
 
         if (OracleEssentials.ALSO_DO_PROFILING) {
 
-            final de.unkrig.lfr.core.Pattern pattern2 = de.unkrig.lfr.core.Pattern.compile(regex, flags);
+            final Pattern pattern2 = OracleEssentials.LFR.compile(regex, flags);
 
             Runnable r2 = new Runnable() {
 
                 @Override public void
                 run() {
 
-                    de.unkrig.lfr.core.Matcher m = pattern2.matcher(subject);
+                    Matcher m = pattern2.matcher(subject);
 
                     while (m.find()) {
                         m.group();
@@ -311,52 +280,6 @@ class OracleEssentials {
         }
 
         return sb.append('"').toString();
-    }
-
-    static void
-    assertEqualState(String message, java.util.regex.Matcher matcher1, de.unkrig.lfr.core.Matcher matcher2) {
-
-        boolean hasMatch1;
-        try {
-            hasMatch1 = matcher1.group() != null;
-        } catch (IllegalStateException ise) {
-            hasMatch1 = false;
-        }
-
-        boolean hasMatch2;
-        try {
-            hasMatch2 = matcher2.group() != null;
-        } catch (IllegalStateException ise) {
-            hasMatch2 = false;
-        }
-
-        Assert.assertEquals(matcher1 + "/" + matcher2 + ": hasMatch", hasMatch1, hasMatch2);
-
-        if (hasMatch1) {
-
-            Assert.assertEquals(message + ", groupCount()", matcher1.groupCount(), matcher2.groupCount());
-
-            for (int i = 0; i <= matcher1.groupCount(); i++) {
-
-                int start1 = matcher1.start(i);
-                int start2 = matcher2.start(i);
-                Assert.assertEquals(message + ", start(" + i + ")", start1, start2);
-
-                int end1 = matcher1.end(i);
-                int end2 = matcher2.end(i);
-                Assert.assertEquals(message + ", end(" + i + ")", end1, end2);
-
-                String group1 = matcher1.group(i);
-                String group2 = matcher2.group(i);
-                Assert.assertEquals(message + ", group(" + i + ")", group1, group2);
-            }
-
-            Assert.assertEquals(message + ", requireEnd()", matcher1.requireEnd(), matcher2.requireEnd());
-        }
-
-        boolean hitEnd1 = matcher1.hitEnd();
-        boolean hitEnd2 = matcher2.hitEnd();
-        Assert.assertEquals(message + ", hitEnd()", hitEnd1, hitEnd2);
     }
 
     public static void
