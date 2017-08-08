@@ -27,49 +27,29 @@
 package de.unkrig.lfr.core;
 
 /**
- * A {@link CompositeSequence} that implements {@link #matches(MatcherImpl, int)} by applying {@link
- * #matches(int)} onto itself.
+ * A {@link CharacterClass} that implements {@link #union(CharacterClass)} by setting up a linked list of
+ * {@link CharacterClass}es, and implements {@link #matches(int)} by applying {@link
+ * IntPredicate#evaluate(int)} on the list elements until one returns {@code true}.
  */
 public abstract
-class CharacterClass extends CompositeSequence {
+class Union extends CharacterClass implements IntPredicate {
 
-    @Override public final int
-    matches(MatcherImpl matcher, int offset) {
+    protected CharacterClass companion = new CharacterClasses.EmptyCharacterClass();
 
-        if (offset >= matcher.regionEnd) {
-            matcher.hitEnd = true;
-            return -1;
-        }
+    @Override public final boolean
+    matches(int subject) { return this.evaluate(subject) || this.companion.matches(subject); }
 
-        int c = matcher.charAt(offset++);
-
-        // Special handling for UTF-16 surrogates.
-        if (Character.isHighSurrogate((char) c)) {
-            if (offset < matcher.regionEnd) {
-                char c2 = matcher.charAt(offset);
-                if (Character.isLowSurrogate(c2)) {
-                    c = Character.toCodePoint((char) c, c2);
-                    offset++;
-                }
-            }
-        }
-
-        return this.matches(c) ? this.next.matches(matcher, offset) : -1;
-    }
-
-    /**
-     * @return Whether <var>c</var> matches this character class
-     */
-    public abstract boolean
-    matches(int c);
-
-    /**
-     * Returns a {@link CharacterClass} that implements the union of {@code this} and <var>that</var>. When this method
-     * returns, {@code this} and <var>that</var> are in an undefined state and must no longer be used.
-     */
-    public abstract CharacterClass
-    union(CharacterClass that);
+    @Override public CharacterClass
+    union(CharacterClass that) { this.companion = this.companion.union(that); return this; }
 
     @Override public String
-    toStringWithoutNext() { return this.toString(); }
+    toStringWithoutNext() {
+
+        if (this.companion instanceof CharacterClasses.EmptyCharacterClass) return this.toStringWithoutCompanion();
+
+        return "union(" + this.toStringWithoutCompanion() + ", " + this.companion + ")";
+    }
+
+    public abstract String
+    toStringWithoutCompanion();
 }

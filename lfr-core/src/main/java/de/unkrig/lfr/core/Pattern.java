@@ -173,7 +173,7 @@ class Pattern {
 
     /**
      * The flags configured at compile time.
-     * 
+     *
      * @see #compile(String, int)
      */
     int flags;
@@ -350,7 +350,9 @@ class Pattern {
             }
 
             @Override public Sequence
-            concat(Sequence that) { throw new UnsupportedOperationException(); }
+            concat(Sequence that) {
+                throw new UnsupportedOperationException();
+            }
 
             @Override public Sequence
             reverse() { return this; }
@@ -619,7 +621,7 @@ class Pattern {
         ss.addRule(Pattern.DEFAULT_STATES, "\\(\\?>",                             INDEPENDENT_NON_CAPTURING_GROUP, ss.REMAIN);
 
         // Any literal character.
-        ss.addRule(ss.ANY_STATE, "[^\\\\(*?+]", LITERAL_CHARACTER, ss.REMAIN);
+        ss.addRule(ss.ANY_STATE, ".", LITERAL_CHARACTER, ss.REMAIN);
     }
 
     /**
@@ -694,7 +696,7 @@ class Pattern {
      * compiled, e.g., whether certain optimizations have taken place.
      */
     public String
-    sequenceToString() { return this.sequence.toString().replace(" . terminal", ""); }
+    sequenceToString() { return this.sequence.toString(); }
 
     /**
      * @return The uncompiled regular expression
@@ -1515,25 +1517,55 @@ class Pattern {
                 CharacterClass result = this.parseCcRange();
 
                 while (this.peek(RIGHT_BRACKET, CC_INTERSECTION) == -1) {
-                    result = CharacterClasses.union(result, this.parseCcRange());
+                    result = result.union(this.parseCcRange());
                 }
 
                 return result;
             }
 
+            /**
+             * <pre>
+             *   cc-range :=
+             *        character-class
+             *        | literal-character                       // x   => 'x'
+             *        | '-'                                     // -   => '-'
+             *        | literal-character '-'                   // x-  => 'x' or '-'
+             *        | '-' '-'                                 // --  => '-' or '-'      (effectively: '-')
+             *        | literal-character '-' literal-character // x-y => 'x' through 'y'
+             *        | '-' '-' literal-character               // --x => '-' through 'x'
+             *        | literal-character '-' '-'               // x-- => 'x' through '-'
+             *        | '-' '-' '-'                             // --- => '-' through '-' (effectively: '-')
+             * </pre>
+             */
             private CharacterClass
             parseCcRange() throws ParseException {
 
                 String lhs = this.peekRead(LITERAL_CHARACTER);
-                if (lhs == null) return this.parseCharacterClass();
+
+                if (lhs == null) {
+
+                    // Treat leading hyphen as a literal character.
+                    lhs = this.peekRead(CC_RANGE);
+
+                    if (lhs == null) return this.parseCharacterClass();
+                }
 
                 int lhsCp = lhs.codePointAt(0);
 
-                if (!this.peekRead("-")) return CharacterClasses.literalCharacter(lhsCp);
+                if (this.peekRead(CC_RANGE) == null) return CharacterClasses.literalCharacter(lhsCp);
 
-                int rhsCp = this.read(LITERAL_CHARACTER).codePointAt(0);
+                String rhs = this.peekRead(LITERAL_CHARACTER);
+                if (rhs == null) {
 
-                return CharacterClasses.range(lhsCp, rhsCp);
+                    if (this.peekRead(CC_RANGE) != null) {
+                        return CharacterClasses.range(lhsCp, '-');
+                    }
+
+                    // Treat a trailing hyphen as a literal character.
+                    return CharacterClasses.oneOf(lhsCp, '-');
+                }
+
+                return CharacterClasses.range(lhsCp, rhs.codePointAt(0));
             }
         }.parse();
     }

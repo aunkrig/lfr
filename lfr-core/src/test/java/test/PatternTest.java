@@ -641,7 +641,7 @@ class PatternTest {
         );
 
         assertSequenceToString(
-            "'A' . reluctantQuantifierSequence(anyCharacter, min=0, max=infinite, ls=naive(\"BC\")) . end",
+            "'A' . reluctantQuantifierSequenceAnyChar(min=0, max=infinite, ls=naive(\"BC\")) . end",
             "A.*?BC",
             de.unkrig.lfr.core.Pattern.DOTALL
         );

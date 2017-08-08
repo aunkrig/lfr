@@ -27,18 +27,20 @@
 package de.unkrig.lfr.core;
 
 /**
- * Base class for sequences that consist of themselves and a "next" sequence. Implements {@link #concat(Sequence)}
- * and {@link #reverse()} based on this pattern.
+ * An {@link Sequence} that implements {@link #concat(Sequence)} by setting up a linked list of {@link Sequence}es.
+ * <p>
+ *   Notice that implementations' {@link #matches(MatcherImpl, int)} methods must always honor the {@link #next}!
+ * </p>
  */
 abstract
-class LinkedAbstractSequence extends AbstractSequence {
+class CompositeSequence extends AbstractSequence {
 
     /**
      * Reference to the "next" sequence.
      */
     Sequence next;
 
-    LinkedAbstractSequence() { this.next = Sequences.TERMINAL; }
+    CompositeSequence() { this.next = Sequences.TERMINAL; }
 
     @Override public Sequence
     concat(Sequence that) {
@@ -52,5 +54,20 @@ class LinkedAbstractSequence extends AbstractSequence {
         Sequence result = this.next.reverse();
         this.next = Sequences.TERMINAL;
         return result.concat(this);
+    }
+
+    /**
+     * @return A human-readable form of {@code this} sequence, but without the {@link #next} sequence
+     */
+    protected abstract String
+    toStringWithoutNext();
+
+    @Override public String
+    toString() {
+        return (
+            this.next == Sequences.TERMINAL
+            ? this.toStringWithoutNext()
+            : this.toStringWithoutNext() + " . " + this.next.toString()
+        );
     }
 }
