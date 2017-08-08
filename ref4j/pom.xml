@@ -1,0 +1,20 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>de.unkrig.lfr</groupId>
+  <artifactId>ref4j</artifactId>
+  <version>0.0.1-SNAPSHOT</version>
+  <name>Regular Expression Facade for Java</name>
+  <description>A facade or abstraction for various regular expression frameworks (currently java.util.regex and de.unkrig.lfr).</description>
+  <dependencies>
+  	<dependency>
+  		<groupId>de.unkrig.commons</groupId>
+  		<artifactId>commons-nullanalysis</artifactId>
+  		<version>1.2.11-SNAPSHOT</version>
+  	</dependency>
+  	<dependency>
+  		<groupId>de.unkrig.commons</groupId>
+  		<artifactId>commons-util</artifactId>
+  		<version>1.2.11-SNAPSHOT</version>
+  	</dependency>
+  </dependencies>
+</project>

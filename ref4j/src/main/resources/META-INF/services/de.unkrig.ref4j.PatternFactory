@@ -1,0 +1,4 @@
+
+# The "java.util.regex" implementation of de.unkrig.ref4j.PatternFactory:
+de.unkrig.ref4j.jur.PatternFactory
+de.unkrig.ref4j.jur.PatternFactory.instanceField = INSTANCE
