@@ -311,7 +311,7 @@ class PatternTest {
         // JUR compiles invalid group references ok, and treats them as "no match". DULC, however, is more accurate
         // and reports invalid group references already at COMPILE TIME.
         String regex = "(\\d\\d)\\2";
-        Assert.assertEquals("  12  ", java.util.regex.Pattern.compile(regex).matcher("  12  ").replaceAll("x"));
+        Assert.assertEquals("  12  ", jurpc(regex).matcher("  12  ").replaceAll("x"));
 
         new RegexTest(regex).patternSyntaxExceptionDulc();
     }
@@ -637,8 +637,20 @@ class PatternTest {
     }
 
     @Test @SuppressWarnings("static-method") public void
-    testOptimizations() {
-        PatternTest.assertSequenceToString("'A' . end", "A");
+    testCharacterClassOptimizations() {
+        PatternTest.assertSequenceToString("'A' . end",                                            "[A]");
+        PatternTest.assertSequenceToString("oneOfTwo('A', 'B') . end",                             "[AB]");
+        PatternTest.assertSequenceToString("oneOfTwo('A', 'K') . end",                             "[AK]");
+        PatternTest.assertSequenceToString("bitSet('A', 'C', 'E', 'G', 'I', 'K') . end",           "[ACEGIK]");
+        PatternTest.assertSequenceToString("bitSet('A', 'B', 'C', 'D', 'E') . end",                "[A-E]");
+        PatternTest.assertSequenceToString("bitSet('D', 'E', 'F', 'G', 'H', 'I', 'J', 'K') . end", "[A-K&&D-Z]");
+        PatternTest.assertSequenceToString(PatternTest.jurpc("set\\('.'(?:, '.'){63}\\) . end"),   "[A-Za-z0-9_\u0400]");
+    }
+
+    @Test @SuppressWarnings("static-method") public void
+    testQuantifierOptimizations() {
+
+    	PatternTest.assertSequenceToString("'A' . end", "A");
 
         PatternTest.assertSequenceToString(
             "'A' . greedyQuantifier(negate(lineBreakCharacter), min=0, max=infinite) . 'B' . end",
@@ -785,6 +797,19 @@ class PatternTest {
         Assert.assertEquals(expected, OracleEssentials.LFR.compile(regex, flags).sequenceToString());
     }
 
+    private static void
+    assertSequenceToString(java.util.regex.Pattern expected, String regex) {
+        PatternTest.assertSequenceToString(expected, regex, 0);
+    }
+
+    private static void
+    assertSequenceToString(java.util.regex.Pattern expected, String regex, int flags) {
+        Assert.assertTrue(
+            expected.toString(),
+            expected.matcher(OracleEssentials.LFR.compile(regex, flags).sequenceToString()).matches()
+        );
+    }
+
     // =====================================
 
     private static char
@@ -798,4 +823,7 @@ class PatternTest {
         if (codepoint < 0x10000 || codepoint > 0x10FFFF) throw new IllegalArgumentException();
         return (char) (((codepoint - 0x10000) & 0x3ff) + 0xDC00);
     }
+
+    private static java.util.regex.Pattern
+    jurpc(String regex) { return java.util.regex.Pattern.compile(regex); }
 }

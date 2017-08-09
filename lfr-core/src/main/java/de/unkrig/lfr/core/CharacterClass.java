@@ -64,6 +64,25 @@ class CharacterClass extends CompositeSequence {
     matches(int c);
 
     /**
+     * {@link #matches(int)} is guaranteed to return {@code false} for all subjects smaller than {@link #lowerBound()}.
+     */
+    @SuppressWarnings("static-method") public int
+    lowerBound() { return 0; }
+
+    /**
+     * {@link #matches(int)} is guaranteed to return {@code false} for all subjects greater than or equal to {@link
+     * #upperBound()}.
+     */
+    @SuppressWarnings("static-method") public int
+    upperBound() { return Integer.MAX_VALUE; }
+
+    /**
+     * @return The number of values for which {@link #matches(int)} returns {@code true}, or more
+     */
+    @SuppressWarnings("static-method") public int
+    sizeBound() { return Integer.MAX_VALUE; }
+
+    /**
      * Returns a {@link CharacterClass} that implements the union of {@code this} and <var>that</var>. When this method
      * returns, {@code this} and <var>that</var> are in an undefined state and must no longer be used.
      */

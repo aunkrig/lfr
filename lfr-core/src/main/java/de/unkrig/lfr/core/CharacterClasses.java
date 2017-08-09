@@ -35,7 +35,7 @@ import de.unkrig.commons.lang.protocol.Predicate;
 final
 class CharacterClasses {
 
-    private CharacterClasses() {}
+	private CharacterClasses() {}
 
     /**
      * Representation of a literal character, like "a" or "\.".
@@ -82,31 +82,9 @@ class CharacterClasses {
             return this;
         }
 
-        @Override public CharacterClass
-        union(CharacterClass that) {
-            if (that instanceof LiteralCharacter) {
-                LiteralCharacter that2 = (LiteralCharacter) that;
-                return oneOf(this.c, that2.c).union(that2.companion);
-            }
-            if (that instanceof OneOfTwoCharacterClass) {
-                OneOfTwoCharacterClass that2 = (OneOfTwoCharacterClass) that;
-                return oneOf(
-                    new StringBuilder(3)
-                    .appendCodePoint(this.c)
-                    .appendCodePoint(that2.c1)
-                    .appendCodePoint(that2.c2)
-                    .toString()
-                ).union(that2.companion);
-            }
-            if (that instanceof OneOfManyCharacterClass) {
-                OneOfManyCharacterClass that2 = (OneOfManyCharacterClass) that;
-                return oneOf(
-                    new StringBuilder().appendCodePoint(this.c).append(that2.chars).toString()
-                ).union(that2.companion);
-            }
-
-            return super.union(that);
-        }
+        @Override protected int lowerBoundWithoutCompanion() { return this.c;     }
+        @Override protected int upperBoundWithoutCompanion() { return this.c + 1; }
+        @Override protected int sizeBoundWithoutCompanion()  { return 1;          }
 
         @Override public String
         toStringWithoutCompanion() {
@@ -176,7 +154,7 @@ class CharacterClasses {
      * Representation of a two-characters union, e.g. "[oO]".
      */
     public static Union
-    oneOf(final int c1, final int c2) { return new OneOfTwoCharacterClass(c1, c2); }
+    oneOfTwo(final int c1, final int c2) { return new OneOfTwoCharacterClass(c1, c2); }
 
     public static final
     class OneOfTwoCharacterClass extends Union {
@@ -193,44 +171,21 @@ class CharacterClasses {
         @Override public boolean
         evaluate(int subject) { return subject == this.c1 || subject == this.c2; }
 
-        @Override public CharacterClass
-        union(CharacterClass that) {
-            if (that instanceof LiteralCharacter) {
-                LiteralCharacter that2 = (LiteralCharacter) that;
-                return oneOf(
-                    new StringBuilder(3)
-                    .appendCodePoint(this.c1)
-                    .appendCodePoint(this.c2)
-                    .appendCodePoint(that2.c)
-                    .toString()
-                ).union(that2.companion);
-            }
-            if (that instanceof OneOfTwoCharacterClass) {
-                OneOfTwoCharacterClass that2 = (OneOfTwoCharacterClass) that;
-                return oneOf(
-                    new StringBuilder(4)
-                    .appendCodePoint(this.c1)
-                    .appendCodePoint(this.c2)
-                    .appendCodePoint(that2.c1)
-                    .appendCodePoint(that2.c2)
-                    .toString()
-                ).union(that2.companion);
-            }
-            if (that instanceof OneOfManyCharacterClass) {
-                OneOfManyCharacterClass that2 = (OneOfManyCharacterClass) that;
-                return oneOf(
-                    new StringBuilder(2 + that2.chars.length())
-                    .appendCodePoint(this.c1)
-                    .appendCodePoint(this.c2)
-                    .append(that2.chars)
-                    .toString()
-                ).union(that2.companion);
-            }
-            return super.union(that);
-        }
+        @Override public int lowerBoundWithoutCompanion() { return Math.min(this.c1, this.c2);     }
+        @Override public int upperBoundWithoutCompanion() { return Math.max(this.c1, this.c2) + 1; }
+        @Override public int sizeBoundWithoutCompanion()  { return 2;                              }
 
         @Override public String
-        toStringWithoutCompanion() { return "oneOf(" + this.c1 + ", " + this.c2 + ")"; }
+        toStringWithoutCompanion() {
+            return (
+                new StringBuilder("oneOfTwo('")
+                .appendCodePoint(this.c1)
+                .append("', '")
+                .appendCodePoint(this.c2)
+                .append("')")
+                .toString()
+            );
+        }
     }
 
     /**
@@ -250,24 +205,28 @@ class CharacterClasses {
         @Override public boolean
         evaluate(int subject) { return this.chars.indexOf(subject) != -1; }
 
-        @Override public CharacterClass
-        union(CharacterClass that) {
-            if (that instanceof LiteralCharacter) {
-                LiteralCharacter that2 = (LiteralCharacter) that;
-                return oneOf(
-                    new StringBuilder(this.chars.length() + 1)
-                    .append(this.chars)
-                    .appendCodePoint(that2.c)
-                    .toString()
-                ).union(that2.companion);
+        @Override protected int
+        lowerBoundWithoutCompanion() {
+            int result = Integer.MAX_VALUE;
+            for (int i = this.chars.length() - 1; i >= 0; i--) {
+                int c = this.chars.codePointAt(i);
+                if (c < result) result = c;
             }
-            if (that instanceof OneOfManyCharacterClass) {
-                OneOfManyCharacterClass that2 = (OneOfManyCharacterClass) that;
-                return oneOf(this.chars + that2.chars).union(that2.companion);
-            }
-
-            return super.union(that);
+            return result;
         }
+
+        @Override protected int
+        upperBoundWithoutCompanion() {
+            int result = 0;
+            for (int i = this.chars.length() - 1; i >= 0; i--) {
+                int c = this.chars.codePointAt(i);
+                if (c > result) result = c;
+            }
+            return result;
+        }
+
+        @Override protected int
+        sizeBoundWithoutCompanion() { return this.chars.length(); }
 
         @Override public String
         toStringWithoutCompanion() { return "oneOf(\"" + this.chars + "\")"; }
@@ -278,8 +237,8 @@ class CharacterClasses {
      */
     public static Union
     caseInsensitiveLiteralCharacter(final int c) {
-        if (c >= 'A' && c <= 'Z') return CharacterClasses.oneOf(c, c + 32);
-        if (c >= 'a' && c <= 'z') return CharacterClasses.oneOf(c, c - 32);
+        if (c >= 'A' && c <= 'Z') return CharacterClasses.oneOfTwo(c, c + 32);
+        if (c >= 'a' && c <= 'z') return CharacterClasses.oneOfTwo(c, c - 32);
         return CharacterClasses.literalCharacter(c);
     }
 
@@ -288,8 +247,8 @@ class CharacterClasses {
      */
     public static Union
     unicodeCaseInsensitiveLiteralCharacter(final int c) {
-        if (Character.isLowerCase(c)) return CharacterClasses.oneOf(c, Character.toUpperCase(c));
-        if (Character.isUpperCase(c)) return CharacterClasses.oneOf(c, Character.toLowerCase(c));
+        if (Character.isLowerCase(c)) return CharacterClasses.oneOfTwo(c, Character.toUpperCase(c));
+        if (Character.isUpperCase(c)) return CharacterClasses.oneOfTwo(c, Character.toLowerCase(c));
         return CharacterClasses.literalCharacter(c);
     }
 
@@ -303,6 +262,10 @@ class CharacterClasses {
 
             @Override public boolean
             evaluate(int subject) { return lhs.matches(subject) && rhs.matches(subject); }
+
+            @Override public int lowerBoundWithoutCompanion() { return Math.max(lhs.lowerBound(), rhs.lowerBound()); }
+            @Override public int upperBoundWithoutCompanion() { return Math.min(lhs.upperBound(), rhs.upperBound()); }
+            @Override public int sizeBoundWithoutCompanion()  { return Math.min(lhs.sizeBound(), rhs.sizeBound());   }
 
             @Override public String
             toStringWithoutCompanion() { return "intersection(" + lhs + ", " + rhs + ")"; }
@@ -324,8 +287,21 @@ class CharacterClasses {
             @Override public boolean
             evaluate(int subject) { return (subject >= lhs && subject <= rhs); }
 
+            @Override public int lowerBoundWithoutCompanion() { return lhs;           }
+            @Override public int upperBoundWithoutCompanion() { return rhs + 1;       }
+            @Override public int sizeBoundWithoutCompanion()  { return rhs - lhs + 1; }
+
             @Override public String
-            toStringWithoutCompanion() { return "range(" + lhs + " - " + rhs + ")"; }
+            toStringWithoutCompanion() {
+                return (
+                    new StringBuilder("range('")
+                    .appendCodePoint(lhs)
+                    .append("' - '")
+                    .appendCodePoint(rhs)
+                    .append("')")
+                    .toString()
+                );
+            }
         };
     }
 
@@ -392,13 +368,13 @@ class CharacterClasses {
 
         return new Union() {
 
+            @Override public int lowerBoundWithoutCompanion() { return 0x0a;   }
+            @Override public int upperBoundWithoutCompanion() { return 0x202a; }
+            @Override public int sizeBoundWithoutCompanion()  { return 7;      }
+
             @Override public boolean
-            evaluate(int subject) {
-                return (
-                    (subject <= 0x0d && subject >= 0x0a)
-                    || subject == 0x85
-                    || (subject >= 0x2028 && subject <= 0x2029)
-                );
+            evaluate(int c) {
+                return (c <= 0x0d && c >= 0x0a) || c == 0x85 || (c >= 0x2028 && c <= 0x2029);
             }
 
             @Override public String
@@ -419,6 +395,9 @@ class CharacterClasses {
     public static
     class EmptyCharacterClass extends CharacterClass {
         @Override public boolean        matches(int subject)       { return false;                 }
+        @Override public int            lowerBound()               { return Integer.MAX_VALUE;     }
+        @Override public int            upperBound()               { return 0;                     }
+        @Override public int            sizeBound()                { return 0;                     }
         @Override public CharacterClass union(CharacterClass that) { return that;                  }
         @Override public Sequence       concat(Sequence that)      { return that;                  }
         @Override public String         toStringWithoutNext()      { return "emptyCharacterClass"; }

@@ -295,7 +295,13 @@ class PatternFactory extends de.unkrig.ref4j.PatternFactory {
                         CharacterClass cc     = this.parseCcIntersection();
                         this.read("]");
 
-                        if (negate) cc = CharacterClasses.negate(cc, '^' + cc.toString());
+                        if (negate) {
+                            cc = CharacterClasses.negate(cc, '^' + cc.toString());
+                        }
+
+                        // Enforce the last character class optimization.
+                        cc = cc.union(new CharacterClasses.EmptyCharacterClass());
+
                         return cc;
                     }
 
@@ -907,7 +913,7 @@ class PatternFactory extends de.unkrig.ref4j.PatternFactory {
 
                 // Parse range end character.
                 String rhs = this.peekRead(LITERAL_CHARACTER);
-                if (rhs == null) return CharacterClasses.oneOf(lhsCp, '-');
+                if (rhs == null) return CharacterClasses.oneOfTwo(lhsCp, '-');
 
                 return CharacterClasses.range(lhsCp, rhs.codePointAt(0));
             }
