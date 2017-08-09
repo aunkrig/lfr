@@ -440,7 +440,7 @@ class PatternTest {
         Producer<String> rsp = PatternTest.randomSubjectProducer(infix);
         for (int i = 0; i < 1000; i++) {
             String subject = AssertionUtil.notNull(rsp.produce());
-            PatternTest.harnessMatches(regex, subject, java.util.regex.Pattern.DOTALL);
+            PatternTest.harnessMatches(regex, subject, Pattern.DOTALL);
         }
     }
 
@@ -457,7 +457,7 @@ class PatternTest {
         );
 
         for (int i = 0; i < 1000; i++) {
-            PatternTest.harnessMatches(".*?" + infix, AssertionUtil.notNull(rsp.produce()), java.util.regex.Pattern.DOTALL);
+            PatternTest.harnessMatches(".*?" + infix, AssertionUtil.notNull(rsp.produce()), Pattern.DOTALL);
         }
     }
 
