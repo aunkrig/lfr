@@ -62,7 +62,7 @@ import de.unkrig.lfr.core.Pattern.TokenType;
 /**
  * A drop-in replacement for {@link java.util.regex.Pattern}.
  */
-public
+public final
 class PatternFactory extends de.unkrig.ref4j.PatternFactory {
 
     private PatternFactory() {}
@@ -150,7 +150,7 @@ class PatternFactory extends de.unkrig.ref4j.PatternFactory {
                 }
 
                 // Switch between COMMENTS mode and non-COMMENTS mode.
-                if ((newFlags & (de.unkrig.ref4j.Pattern.LITERAL | de.unkrig.ref4j.Pattern.COMMENTS)) == de.unkrig.ref4j.Pattern.COMMENTS) {
+                if ((newFlags & (Pattern.LITERAL | Pattern.COMMENTS)) == Pattern.COMMENTS) {
                     rs.setCurrentState(ScannerState.DEFAULT_X);
                 } else {
                     rs.setCurrentState(ScannerState.DEFAULT);
