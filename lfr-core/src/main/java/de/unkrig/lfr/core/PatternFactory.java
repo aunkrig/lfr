@@ -897,13 +897,16 @@ class PatternFactory extends de.unkrig.ref4j.PatternFactory {
             private CharacterClass
             parseCcRange() throws ParseException {
 
-                String lhs = this.peekRead(LITERAL_CHARACTER); // Range start character.
+                // Parse range start character.
+                String lhs = this.peekRead(LITERAL_CHARACTER);
                 if (lhs == null) return this.parseCharacterClass();
                 int lhsCp = lhs.codePointAt(0);
 
-                if (!this.peekRead("-")) return CharacterClasses.literalCharacter(lhsCp); // Hyphen.
+                // Parse hyphen.
+                if (!this.peekRead("-")) return CharacterClasses.literalCharacter(lhsCp);
 
-                String rhs = this.peekRead(LITERAL_CHARACTER); // Range end character.
+                // Parse range end character.
+                String rhs = this.peekRead(LITERAL_CHARACTER);
                 if (rhs == null) return CharacterClasses.oneOf(lhsCp, '-');
 
                 return CharacterClasses.range(lhsCp, rhs.codePointAt(0));
