@@ -38,7 +38,6 @@ import static de.unkrig.lfr.core.Pattern.TokenType.CC_JAVA;
 import static de.unkrig.lfr.core.Pattern.TokenType.CC_NEGATION;
 import static de.unkrig.lfr.core.Pattern.TokenType.CC_POSIX;
 import static de.unkrig.lfr.core.Pattern.TokenType.CC_PREDEFINED;
-import static de.unkrig.lfr.core.Pattern.TokenType.CC_RANGE;
 import static de.unkrig.lfr.core.Pattern.TokenType.CC_UNICODE_BLOCK;
 import static de.unkrig.lfr.core.Pattern.TokenType.CC_UNICODE_CATEGORY;
 import static de.unkrig.lfr.core.Pattern.TokenType.CC_UNICODE_SCRIPT_OR_BINARY_PROPERTY;
@@ -162,15 +161,13 @@ class Pattern implements de.unkrig.ref4j.Pattern {
         /** {@code \t \n \r \f \a \e \c}<var>x</var> */
         LITERAL_CONTROL,
 
-        // Character classes.
+        // Character classes. Notice that "-" is not a metacharacter!
         /** {@code [} */
         LEFT_BRACKET,
         /** {@code ]} */
         RIGHT_BRACKET,
         /** {@code ^} */
         CC_NEGATION,
-        /** {@code -} */
-        CC_RANGE,
         /** {@code &&} */
         CC_INTERSECTION,
         /** {@code .} */
@@ -388,8 +385,8 @@ class Pattern implements de.unkrig.ref4j.Pattern {
         ss.addRule(ScannerState.CHAR_CLASS1_X, "]",   RIGHT_BRACKET,   ScannerState.DEFAULT_X);
         // [^abc]      Any character except a, b, or c (negation)
         ss.addRule(Pattern.IN_CHAR_CLASS,     "\\^", CC_NEGATION,     ss.REMAIN);
-        // [a-zA-Z]    a through z or A through Z, inclusive (range)
-        ss.addRule(Pattern.IN_CHAR_CLASS,     "-",   CC_RANGE,        ss.REMAIN);
+        // [a-zA-Z]    a through z or A through Z, inclusive (range) -- "-" is not a metacharacter!
+        //ss.addRule(Pattern.IN_CHAR_CLASS,     "-",   CC_RANGE,        ss.REMAIN);
         // [a-d[m-p]]  a through d, or m through p: [a-dm-p] (union)
         // [a-z&&[def]]    d, e, or f (intersection)
         // [a-z&&[^bc]]    a through z, except for b and c: [ad-z] (subtraction)

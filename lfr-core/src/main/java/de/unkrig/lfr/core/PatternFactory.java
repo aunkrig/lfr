@@ -29,7 +29,6 @@
 package de.unkrig.lfr.core;
 
 import static de.unkrig.lfr.core.Pattern.TokenType.CC_INTERSECTION;
-import static de.unkrig.lfr.core.Pattern.TokenType.CC_RANGE;
 import static de.unkrig.lfr.core.Pattern.TokenType.EITHER_OR;
 import static de.unkrig.lfr.core.Pattern.TokenType.END_GROUP;
 import static de.unkrig.lfr.core.Pattern.TokenType.LITERAL_CHARACTER;
@@ -616,8 +615,7 @@ class PatternFactory extends de.unkrig.ref4j.PatternFactory {
                     }
 
                 case CC_NEGATION:
-                case CC_RANGE:
-                    // These can only appear inside a character class, like "[^abc]" or "[a-k]".
+                    // These can only appear inside a character class, like "[^abc]".
                     throw new AssertionError(t);
 
                 case CC_INTERSECTION:
@@ -899,30 +897,14 @@ class PatternFactory extends de.unkrig.ref4j.PatternFactory {
             private CharacterClass
             parseCcRange() throws ParseException {
 
-                String lhs = this.peekRead(LITERAL_CHARACTER);
-
-                if (lhs == null) {
-
-                    // Treat leading hyphen as a literal character.
-                    lhs = this.peekRead(CC_RANGE);
-
-                    if (lhs == null) return this.parseCharacterClass();
-                }
-
+                String lhs = this.peekRead(LITERAL_CHARACTER); // Range start character.
+                if (lhs == null) return this.parseCharacterClass();
                 int lhsCp = lhs.codePointAt(0);
 
-                if (this.peekRead(CC_RANGE) == null) return CharacterClasses.literalCharacter(lhsCp);
+                if (!this.peekRead("-")) return CharacterClasses.literalCharacter(lhsCp); // Hyphen.
 
-                String rhs = this.peekRead(LITERAL_CHARACTER);
-                if (rhs == null) {
-
-                    if (this.peekRead(CC_RANGE) != null) {
-                        return CharacterClasses.range(lhsCp, '-');
-                    }
-
-                    // Treat a trailing hyphen as a literal character.
-                    return CharacterClasses.oneOf(lhsCp, '-');
-                }
+                String rhs = this.peekRead(LITERAL_CHARACTER); // Range end character.
+                if (rhs == null) return CharacterClasses.oneOf(lhsCp, '-');
 
                 return CharacterClasses.range(lhsCp, rhs.codePointAt(0));
             }
