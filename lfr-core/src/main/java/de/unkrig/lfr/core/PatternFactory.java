@@ -74,42 +74,6 @@ class PatternFactory extends de.unkrig.ref4j.PatternFactory {
 
     @Override public int
     getSupportedFlags() { return Pattern.SUPPORTED_FLAGS; }
-//
-//    @Override public Pattern
-//    compile(String regex) throws PatternSyntaxException { return this.compile(regex, 0); }
-//
-//    @Override public Pattern
-//    compile(String regex, int flags) throws PatternSyntaxException {
-//
-//        if ((flags & ~Pattern.SUPPORTED_FLAGS) != 0) {
-//            throw new IllegalArgumentException("Unsupported flag " + (flags & ~Pattern.SUPPORTED_FLAGS));
-//        }
-//
-//        // With the "LITERAL" flag, use the "literal scanner" instead of the normal regex scanner.
-//        RegexScanner rs = new RegexScanner(
-//            (flags & de.unkrig.ref4j.Pattern.LITERAL) == 0
-//            ? Pattern.REGEX_SCANNER
-//            : Pattern.LITERAL_SCANNER
-//        );
-//
-//        // With the "COMMENTS" flag, start in the "_X" default state.
-//        if ((flags & (de.unkrig.ref4j.Pattern.LITERAL | de.unkrig.ref4j.Pattern.COMMENTS)) == de.unkrig.ref4j.Pattern.COMMENTS) {
-//            rs.setCurrentState(ScannerState.DEFAULT_X);
-//        }
-//
-//        rs.setInput(regex);
-//
-//        Sequence sequence;
-//        try {
-//            sequence = PatternFactory.parse(rs, flags);
-//        } catch (ParseException pe) {
-//            PatternSyntaxException pse = new PatternSyntaxException(pe.getMessage(), regex, rs.getOffset());
-//            pse.initCause(pe);
-//            throw pse;
-//        }
-//
-//        return new Pattern(regex, flags, sequence, rs.groupCount, rs.namedGroups);
-//    }
 
     /**
      * @see java.util.regex.Pattern#compile(String)
@@ -135,9 +99,10 @@ class PatternFactory extends de.unkrig.ref4j.PatternFactory {
         );
 
         // With the "COMMENTS" flag, start in the "_X" default state.
-        if ((flags & (de.unkrig.ref4j.Pattern.LITERAL | de.unkrig.ref4j.Pattern.COMMENTS)) == de.unkrig.ref4j.Pattern.COMMENTS) {
-            rs.setCurrentState(ScannerState.DEFAULT_X);
-        }
+        if (
+            (flags & (de.unkrig.ref4j.Pattern.LITERAL | de.unkrig.ref4j.Pattern.COMMENTS))
+            == de.unkrig.ref4j.Pattern.COMMENTS
+        ) rs.setCurrentState(ScannerState.DEFAULT_X);
 
         rs.setInput(regex);
 
