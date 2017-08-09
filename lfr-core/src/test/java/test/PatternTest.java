@@ -75,6 +75,24 @@ class PatternTest {
     }
 
     @SuppressWarnings("static-method") @Test public void
+    testShortStringLiterals() {
+
+        String infix = "ABCDEFGHIJKLMNO";
+
+        String regex = infix;
+
+        Assert.assertEquals(
+            "naive(\"ABCDEFGHIJKLMNO\") . end",
+            OracleEssentials.LFR.compile(regex).sequenceToString()
+        );
+
+        Producer<String> sp = PatternTest.randomSubjectProducer(infix);
+        for (int i = 0; i < 1000; i++) {
+            OracleEssentials.harnessFull(regex, AssertionUtil.notNull(sp.produce()));
+        }
+    }
+
+    @SuppressWarnings("static-method") @Test public void
     testLongStringLiterals() {
 
         String infix = "ABCDEFGHIJKLMNOP";
