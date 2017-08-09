@@ -110,8 +110,8 @@ class CharacterClasses {
 
         @Override public String
         toStringWithoutCompanion() {
-        	return new StringBuilder(3).append('\'').appendCodePoint(this.c).append('\'').toString();
-    	}
+            return new StringBuilder(3).append('\'').appendCodePoint(this.c).append('\'').toString();
+        }
     }
 
     /**
@@ -255,11 +255,11 @@ class CharacterClasses {
             if (that instanceof LiteralCharacter) {
                 LiteralCharacter that2 = (LiteralCharacter) that;
                 return oneOf(
-            		new StringBuilder(this.chars.length() + 1)
-            		.append(this.chars)
-            		.appendCodePoint(that2.c)
-            		.toString()
-        		).union(that2.companion);
+                    new StringBuilder(this.chars.length() + 1)
+                    .append(this.chars)
+                    .appendCodePoint(that2.c)
+                    .toString()
+                ).union(that2.companion);
             }
             if (that instanceof OneOfManyCharacterClass) {
                 OneOfManyCharacterClass that2 = (OneOfManyCharacterClass) that;
