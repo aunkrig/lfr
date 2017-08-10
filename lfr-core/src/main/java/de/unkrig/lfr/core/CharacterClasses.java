@@ -154,13 +154,14 @@ class CharacterClasses {
      * Representation of a two-characters union, e.g. "[oO]".
      */
     public static Union
-    oneOfTwo(final int c1, final int c2) { return new OneOfTwoCharacterClass(c1, c2); }
+    oneOfTwo(int c1, int c2) {
+        return c1 == c2 ? CharacterClasses.literalCharacter(c1) : new OneOfTwoCharacterClass(c1, c2);
+    }
 
     public static final
     class OneOfTwoCharacterClass extends Union {
 
-        private final int c1;
-        private final int c2;
+        private final int c1, c2;
 
         private
         OneOfTwoCharacterClass(int c1, int c2) {
@@ -186,6 +187,42 @@ class CharacterClasses {
                 .toString()
             );
         }
+    }
+
+    /**
+     * Representation of a three-characters union, e.g. "[abc]".
+     */
+    public static Union
+    oneOfThree(final int c1, final int c2, final int c3) {
+
+        return (
+            c1 == c2 ? CharacterClasses.oneOfTwo(c1, c3) :
+            c1 == c3 ? CharacterClasses.oneOfTwo(c1, c2) :
+            c2 == c3 ? CharacterClasses.oneOfTwo(c1, c2) :
+            new Union() {
+
+                @Override public boolean
+                evaluate(int subject) { return subject == c1 || subject == c2 || subject == c3; }
+
+                @Override public int lowerBoundWithoutCompanion() { return CharacterClasses.min(c1, c2, c3);     }
+                @Override public int upperBoundWithoutCompanion() { return CharacterClasses.max(c1, c2, c3) + 1; }
+                @Override public int sizeBoundWithoutCompanion()  { return 3;                   }
+
+                @Override public String
+                toStringWithoutCompanion() {
+                    return (
+                        new StringBuilder("oneOfThree('")
+                        .appendCodePoint(c1)
+                        .append("', '")
+                        .appendCodePoint(c2)
+                        .append("', '")
+                        .appendCodePoint(c3)
+                        .append("')")
+                        .toString()
+                    );
+                }
+            }
+        );
     }
 
     /**
@@ -247,9 +284,11 @@ class CharacterClasses {
      */
     public static Union
     unicodeCaseInsensitiveLiteralCharacter(final int c) {
-        if (Character.isLowerCase(c)) return CharacterClasses.oneOfTwo(c, Character.toUpperCase(c));
-        if (Character.isUpperCase(c)) return CharacterClasses.oneOfTwo(c, Character.toLowerCase(c));
-        return CharacterClasses.literalCharacter(c);
+        return CharacterClasses.oneOfThree(
+            Character.toLowerCase(c),
+            Character.toUpperCase(c),
+            Character.toTitleCase(c)
+        );
     }
 
     /**
@@ -401,5 +440,17 @@ class CharacterClasses {
         @Override public CharacterClass union(CharacterClass that) { return that;                  }
         @Override public Sequence       concat(Sequence that)      { return that;                  }
         @Override public String         toStringWithoutNext()      { return "emptyCharacterClass"; }
+    }
+
+    private static int
+    min(int i1, int i2, int i3) {
+        if (i1 < i2) return i1 < i3 ? i1 : i3;
+        return i2 < i3 ? i2 : i3;
+    }
+
+    private static int
+    max(int i1, int i2, int i3) {
+        if (i1 > i2) return i1 > i3 ? i1 : i3;
+        return i2 > i3 ? i2 : i3;
     }
 }

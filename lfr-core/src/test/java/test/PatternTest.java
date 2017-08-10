@@ -311,7 +311,7 @@ class PatternTest {
         // JUR compiles invalid group references ok, and treats them as "no match". DULC, however, is more accurate
         // and reports invalid group references already at COMPILE TIME.
         String regex = "(\\d\\d)\\2";
-        Assert.assertEquals("  12  ", jurpc(regex).matcher("  12  ").replaceAll("x"));
+        Assert.assertEquals("  12  ", PatternTest.jurpc(regex).matcher("  12  ").replaceAll("x"));
 
         new RegexTest(regex).patternSyntaxExceptionDulc();
     }
@@ -693,6 +693,16 @@ class PatternTest {
             "A.*abcdefghijklmnop",
             Pattern.DOTALL
         );
+    }
+
+    @Test @SuppressWarnings("static-method") public void
+    testCaseInsensitiveMatch() {
+        char[] tripleCaseLetters = { 452, 453, 454, 455, 456, 457, 458, 459, 460, 497, 498, 499 };
+
+        for (char c : tripleCaseLetters) {
+            OracleEssentials.harnessFull(new String(new char[] { c }), new String(tripleCaseLetters));
+            OracleEssentials.harnessFull(new String(new char[] { c }), new String(tripleCaseLetters), Pattern.CASE_INSENSITIVE);
+        }
     }
 
     // ===================================
