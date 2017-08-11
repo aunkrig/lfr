@@ -122,8 +122,8 @@ class Sequences {
                 }
 
                 // Optimize for bare character class operands, e.g. "[...]".
-                if (operand instanceof Union) {
-                    Union cc = (Union) operand;
+                if (operand instanceof CharacterClass) {
+                    CharacterClass cc = (CharacterClass) operand;
                     if (cc.next == Sequences.TERMINAL) {
                         return Sequences.greedyQuantifierCharacterClass(cc, min, max).concat(this.next);
                     }
@@ -1044,7 +1044,7 @@ class Sequences {
      * character predicate, e.g. a character class.
      */
     public static Sequence
-    greedyQuantifierCharacterClass(final IntPredicate operand, final int min, final int max) {
+    greedyQuantifierCharacterClass(final CharacterClass operand, final int min, final int max) {
 
         return new CompositeSequence() {
 
@@ -1071,7 +1071,7 @@ class Sequences {
                         }
                     }
 
-                    if (!operand.evaluate(c)) return -1;
+                    if (!operand.matches(c)) return -1;
                 }
                 final int offsetAfterMin = offset;
 
@@ -1095,7 +1095,7 @@ class Sequences {
                         }
                     }
 
-                    if (!operand.evaluate(c)) break;
+                    if (!operand.matches(c)) break;
 
                     offset = offset2;
                 }

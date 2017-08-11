@@ -26,11 +26,18 @@
 
 package de.unkrig.lfr.core;
 
+import java.util.ArrayList;
+import java.util.BitSet;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.Set;
+
 import de.unkrig.commons.lang.Characters;
 import de.unkrig.commons.lang.protocol.Predicate;
 
 /**
- * Utility methods that create all kinds of {@link Union}s.
+ * Utility methods that create all kinds of {@link CharacterClass}s.
  */
 final
 class CharacterClasses {
@@ -41,7 +48,7 @@ class CharacterClasses {
      * Representation of a literal character, like "a" or "\.".
      */
     public static
-    class LiteralCharacter extends Union {
+    class LiteralCharacter extends CharacterClass {
 
         /**
          * The literal character that this sequence represents.
@@ -51,7 +58,7 @@ class CharacterClasses {
         LiteralCharacter(int c) { this.c = c; }
 
         @Override public boolean
-        evaluate(int subject) { return subject == this.c; }
+        matches(int subject) { return subject == this.c; }
 
         @Override public Sequence
         concat(Sequence that) {
@@ -82,12 +89,12 @@ class CharacterClasses {
             return this;
         }
 
-        @Override protected int lowerBoundWithoutCompanion() { return this.c;     }
-        @Override protected int upperBoundWithoutCompanion() { return this.c + 1; }
-        @Override protected int sizeBoundWithoutCompanion()  { return 1;          }
+        @Override public int lowerBound() { return this.c;     }
+        @Override public int upperBound() { return this.c + 1; }
+        @Override public int sizeBound()  { return 1;          }
 
         @Override public String
-        toStringWithoutCompanion() {
+        toStringWithoutNext() {
             return new StringBuilder(3).append('\'').appendCodePoint(this.c).append('\'').toString();
         }
     }
@@ -95,12 +102,12 @@ class CharacterClasses {
     /**
      * Delegates to an {@link Predicate Predicate&lt;Integer>}, where the subject is the character's code point.
      */
-    public static Union
+    public static CharacterClass
     characterClass(final Predicate<Integer> predicate) {
 
-        return new Union() {
-            @Override public boolean evaluate(int subject)      { return predicate.evaluate(subject);   }
-            @Override public String  toStringWithoutCompanion() { return predicate + " . " + this.next; }
+        return new CharacterClass() {
+            @Override public boolean matches(int subject)  { return predicate.evaluate(subject); }
+            @Override public String  toStringWithoutNext() { return predicate.toString();        }
         };
     }
 
@@ -109,18 +116,16 @@ class CharacterClasses {
      *
      * @see Character.UnicodeBlock#of(int)
      */
-    public static Union
+    public static CharacterClass
     inUnicodeBlock(final Character.UnicodeBlock block) {
 
-        return new Union() {
+        return new CharacterClass() {
 
             @Override public boolean
-            evaluate(int subject) {
-                return Character.UnicodeBlock.of(subject) == block || this.companion.matches(subject);
-            }
+            matches(int subject) { return Character.UnicodeBlock.of(subject) == block; }
 
             @Override public String
-            toStringWithoutCompanion() { return "inUnicodeBlock(" + block + ")"; }
+            toStringWithoutNext() { return "inUnicodeBlock(" + block + ")"; }
         };
     }
 
@@ -129,37 +134,35 @@ class CharacterClasses {
      *
      * @param generalCategory One of the "general category" constants in {@link Character}
      */
-    public static Union
+    public static CharacterClass
     inUnicodeGeneralCategory(final int generalCategory) {
 
-        return new Union() {
+        return new CharacterClass() {
 
             @Override public boolean
-            evaluate(int subject) {
-                return Character.getType(subject) == generalCategory || this.companion.matches(subject);
-            }
+            matches(int subject) { return Character.getType(subject) == generalCategory; }
 
             @Override public String
-            toStringWithoutCompanion() { return "inUnicodeGeneralCategory(" + generalCategory + ")"; }
+            toStringWithoutNext() { return "inUnicodeGeneralCategory(" + generalCategory + ")"; }
         };
     }
 
     /**
      * Checks whether a code point equals the given <var>codePoint</var>
      */
-    public static Union
+    public static CharacterClass
     literalCharacter(int codePoint) { return new LiteralCharacter(codePoint); }
 
     /**
      * Representation of a two-characters union, e.g. "[oO]".
      */
-    public static Union
+    public static CharacterClass
     oneOfTwo(int c1, int c2) {
         return c1 == c2 ? CharacterClasses.literalCharacter(c1) : new OneOfTwoCharacterClass(c1, c2);
     }
 
     public static final
-    class OneOfTwoCharacterClass extends Union {
+    class OneOfTwoCharacterClass extends CharacterClass {
 
         private final int c1, c2;
 
@@ -170,14 +173,14 @@ class CharacterClasses {
         }
 
         @Override public boolean
-        evaluate(int subject) { return subject == this.c1 || subject == this.c2; }
+        matches(int subject) { return subject == this.c1 || subject == this.c2; }
 
-        @Override public int lowerBoundWithoutCompanion() { return Math.min(this.c1, this.c2);     }
-        @Override public int upperBoundWithoutCompanion() { return Math.max(this.c1, this.c2) + 1; }
-        @Override public int sizeBoundWithoutCompanion()  { return 2;                              }
+        @Override public int lowerBound() { return Math.min(this.c1, this.c2);     }
+        @Override public int upperBound() { return Math.max(this.c1, this.c2) + 1; }
+        @Override public int sizeBound()  { return 2;                              }
 
         @Override public String
-        toStringWithoutCompanion() {
+        toStringWithoutNext() {
             return (
                 new StringBuilder("oneOfTwo('")
                 .appendCodePoint(this.c1)
@@ -192,24 +195,24 @@ class CharacterClasses {
     /**
      * Representation of a three-characters union, e.g. "[abc]".
      */
-    public static Union
+    public static CharacterClass
     oneOfThree(final int c1, final int c2, final int c3) {
 
         return (
             c1 == c2 ? CharacterClasses.oneOfTwo(c1, c3) :
             c1 == c3 ? CharacterClasses.oneOfTwo(c1, c2) :
             c2 == c3 ? CharacterClasses.oneOfTwo(c1, c2) :
-            new Union() {
+            new CharacterClass() {
 
                 @Override public boolean
-                evaluate(int subject) { return subject == c1 || subject == c2 || subject == c3; }
+                matches(int subject) { return subject == c1 || subject == c2 || subject == c3; }
 
-                @Override public int lowerBoundWithoutCompanion() { return CharacterClasses.min(c1, c2, c3);     }
-                @Override public int upperBoundWithoutCompanion() { return CharacterClasses.max(c1, c2, c3) + 1; }
-                @Override public int sizeBoundWithoutCompanion()  { return 3;                   }
+                @Override public int lowerBound() { return CharacterClasses.min(c1, c2, c3);     }
+                @Override public int upperBound() { return CharacterClasses.max(c1, c2, c3) + 1; }
+                @Override public int sizeBound()  { return 3;                   }
 
                 @Override public String
-                toStringWithoutCompanion() {
+                toStringWithoutNext() {
                     return (
                         new StringBuilder("oneOfThree('")
                         .appendCodePoint(c1)
@@ -228,11 +231,11 @@ class CharacterClasses {
     /**
      * Checks whether a code point is one of those in in <var>chars</var>.
      */
-    public static Union
+    public static CharacterClass
     oneOf(final String chars) { return new OneOfManyCharacterClass(chars); }
 
     public static final
-    class OneOfManyCharacterClass extends Union {
+    class OneOfManyCharacterClass extends CharacterClass {
 
         private final String chars;
 
@@ -240,10 +243,10 @@ class CharacterClasses {
         OneOfManyCharacterClass(String chars) { this.chars = chars; }
 
         @Override public boolean
-        evaluate(int subject) { return this.chars.indexOf(subject) != -1; }
+        matches(int subject) { return this.chars.indexOf(subject) != -1; }
 
-        @Override protected int
-        lowerBoundWithoutCompanion() {
+        @Override public int
+        lowerBound() {
             int result = Integer.MAX_VALUE;
             for (int i = this.chars.length() - 1; i >= 0; i--) {
                 int c = this.chars.codePointAt(i);
@@ -252,8 +255,8 @@ class CharacterClasses {
             return result;
         }
 
-        @Override protected int
-        upperBoundWithoutCompanion() {
+        @Override public int
+        upperBound() {
             int result = 0;
             for (int i = this.chars.length() - 1; i >= 0; i--) {
                 int c = this.chars.codePointAt(i);
@@ -262,17 +265,17 @@ class CharacterClasses {
             return result;
         }
 
-        @Override protected int
-        sizeBoundWithoutCompanion() { return this.chars.length(); }
+        @Override public int
+        sizeBound() { return this.chars.length(); }
 
         @Override public String
-        toStringWithoutCompanion() { return "oneOf(\"" + this.chars + "\")"; }
+        toStringWithoutNext() { return "oneOf(\"" + this.chars + "\")"; }
     }
 
     /**
      * Representation of an (ASCII-)case-insensitive literal character.
      */
-    public static Union
+    public static CharacterClass
     caseInsensitiveLiteralCharacter(final int c) {
         if (c >= 'A' && c <= 'Z') return CharacterClasses.oneOfTwo(c, c + 32);
         if (c >= 'a' && c <= 'z') return CharacterClasses.oneOfTwo(c, c - 32);
@@ -282,7 +285,7 @@ class CharacterClasses {
     /**
      * Representation of a (UNICODE-)case-insensitive literal character.
      */
-    public static Union
+    public static CharacterClass
     unicodeCaseInsensitiveLiteralCharacter(final int c) {
         return CharacterClasses.oneOfThree(
             Character.toLowerCase(c),
@@ -291,23 +294,164 @@ class CharacterClasses {
         );
     }
 
+    public static CharacterClass
+    union(final CharacterClass lhs, final CharacterClass rhs) {
+
+        if (lhs instanceof CharacterClasses.EmptyCharacterClass) return rhs;
+        if (rhs instanceof CharacterClasses.EmptyCharacterClass) return lhs;
+
+        return new CharacterClass() {
+            @Override public boolean   matches(int c)        { return lhs.matches(c) || rhs.matches(c);             }
+            @Override public int       lowerBound()          { return Math.min(lhs.lowerBound(), rhs.lowerBound()); }
+            @Override public int       upperBound()          { return Math.max(lhs.upperBound(), rhs.upperBound()); }
+            @Override public int       sizeBound()           { return lhs.sizeBound() + rhs.sizeBound();            }
+            @Override protected String toStringWithoutNext() { return "union(" + lhs + ", " + rhs + ')';            }
+        };
+    }
+
+    /**
+     * @return <var>cc</var>, or a perfomance-optimized equivalent of it
+     */
+    public static CharacterClass
+    optimize(CharacterClass cc) {
+
+        // Some performance tests on JRE 8 with "-server":
+        //   "c == this.c"                  => 1.1 us
+        //   "c == this.c1 || c == this.c2" => 2.1 us
+        //   "this.s.indexOf(c) == -1"      => 9.8 us  (s.length() == 16)
+        //   "this.s.indexOf(c) == -1"      => 5.2 us  (s.length() == 3)
+        //   "this.s.indexOf(c) == -1"      => 3.8 us  (s.length() == 1)
+        //   "this.intArray[i] == c"        => identical as "s.indexOf(c)"
+        //   "this.intHashSet.contains(c)"  => 6.0 us  (s.length() == 1)
+        //   "this.intHashSet.contains(c)"  => 5.7 us  (s.length() == 3)
+        //   "this.intHashSet.contains(c)"  => 5.7 us  (s.length() == 16)
+        //   "this.bitSet.get(c)"           => 3.1 us
+
+        // Summary:
+        // For 1 character,          "c == this.c"                  is optimal (1.1 us)
+        // For 2 characters,         "c == this.c1 || c == this.c2" is optimal (2.1 us)
+        // For 3 or more characters, "this.bitSet.get(c)"           is optimal (3.1 us)
+        // If bitSet cannot be used (c much greater than 256),
+        //                           "this.intHashSet.contains()"   is optimal (5.7 us)
+        // The following are optimal in none of the cases, and are thus not useful:
+        //    "this.s.indexOf(c) == -1"
+        //    "this.intArray[i] == c"
+
+        // Convert the character class into a Set<Integer>, and determine the minimum and maximum value.
+        final Set<Integer> integerSet;
+        final int          minValue, maxValue;
+        {
+            final int lb = cc.lowerBound(), ub = cc.upperBound();
+
+            if (ub - lb > 1000) {
+
+                // Character class is too widely spread for set optimization.
+                return cc;
+            }
+
+            integerSet = new HashSet<Integer>();
+
+            int min = Integer.MAX_VALUE, max = 0;
+            for (int c = lb; c < ub; c++) {
+                if (cc.matches(c)) {
+                    integerSet.add(c);
+                    if (c < min) min = c;
+                    if (c > max) max = c;
+                }
+            }
+
+            minValue = min;
+            maxValue = max;
+        }
+
+        // Transform the "integerSet" into a character class.
+        final int size = integerSet.size();
+        switch (size) {
+
+        case 0:
+            return new CharacterClasses.EmptyCharacterClass();
+
+        case 1:
+            return CharacterClasses.literalCharacter(integerSet.iterator().next());
+
+        case 2:
+            {
+                Iterator<Integer> it = integerSet.iterator();
+                return CharacterClasses.oneOfTwo(it.next(), it.next());
+            }
+
+        case 3:
+            {
+                Iterator<Integer> it = integerSet.iterator();
+                return CharacterClasses.oneOfThree(it.next(), it.next(), it.next());
+            }
+        }
+
+        if (maxValue < 256) {
+
+            // Optimize into a "BitSet" if the maxValue is small enough.
+            final BitSet bitSet = new BitSet(maxValue + 1);
+            for (int c : integerSet) bitSet.set(c);
+
+            return new CharacterClass() {
+
+
+                @Override public boolean matches(int c) { return bitSet.get(c); }
+                @Override public int     lowerBound()   { return minValue;      }
+                @Override public int     upperBound()   { return maxValue + 1;  }
+                @Override public int     sizeBound()    { return size;          }
+
+                @Override public String
+                toStringWithoutNext() {
+                    StringBuilder sb = new StringBuilder("bitSet(");
+                    for (int i = minValue; i <= maxValue; i++) {
+                        if (bitSet.get(i)) {
+                            (sb.length() == 7 ? sb.append('\'') : sb.append(", '")).append((char) i).append('\'');
+                        }
+                    }
+                    return sb.append(')').toString();
+                }
+            };
+        } else {
+
+            return new CharacterClass() {
+
+                @Override public boolean matches(int c) { return integerSet.contains(c); }
+                @Override public int  lowerBound()      { return minValue;               }
+                @Override public int  upperBound()      { return maxValue + 1;           }
+                @Override public int  sizeBound()       { return size;                   }
+
+                @Override public String
+                toStringWithoutNext() {
+
+                    ArrayList<Integer> l = new ArrayList<Integer>(integerSet);
+                    Collections.sort(l);
+
+                    StringBuilder sb = new StringBuilder("set('").appendCodePoint(l.get(0));
+                    for (int i = 1; i < l.size(); i++) sb.append("', '").appendCodePoint(l.get(i));
+                    return sb.append("')").toString();
+                }
+            };
+        }
+    }
+
     /**
      * Representation of a character class intersection like {@code "\w&&[^abc]"}.
      */
-    public static Union
+    public static CharacterClass
     intersection(final CharacterClass lhs, final CharacterClass rhs) {
 
-        return new Union() {
+        return new CharacterClass() {
 
             @Override public boolean
-            evaluate(int subject) { return lhs.matches(subject) && rhs.matches(subject); }
+            matches(int subject) { return lhs.matches(subject) && rhs.matches(subject); }
 
-            @Override public int lowerBoundWithoutCompanion() { return Math.max(lhs.lowerBound(), rhs.lowerBound()); }
-            @Override public int upperBoundWithoutCompanion() { return Math.min(lhs.upperBound(), rhs.upperBound()); }
-            @Override public int sizeBoundWithoutCompanion()  { return Math.min(lhs.sizeBound(), rhs.sizeBound());   }
+            @Override public int lowerBound() { return Math.max(lhs.lowerBound(), rhs.lowerBound()); }
+            @Override public int upperBound() { return Math.min(lhs.upperBound(), rhs.upperBound()); }
+            @Override public int sizeBound()  { return Math.min(lhs.sizeBound(), rhs.sizeBound());   }
 
             @Override public String
-            toStringWithoutCompanion() { return "intersection(" + lhs + ", " + rhs + ")"; }
+            toStringWithoutNext() { return "intersection(" + lhs + ", " + rhs + ")"; }
         };
     }
 
@@ -321,17 +465,17 @@ class CharacterClasses {
 
         if (lhs > rhs) return new CharacterClasses.EmptyCharacterClass();
 
-        return new Union() {
+        return new CharacterClass() {
 
             @Override public boolean
-            evaluate(int subject) { return (subject >= lhs && subject <= rhs); }
+            matches(int subject) { return (subject >= lhs && subject <= rhs); }
 
-            @Override public int lowerBoundWithoutCompanion() { return lhs;           }
-            @Override public int upperBoundWithoutCompanion() { return rhs + 1;       }
-            @Override public int sizeBoundWithoutCompanion()  { return rhs - lhs + 1; }
+            @Override public int lowerBound() { return lhs;           }
+            @Override public int upperBound() { return rhs + 1;       }
+            @Override public int sizeBound()  { return rhs - lhs + 1; }
 
             @Override public String
-            toStringWithoutCompanion() {
+            toStringWithoutNext() {
                 return (
                     new StringBuilder("range('")
                     .appendCodePoint(lhs)
@@ -345,7 +489,7 @@ class CharacterClasses {
     }
 
     /**  An (ASCII) digit: [0-9] */
-    public static Union
+    public static CharacterClass
     digit(boolean unicode) {
         return CharacterClasses.characterClass(unicode ? Characters.IS_UNICODE_DIGIT : Characters.IS_DIGIT);
     }
@@ -359,13 +503,13 @@ class CharacterClasses {
         if (operand instanceof CharacterClasses.AnyCharacter)        return new CharacterClasses.EmptyCharacterClass();
         if (operand instanceof CharacterClasses.EmptyCharacterClass) return new CharacterClasses.AnyCharacter();
 
-        return new Union() {
+        return new CharacterClass() {
 
             @Override public boolean
-            evaluate(int subject) { return !operand.matches(subject); }
+            matches(int subject) { return !operand.matches(subject); }
 
             @Override public String
-            toStringWithoutCompanion() { return "negate(" + operand + ")"; }
+            toStringWithoutNext() { return "negate(" + operand + ")"; }
         };
     }
 
@@ -373,13 +517,13 @@ class CharacterClasses {
      * A horizontal whitespace character:
      * <code>[ \t\xA0&#92;u1680&#92;u180e&#92;u2000-&#92;u200a&#92;u202f&#92;u205f&#92;u3000]</code>
      */
-    public static Union
+    public static CharacterClass
     horizontalWhitespace() {
         return CharacterClasses.characterClass(Characters.IS_HORIZONTAL_WHITESPACE);
     }
 
     /**  A whitespace character: [ \t\n\x0B\f\r] */
-    public static Union
+    public static CharacterClass
     whitespace(boolean unicode) {
 
         return (
@@ -390,11 +534,11 @@ class CharacterClasses {
     }
 
     /**  A vertical whitespace character: [\n\x0B\f\r\x85/u2028/u2029] */
-    public static Union
+    public static CharacterClass
     verticalWhitespace() { return CharacterClasses.oneOf("\r\n\u000B\f\u0085\u2028\u2029"); }
 
     /**  A word character: [a-zA-Z_0-9] */
-    public static Union
+    public static CharacterClass
     word(final boolean unicode) {
         return CharacterClasses.characterClass(unicode ? Characters.IS_UNICODE_WORD : Characters.IS_WORD);
     }
@@ -402,22 +546,22 @@ class CharacterClasses {
     /**
      * Implements {@code "."} (negated) iff !DOTALL and !UNIX_LINES
      */
-    public static Union
+    public static CharacterClass
     lineBreakCharacter() {
 
-        return new Union() {
+        return new CharacterClass() {
 
-            @Override public int lowerBoundWithoutCompanion() { return 0x0a;   }
-            @Override public int upperBoundWithoutCompanion() { return 0x202a; }
-            @Override public int sizeBoundWithoutCompanion()  { return 7;      }
+            @Override public int lowerBound() { return 0x0a;   }
+            @Override public int upperBound() { return 0x202a; }
+            @Override public int sizeBound()  { return 7;      }
 
             @Override public boolean
-            evaluate(int c) {
+            matches(int c) {
                 return (c <= 0x0d && c >= 0x0a) || c == 0x85 || (c >= 0x2028 && c <= 0x2029);
             }
 
             @Override public String
-            toStringWithoutCompanion() { return "lineBreakCharacter"; }
+            toStringWithoutNext() { return "lineBreakCharacter"; }
         };
     }
 
@@ -426,20 +570,18 @@ class CharacterClasses {
      */
     public static
     class AnyCharacter extends CharacterClass {
-        @Override public boolean        matches(int subject)       { return true;           }
-        @Override public CharacterClass union(CharacterClass that) { return this;           }
-        @Override public String         toStringWithoutNext()      { return "anyCharacter"; }
+        @Override public boolean matches(int subject)  { return true;           }
+        @Override public String  toStringWithoutNext() { return "anyCharacter"; }
     }
 
     public static
     class EmptyCharacterClass extends CharacterClass {
-        @Override public boolean        matches(int subject)       { return false;                 }
-        @Override public int            lowerBound()               { return Integer.MAX_VALUE;     }
-        @Override public int            upperBound()               { return 0;                     }
-        @Override public int            sizeBound()                { return 0;                     }
-        @Override public CharacterClass union(CharacterClass that) { return that;                  }
-        @Override public Sequence       concat(Sequence that)      { return that;                  }
-        @Override public String         toStringWithoutNext()      { return "emptyCharacterClass"; }
+        @Override public boolean  matches(int subject)  { return false;                 }
+        @Override public int      lowerBound()          { return Integer.MAX_VALUE;     }
+        @Override public int      upperBound()          { return 0;                     }
+        @Override public int      sizeBound()           { return 0;                     }
+        @Override public Sequence concat(Sequence that) { return that;                  }
+        @Override public String   toStringWithoutNext() { return "emptyCharacterClass"; }
     }
 
     private static int

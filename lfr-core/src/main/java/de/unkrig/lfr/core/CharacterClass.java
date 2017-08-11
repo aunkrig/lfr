@@ -81,14 +81,4 @@ class CharacterClass extends CompositeSequence {
      */
     @SuppressWarnings("static-method") public int
     sizeBound() { return Integer.MAX_VALUE; }
-
-    /**
-     * Returns a {@link CharacterClass} that implements the union of {@code this} and <var>that</var>. When this method
-     * returns, {@code this} and <var>that</var> are in an undefined state and must no longer be used.
-     */
-    public abstract CharacterClass
-    union(CharacterClass that);
-
-    @Override public String
-    toStringWithoutNext() { return this.toString(); }
 }

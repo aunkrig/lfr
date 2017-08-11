@@ -642,7 +642,7 @@ class PatternTest {
         PatternTest.assertSequenceToString("oneOfTwo('A', 'B') . end",                             "[AB]");
         PatternTest.assertSequenceToString("oneOfTwo('A', 'K') . end",                             "[AK]");
         PatternTest.assertSequenceToString("bitSet('A', 'C', 'E', 'G', 'I', 'K') . end",           "[ACEGIK]");
-        PatternTest.assertSequenceToString("bitSet('A', 'B', 'C', 'D', 'E') . end",                "[A-E]");
+        PatternTest.assertSequenceToString("range('A' - 'E') . end",                               "[A-E]");
         PatternTest.assertSequenceToString("bitSet('D', 'E', 'F', 'G', 'H', 'I', 'J', 'K') . end", "[A-K&&D-Z]");
         PatternTest.assertSequenceToString(PatternTest.jurpc("set\\('.'(?:, '.'){63}\\) . end"),   "[A-Za-z0-9_\u0400]");
     }
@@ -814,9 +814,10 @@ class PatternTest {
 
     private static void
     assertSequenceToString(java.util.regex.Pattern expected, String regex, int flags) {
+        String s = OracleEssentials.LFR.compile(regex, flags).sequenceToString();
         Assert.assertTrue(
-            expected.toString(),
-            expected.matcher(OracleEssentials.LFR.compile(regex, flags).sequenceToString()).matches()
+            "\"" + s + "\" does not match \"" + expected.toString() + "\"",
+            expected.matcher(s).matches()
         );
     }
 

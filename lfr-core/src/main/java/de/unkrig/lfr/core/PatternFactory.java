@@ -38,6 +38,7 @@ import static de.unkrig.lfr.core.Pattern.TokenType.RIGHT_BRACKET;
 import java.lang.Character.UnicodeBlock;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -49,11 +50,12 @@ import de.unkrig.commons.lang.Characters;
 import de.unkrig.commons.lang.protocol.Predicate;
 import de.unkrig.commons.lang.protocol.ProducerUtil;
 import de.unkrig.commons.lang.protocol.ProducerWhichThrows;
+import de.unkrig.commons.nullanalysis.NotNullByDefault;
 import de.unkrig.commons.nullanalysis.Nullable;
 import de.unkrig.commons.text.parser.AbstractParser;
 import de.unkrig.commons.text.parser.ParseException;
-import de.unkrig.commons.text.scanner.ScanException;
 import de.unkrig.commons.text.scanner.AbstractScanner.Token;
+import de.unkrig.commons.text.scanner.ScanException;
 import de.unkrig.lfr.core.Pattern.RegexScanner;
 import de.unkrig.lfr.core.Pattern.ScannerState;
 import de.unkrig.lfr.core.Pattern.TokenType;
@@ -70,6 +72,13 @@ class PatternFactory extends de.unkrig.ref4j.PatternFactory {
      * The singleton {@link de.unkrig.ref4j.PatternFactory} that implements the LFR regex engine.
      */
     public static final PatternFactory INSTANCE = new PatternFactory();
+
+    private static final Comparator<CharacterClass>
+    COMPARE_BY_UPPER_BOUND = new Comparator<CharacterClass>() {
+
+        @Override @NotNullByDefault(false) public int
+        compare(CharacterClass cc1, CharacterClass cc2) { return cc1.upperBound() - cc2.lowerBound(); }
+    };
 
     @Override public int
     getSupportedFlags() { return Pattern.SUPPORTED_FLAGS; }
@@ -298,9 +307,6 @@ class PatternFactory extends de.unkrig.ref4j.PatternFactory {
                         if (negate) {
                             cc = CharacterClasses.negate(cc, '^' + cc.toString());
                         }
-
-                        // Enforce the last character class optimization.
-                        cc = cc.union(new CharacterClasses.EmptyCharacterClass());
 
                         return cc;
                     }
@@ -869,6 +875,7 @@ class PatternFactory extends de.unkrig.ref4j.PatternFactory {
 
                 while (this.peekRead(CC_INTERSECTION) != null) {
                     result = CharacterClasses.intersection(result, this.parseCcUnion());
+                    result = CharacterClasses.optimize(result);
                 }
 
                 return result;
@@ -879,8 +886,29 @@ class PatternFactory extends de.unkrig.ref4j.PatternFactory {
 
                 CharacterClass result = this.parseCcRange();
 
-                while (this.peek(RIGHT_BRACKET, CC_INTERSECTION) == -1) {
-                    result = result.union(this.parseCcRange());
+                if (this.peek(RIGHT_BRACKET, CC_INTERSECTION) != -1) {
+
+                    // It's a one-element union; simply return the element.
+                    return result;
+                }
+
+                // Parse all union elements into a list.
+                List<CharacterClass> elements = new ArrayList<CharacterClass>();
+                elements.add(result);
+                while (this.peek(RIGHT_BRACKET, CC_INTERSECTION) == -1) elements.add(this.parseCcRange());
+
+                // Sort the list by ascending upper bound; this makes the following optimization more likely to
+                // be successful.
+                Collections.sort(elements, PatternFactory.COMPARE_BY_UPPER_BOUND);
+
+                // Create a tree of "union" CharacterClass objects.
+                result = elements.get(0);
+                for (int i = 1; i < elements.size(); i++) {
+                    result = CharacterClasses.union(result, elements.get(i));
+                    
+                    // In many cases, this will collapse a tree of union character classes into one, (bit)set-based
+                    // character class.
+                    result = CharacterClasses.optimize(result);
                 }
 
                 return result;
