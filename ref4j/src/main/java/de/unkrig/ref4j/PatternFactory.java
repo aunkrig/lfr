@@ -129,4 +129,10 @@ class PatternFactory {
      */
     public String
     quote(String s) { return java.util.regex.Pattern.quote(s); }
+
+    /**
+     * @see java.util.regex.Matcher#quoteReplacement(String)
+     */
+    public String
+    quoteReplacement(String s) { return java.util.regex.Matcher.quoteReplacement(s); }
 }
