@@ -27,6 +27,7 @@
 package de.unkrig.ref4j.jur;
 
 import java.io.IOException;
+import java.io.Serializable;
 import java.util.regex.MatchResult;
 import java.util.regex.PatternSyntaxException;
 
@@ -36,7 +37,9 @@ import de.unkrig.ref4j.Pattern;
 /**
  * Adapter for the {@code java.util.regex} engine.
  */
-public class PatternFactory extends de.unkrig.ref4j.PatternFactory {
+public class PatternFactory extends de.unkrig.ref4j.PatternFactory implements Serializable {
+
+    private static final long serialVersionUID = 1L;
 
     private static final double JAVA_SPECIFICATION_VERSION = Double.parseDouble(System.getProperty("java.specification.version"));
 
@@ -63,7 +66,9 @@ public class PatternFactory extends de.unkrig.ref4j.PatternFactory {
     @Override public Pattern
     compile(final String regex, final int flags) throws PatternSyntaxException {
 
-        class JurPattern implements Pattern {
+        class JurPattern implements Pattern, Serializable {
+
+            private static final long serialVersionUID = 1L;
 
             final java.util.regex.Pattern jurPattern = java.util.regex.Pattern.compile(regex, flags);
 
@@ -156,8 +161,14 @@ public class PatternFactory extends de.unkrig.ref4j.PatternFactory {
             @Override public String[]
             split(CharSequence input) { return this.jurPattern.split(input); }
 
+            @Override public String[]
+            split(CharSequence input, int limit) { return this.jurPattern.split(input, limit); }
+
             @Override public String
             quote(String s) { return java.util.regex.Pattern.quote(s); }
+
+            @Override public String
+            toString() { return this.jurPattern.toString(); }
         }
 
         return new JurPattern();
