@@ -85,6 +85,12 @@ interface Pattern {
     split(CharSequence input);
 
     /**
+     * @see java.util.regex.Pattern#split(CharSequence, int)
+     */
+    public abstract String[]
+    split(CharSequence input, int limit);
+
+    /**
      * @see java.util.regex.Pattern#quote(String)
      */
     public abstract String

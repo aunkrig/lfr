@@ -624,21 +624,26 @@ class Pattern implements de.unkrig.ref4j.Pattern {
      * @see java.util.regex.Pattern#split(CharSequence)
      */
     @Override public String[]
-    split(CharSequence input) {
+    split(CharSequence input) { return this.split(input, 0); }
+
+    /**
+     * @see java.util.regex.Pattern#split(CharSequence)
+     */
+    @Override public String[]
+    split(CharSequence input, int limit) {
 
         Matcher m = this.matcher(input);
         if (!m.find()) return new String[] { input.toString() };
 
         List<String> result = new ArrayList<String>();
-        result.add(input.subSequence(0, m.start()).toString());
-        for (;;) {
-            int eopm = m.end(); // "End of previous match"
-            if (!m.find()) {
-                result.add(input.subSequence(eopm, input.length()).toString());
-                return result.toArray(new String[result.size()]);
-            }
+        int eopm = 0; // "End of previous match"
+        for (int i = 0; limit == 0 || i < limit; i++) {
             result.add(input.subSequence(eopm, m.start()).toString());
+            eopm = m.end();
+            if (!m.find()) break;
         }
+        result.add(input.subSequence(eopm, input.length()).toString());
+        return result.toArray(new String[result.size()]);
     }
 
     /**
