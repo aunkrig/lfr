@@ -158,7 +158,7 @@ class PatternFactory extends de.unkrig.ref4j.PatternFactory {
                 }
 
                 // Switch between COMMENTS mode and non-COMMENTS mode.
-                if ((newFlags & (Pattern.LITERAL | Pattern.COMMENTS)) == Pattern.COMMENTS) {
+                if ((newFlags & (de.unkrig.ref4j.Pattern.LITERAL | de.unkrig.ref4j.Pattern.COMMENTS)) == de.unkrig.ref4j.Pattern.COMMENTS) {
                     rs.setCurrentState(ScannerState.DEFAULT_X);
                 } else {
                     rs.setCurrentState(ScannerState.DEFAULT);
@@ -264,177 +264,19 @@ class PatternFactory extends de.unkrig.ref4j.PatternFactory {
             private Sequence
             parsePrimary() throws ParseException {
 
-                Token<TokenType> t = this.read();
+                {
+                    CharacterClass result = this.parseOptionalCharacterClass();
+                    if (result != null) return result;
+                }
 
-                switch (t.type) {
+                String t;
+                {
+                    Token<TokenType> token = this.peek();
+                    if (token == null) throw new ParseException("Unexpected end-of-input");
+                    t = token.text;
+                }
 
-                case LITERAL_CHARACTER:
-                    int c = t.text.codePointAt(0);
-                    return (
-                        (this.currentFlags & de.unkrig.ref4j.Pattern.CASE_INSENSITIVE) == 0
-                        ? CharacterClasses.literalCharacter(c)
-                        : (this.currentFlags & de.unkrig.ref4j.Pattern.UNICODE_CASE) == 0
-                        ? CharacterClasses.caseInsensitiveLiteralCharacter(c)
-                        : CharacterClasses.unicodeCaseInsensitiveLiteralCharacter(c)
-                    );
-
-                case LITERAL_CONTROL:
-                    {
-                        int idx = "ctnrfae".indexOf(t.text.charAt(1));
-                        assert idx != -1;
-                        if (idx == 0) {
-                            return CharacterClasses.literalCharacter((char) (t.text.charAt(2) & 0x1f));
-                        }
-                        return CharacterClasses.literalCharacter("c\t\n\r\f\u0007\u001b".charAt(idx));
-                    }
-
-                case LITERAL_HEXADECIMAL:
-                    return CharacterClasses.literalCharacter(Integer.parseInt(
-                        t.text.charAt(2) == '{'
-                        ? t.text.substring(3, t.text.length() - 1)
-                        : t.text.substring(2)
-                    ));
-
-                case LITERAL_OCTAL:
-                    return CharacterClasses.literalCharacter(Integer.parseInt(t.text.substring(2), 8));
-
-                case LEFT_BRACKET:
-                    {
-                        boolean        negate = this.peekRead("^");
-                        CharacterClass cc     = this.parseCcIntersection();
-                        this.read("]");
-
-                        if (negate) {
-                            cc = CharacterClasses.negate(cc, '^' + cc.toString());
-                        }
-
-                        return cc;
-                    }
-
-                case CC_PREDEFINED:
-                    {
-                        boolean unicode = (this.currentFlags & de.unkrig.ref4j.Pattern.UNICODE_CHARACTER_CLASS) != 0;
-
-                        CharacterClass result;
-                        switch (t.text.charAt(1)) {
-                        case 'd': case 'D': result = CharacterClasses.digit(unicode);         break;
-                        case 'h': case 'H': result = CharacterClasses.horizontalWhitespace(); break;
-                        case 's': case 'S': result = CharacterClasses.whitespace(unicode);    break;
-                        case 'v': case 'V': result = CharacterClasses.verticalWhitespace();   break;
-                        case 'w': case 'W': result = CharacterClasses.word(unicode);          break;
-                        default:            throw new AssertionError(t);
-                        }
-
-                        if (Character.isUpperCase(t.text.charAt(1))) result = CharacterClasses.negate(result, t.text);
-
-                        return result;
-                    }
-
-                case CC_POSIX:
-                    {
-                        String  ccName = t.text.substring(3, t.text.length() - 1);
-                        boolean u      = (this.currentFlags & de.unkrig.ref4j.Pattern.UNICODE_CHARACTER_CLASS) != 0;
-
-                        Predicate<Integer> codePointPredicate = (
-                            "Lower".equals(ccName)  ? (u ? Characters.IS_UNICODE_LOWER       : Characters.IS_POSIX_LOWER)  :  // SUPPRESS CHECKSTYLE LineLength:12
-                            "Upper".equals(ccName)  ? (u ? Characters.IS_UNICODE_UPPER       : Characters.IS_POSIX_UPPER)  :
-                            "ASCII".equals(ccName)  ? Characters.IS_POSIX_ASCII                                            :
-                            "Alpha".equals(ccName)  ? (u ? Characters.IS_UNICODE_ALPHA       : Characters.IS_POSIX_ALPHA)  :
-                            "Digit".equals(ccName)  ? (u ? Characters.IS_UNICODE_DIGIT       : Characters.IS_POSIX_DIGIT)  :
-                            "Alnum".equals(ccName)  ? (u ? Characters.IS_UNICODE_ALNUM       : Characters.IS_POSIX_ALNUM)  :
-                            "Punct".equals(ccName)  ? (u ? Characters.IS_UNICODE_PUNCT       : Characters.IS_POSIX_PUNCT)  :
-                            "Graph".equals(ccName)  ? (u ? Characters.IS_UNICODE_GRAPH       : Characters.IS_POSIX_GRAPH)  :
-                            "Print".equals(ccName)  ? (u ? Characters.IS_UNICODE_PRINT       : Characters.IS_POSIX_PRINT)  :
-                            "Blank".equals(ccName)  ? (u ? Characters.IS_UNICODE_BLANK       : Characters.IS_POSIX_BLANK)  :
-                            "Cntrl".equals(ccName)  ? (u ? Characters.IS_UNICODE_CNTRL       : Characters.IS_POSIX_CNTRL)  :
-                            "XDigit".equals(ccName) ? (u ? Characters.IS_UNICODE_HEX_DIGIT   : Characters.IS_POSIX_XDIGIT) :
-                            "Space".equals(ccName)  ? (u ? Characters.IS_UNICODE_WHITE_SPACE : Characters.IS_POSIX_SPACE)  :
-                            null
-                        );
-                        assert codePointPredicate != null;
-
-                        CharacterClass result = CharacterClasses.characterClass(codePointPredicate);
-
-                        if (t.text.charAt(1) == 'P') result = CharacterClasses.negate(result, t.text);
-
-                        return result;
-                    }
-
-                case CC_JAVA:
-                    {
-                        String             ccName             = t.text.substring(3, t.text.length() - 1);
-                        Predicate<Integer> codePointPredicate = (
-                            "javaLowerCase".equals(ccName)  ? Characters.IS_LOWER_CASE :
-                            "javaUpperCase".equals(ccName)  ? Characters.IS_UPPER_CASE :
-                            "javaWhitespace".equals(ccName) ? Characters.IS_WHITESPACE :
-                            "javaMirrored".equals(ccName)   ? Characters.IS_MIRRORED   :
-                            null
-                        );
-                        assert codePointPredicate != null;
-
-                        CharacterClass result = CharacterClasses.characterClass(codePointPredicate);
-
-                        if (t.text.charAt(1) == 'P') result = CharacterClasses.negate(result, t.text);
-
-                        return result;
-                    }
-
-                case CC_UNICODE_SCRIPT_OR_BINARY_PROPERTY:
-                    {
-                        String name = t.text.substring(5, t.text.length() - 1);
-
-                        // A UNICODE preperty, e.g. "TITLECASE"?
-                        Predicate<Integer> codePointPredicate = Characters.unicodePropertyFromName(name);
-                        if (codePointPredicate != null) {
-                            return CharacterClasses.characterClass(codePointPredicate);
-                        }
-
-                        // A UNICODE character property, e.g. category "Lu"?
-                        Byte gc = PatternFactory.getGeneralCategory(name);
-                        if (gc != null) return CharacterClasses.inUnicodeGeneralCategory(gc);
-
-                        // A Unicode "script"?
-                        // (Class UnicodeScript only available from Java 7.)
-
-                        throw new AssertionError((
-                            "Invalid or unimplemented Unicode script or property \""
-                            + name
-                            + "\""
-                        ));
-                    }
-
-                case CC_UNICODE_BLOCK:
-                    {
-                        String unicodeBlockName = t.text.substring(5, t.text.length() - 1);
-
-                        UnicodeBlock block;
-                        try {
-                            block = Character.UnicodeBlock.forName(unicodeBlockName);
-                        } catch (IllegalArgumentException iae) {
-                            throw new ParseException("Invalid unicode block \"" + unicodeBlockName + "\"");
-                        }
-
-                        CharacterClass result = CharacterClasses.inUnicodeBlock(block);
-
-                        if (t.text.charAt(1) == 'P') result = CharacterClasses.negate(result, t.text);
-
-                        return result;
-                    }
-
-                case CC_UNICODE_CATEGORY:
-                    {
-                        String  gcName = t.text.substring(3, 5);
-                        Byte    gc     = PatternFactory.getGeneralCategory(gcName);
-                        if (gc == null) throw new ParseException("Unknown general cateogry \"" + gcName + "\"");
-
-                        CharacterClass result = CharacterClasses.inUnicodeGeneralCategory(gc);
-
-                        if (t.text.charAt(1) == 'P') result = CharacterClasses.negate(result, t.text);
-
-                        return result;
-                    }
-
-                case CC_ANY:
+                if (this.peekRead(TokenType.CC_ANY) != null) {
                     return (
                         (this.currentFlags & de.unkrig.ref4j.Pattern.DOTALL) != 0
                         ? new CharacterClasses.AnyCharacter()
@@ -442,83 +284,75 @@ class PatternFactory extends de.unkrig.ref4j.PatternFactory {
                         ? CharacterClasses.negate(CharacterClasses.literalCharacter('\n'), ".")
                         : CharacterClasses.negate(CharacterClasses.lineBreakCharacter(), ".")
                     );
+                }
 
-                case QUOTED_CHARACTER:
-                    return CharacterClasses.literalCharacter(t.text.codePointAt(1));
+                if (this.peekRead(TokenType.QUOTED_CHARACTER) != null) {
+                    return CharacterClasses.literalCharacter(t.codePointAt(1));
+                }
 
-                case QUOTATION_BEGIN:
+                if (this.peekRead(TokenType.QUOTATION_BEGIN) != null) {
+                    Sequence result = this.parseSequence();
+                    if (this.peek() != null) this.read(TokenType.QUOTATION_END);
+                    return result;
+                }
+
+                if (this.peekRead(TokenType.CAPTURING_GROUP) != null) {
+                    int      groupNumber = ++rs.groupCount;
+                    Sequence result      = Sequences.capturingGroupStart(groupNumber);
+
+                    int savedFlags = this.currentFlags;
                     {
-                        Sequence result = this.parseSequence();
-                        if (this.peek() != null) this.read(TokenType.QUOTATION_END);
-                        return result;
+                        result.concat(this.parseAlternatives());
                     }
+                    this.setCurrentFlags(savedFlags);
 
-                case CAPTURING_GROUP:
+                    result.concat(Sequences.capturingGroupEnd(groupNumber));
+                    this.read(")");
+                    return result;
+                }
+
+                if (this.peekRead(TokenType.NON_CAPTURING_GROUP) != null) {
+                    final Sequence result = this.parseAlternatives();
+                    this.read(")");
+                    return result;
+                }
+
+                if (this.peekRead(TokenType.INDEPENDENT_NON_CAPTURING_GROUP) != null) {
+                    List<Sequence> alternatives = new ArrayList<Sequence>();
+                    alternatives.add(this.parseSequence());
+                    while (this.peekRead(EITHER_OR) != null) alternatives.add(this.parseSequence());
+
+                    this.read(")");
+
+                    return Sequences.independentNonCapturingGroup(
+                        alternatives.toArray(new Sequence[alternatives.size()])
+                    );
+                }
+
+                if (this.peekRead(TokenType.MATCH_FLAGS_NON_CAPTURING_GROUP) != null) {
+                    final Sequence result;
+
+                    int savedFlags = this.currentFlags;
                     {
-                        int      groupNumber = ++rs.groupCount;
-                        Sequence result      = Sequences.capturingGroupStart(groupNumber);
-
-                        int savedFlags = this.currentFlags;
-                        {
-                            result.concat(this.parseAlternatives());
-                        }
-                        this.setCurrentFlags(savedFlags);
-
-                        result.concat(Sequences.capturingGroupEnd(groupNumber));
-                        this.read(")");
-                        return result;
+                        this.setCurrentFlags(this.parseFlags(this.currentFlags, t.substring(2, t.length() - 1)));
+                        result = this.parseAlternatives();
                     }
+                    this.setCurrentFlags(savedFlags);
 
-                case NON_CAPTURING_GROUP:
-                    {
-                        final Sequence result = this.parseAlternatives();
-                        this.read(")");
-                        return result;
+                    this.read(")");
+
+                    return result;
+                }
+
+                if (this.peekRead(TokenType.CAPTURING_GROUP_BACK_REFERENCE) != null) {
+                    int groupNumber = Integer.parseInt(t.substring(1));
+                    if (groupNumber > rs.groupCount) {
+                        throw new ParseException("Group number " + groupNumber + " too big");
                     }
+                    return Sequences.capturingGroupBackReference(groupNumber);
+                }
 
-                case INDEPENDENT_NON_CAPTURING_GROUP:
-                    {
-                        List<Sequence> alternatives = new ArrayList<Sequence>();
-                        alternatives.add(this.parseSequence());
-                        while (this.peekRead(EITHER_OR) != null) alternatives.add(this.parseSequence());
-
-                        this.read(")");
-
-                        return Sequences.independentNonCapturingGroup(
-                            alternatives.toArray(new Sequence[alternatives.size()])
-                        );
-                    }
-
-                case MATCH_FLAGS_NON_CAPTURING_GROUP:
-                    {
-                        final Sequence result;
-
-                        int savedFlags = this.currentFlags;
-                        {
-                            this.setCurrentFlags(this.parseFlags(
-                                this.currentFlags,
-                                t.text.substring(2, t.text.length() - 1)
-                            ));
-
-                            result = this.parseAlternatives();
-                        }
-                        this.setCurrentFlags(savedFlags);
-
-                        this.read(")");
-
-                        return result;
-                    }
-
-                case CAPTURING_GROUP_BACK_REFERENCE:
-                    {
-                        int groupNumber = Integer.parseInt(t.text.substring(1));
-                        if (groupNumber > rs.groupCount) {
-                            throw new ParseException("Group number " + groupNumber + " too big");
-                        }
-                        return Sequences.capturingGroupBackReference(groupNumber);
-                    }
-
-                case BEGINNING_OF_LINE:
+                if (this.peekRead(TokenType.BEGINNING_OF_LINE) != null) {
                     return (
                         (this.currentFlags & de.unkrig.ref4j.Pattern.MULTILINE) == 0
                         ? Sequences.beginningOfInput()
@@ -528,8 +362,9 @@ class PatternFactory extends de.unkrig.ref4j.PatternFactory {
                             : Sequences.LINE_BREAK_CHARACTERS
                         )
                     );
+                }
 
-                case END_OF_LINE:
+                if (this.peekRead(TokenType.END_OF_LINE) != null) {
                     return (
                         (this.currentFlags & de.unkrig.ref4j.Pattern.MULTILINE) == 0
                         ? Sequences.endOfInput()
@@ -539,108 +374,113 @@ class PatternFactory extends de.unkrig.ref4j.PatternFactory {
                             : Sequences.LINE_BREAK_CHARACTERS
                         )
                     );
-
-                case WORD_BOUNDARY:
-                    return Sequences.wordBoundary();
-
-                case NON_WORD_BOUNDARY:
-                    return Sequences.negate(Sequences.wordBoundary());
-
-                case BEGINNING_OF_INPUT:
-                    return Sequences.beginningOfInput();
-
-                case END_OF_PREVIOUS_MATCH:
-                    return Sequences.endOfPreviousMatch();
-
-                case END_OF_INPUT_BUT_FINAL_TERMINATOR:
-                    return Sequences.endOfInputButFinalTerminator();
-
-                case END_OF_INPUT:
-                    return Sequences.endOfInput();
-
-                case MATCH_FLAGS:
-                    this.setCurrentFlags(this.parseFlags(this.currentFlags, t.text.substring(2, t.text.length() - 1)));
-                    return Sequences.TERMINAL;
-
-                case LINEBREAK_MATCHER:
-                    return Sequences.linebreakSequence();
-
-                case NAMED_CAPTURING_GROUP:
-                    {
-                        int groupNumber = ++rs.groupCount;
-
-                        String s         = PatternFactory.removeSpaces(t.text);
-                        String groupName = s.substring(3, s.length() - 1);
-                        if (rs.namedGroups.put(groupName, groupNumber) != null) {
-                            throw new ParseException("Duplicate capturing group name \"" + groupName + "\"");
-                        }
-
-                        Sequence result;
-
-                        int savedFlags = this.currentFlags;
-                        {
-                            result = Sequences.capturingGroup(groupNumber, this.parseAlternatives());
-                        }
-                        this.setCurrentFlags(savedFlags);
-
-                        this.read(")");
-                        return result;
-                    }
-
-                case NAMED_CAPTURING_GROUP_BACK_REFERENCE:
-                    {
-                        String  s           = PatternFactory.removeSpaces(t.text);
-                        String  groupName   = s.substring(3, s.length() - 1);
-                        Integer groupNumber = rs.namedGroups.get(groupName);
-                        if (groupNumber == null) {
-                            throw new ParseException("Unknown group name \"" + groupName + "\"");
-                        }
-                        return Sequences.capturingGroupBackReference(groupNumber);
-                    }
-
-                case POSITIVE_LOOKAHEAD:
-                    {
-                        final Sequence op = this.parseAlternatives();
-                        this.read(TokenType.END_GROUP);
-                        return Sequences.positiveLookahead(op);
-                    }
-
-                case NEGATIVE_LOOKAHEAD:
-                    {
-                        final Sequence op = this.parseAlternatives();
-                        this.read(TokenType.END_GROUP);
-                        return Sequences.negate(Sequences.positiveLookahead(op));
-                    }
-
-                case POSITIVE_LOOKBEHIND:
-                    {
-                        final Sequence op = this.parseAlternatives().reverse();
-                        this.read(TokenType.END_GROUP);
-                        return Sequences.positiveLookbehind(op);
-                    }
-
-                case NEGATIVE_LOOKBEHIND:
-                    {
-                        final Sequence op = this.parseAlternatives().reverse();
-                        this.read(TokenType.END_GROUP);
-                        return Sequences.negate(Sequences.positiveLookbehind(op));
-                    }
-
-                case CC_NEGATION:
-                    // These can only appear inside a character class, like "[^abc]".
-                    throw new AssertionError(t);
-
-                case CC_INTERSECTION:
-                case EITHER_OR:
-                case END_GROUP:
-                case RIGHT_BRACKET:
-                case QUOTATION_END:
-                case GREEDY_QUANTIFIER:
-                case POSSESSIVE_QUANTIFIER:
-                case RELUCTANT_QUANTIFIER:
-                default:
-                    throw new AssertionError("\"" + t + "\" (" + t.type + ")");
                 }
+
+                if (this.peekRead(TokenType.WORD_BOUNDARY) != null) {
+                    return Sequences.wordBoundary();
+                }
+
+                if (this.peekRead(TokenType.NON_WORD_BOUNDARY) != null) {
+                    return Sequences.negate(Sequences.wordBoundary());
+                }
+
+                if (this.peekRead(TokenType.BEGINNING_OF_INPUT) != null) {
+                    return Sequences.beginningOfInput();
+                }
+
+                if (this.peekRead(TokenType.END_OF_PREVIOUS_MATCH) != null) {
+                    return Sequences.endOfPreviousMatch();
+                }
+
+                if (this.peekRead(TokenType.END_OF_INPUT_BUT_FINAL_TERMINATOR) != null) {
+                    return Sequences.endOfInputButFinalTerminator();
+                }
+
+                if (this.peekRead(TokenType.END_OF_INPUT) != null) {
+                    return Sequences.endOfInput();
+                }
+
+                if (this.peekRead(TokenType.MATCH_FLAGS) != null) {
+                    this.setCurrentFlags(this.parseFlags(this.currentFlags, t.substring(2, t.length() - 1)));
+                    return Sequences.TERMINAL;
+                }
+
+                if (this.peekRead(TokenType.LINEBREAK_MATCHER) != null) {
+                    return Sequences.linebreakSequence();
+                }
+
+                if (this.peekRead(TokenType.NAMED_CAPTURING_GROUP) != null) {
+                    int groupNumber = ++rs.groupCount;
+
+                    String s         = PatternFactory.removeSpaces(t);
+                    String groupName = s.substring(3, s.length() - 1);
+                    if (rs.namedGroups.put(groupName, groupNumber) != null) {
+                        throw new ParseException("Duplicate capturing group name \"" + groupName + "\"");
+                    }
+
+                    Sequence result;
+
+                    int savedFlags = this.currentFlags;
+                    {
+                        result = Sequences.capturingGroup(groupNumber, this.parseAlternatives());
+                    }
+                    this.setCurrentFlags(savedFlags);
+
+                    this.read(")");
+                    return result;
+                }
+
+                if (this.peekRead(TokenType.NAMED_CAPTURING_GROUP_BACK_REFERENCE) != null) {
+                    String  s           = PatternFactory.removeSpaces(t);
+                    String  groupName   = s.substring(3, s.length() - 1);
+                    Integer groupNumber = rs.namedGroups.get(groupName);
+                    if (groupNumber == null) {
+                        throw new ParseException("Unknown group name \"" + groupName + "\"");
+                    }
+                    return Sequences.capturingGroupBackReference(groupNumber);
+                }
+
+                if (this.peekRead(TokenType.POSITIVE_LOOKAHEAD) != null) {
+                    final Sequence op = this.parseAlternatives();
+                    this.read(TokenType.END_GROUP);
+                    return Sequences.positiveLookahead(op);
+                }
+
+                if (this.peekRead(TokenType.NEGATIVE_LOOKAHEAD) != null) {
+                    final Sequence op = this.parseAlternatives();
+                    this.read(TokenType.END_GROUP);
+                    return Sequences.negate(Sequences.positiveLookahead(op));
+                }
+
+                if (this.peekRead(TokenType.POSITIVE_LOOKBEHIND) != null) {
+                    final Sequence op = this.parseAlternatives().reverse();
+                    this.read(TokenType.END_GROUP);
+                    return Sequences.positiveLookbehind(op);
+                }
+
+                if (this.peekRead(TokenType.NEGATIVE_LOOKBEHIND) != null) {
+                    final Sequence op = this.parseAlternatives().reverse();
+                    this.read(TokenType.END_GROUP);
+                    return Sequences.negate(Sequences.positiveLookbehind(op));
+                }
+
+                throw new AssertionError("\"" + this.peek() + "\"");
+            }
+
+            /**
+             * @return A {@link CharacterClass} that matches the <var>codePoint</var>, honoring surrogates and {@code
+             *         this} matcher's case-sensitivity flags
+             */
+            private CharacterClass
+            literalCharacter(int cp) {
+
+                return (
+                    (this.currentFlags & de.unkrig.ref4j.Pattern.CASE_INSENSITIVE) == 0
+                    ? CharacterClasses.literalCharacter(cp)
+                    : (this.currentFlags & de.unkrig.ref4j.Pattern.UNICODE_CASE) == 0
+                    ? CharacterClasses.caseInsensitiveLiteralCharacter(cp)
+                    : CharacterClasses.unicodeCaseInsensitiveLiteralCharacter(cp)
+                );
             }
 
             /**
@@ -695,177 +535,203 @@ class PatternFactory extends de.unkrig.ref4j.PatternFactory {
             CharacterClass
             parseCharacterClass() throws ParseException {
 
-                Token<TokenType> t = this.read();
-
-                switch (t.type) {
-
-                case LITERAL_CHARACTER:
-                    int c = t.text.codePointAt(0);
-                    return (
-                        (this.currentFlags & de.unkrig.ref4j.Pattern.CASE_INSENSITIVE) == 0
-                        ? CharacterClasses.literalCharacter(c)
-                        : (this.currentFlags & de.unkrig.ref4j.Pattern.UNICODE_CASE) == 0
-                        ? CharacterClasses.caseInsensitiveLiteralCharacter(c)
-                        : CharacterClasses.unicodeCaseInsensitiveLiteralCharacter(c)
-                    );
-
-                case LITERAL_CONTROL:
-                    {
-                        int idx = "ctnrfae".indexOf(t.text.charAt(1));
-                        assert idx != -1;
-                        if (idx == 0) {
-                            return CharacterClasses.literalCharacter((char) (t.text.charAt(2) & 0x1f));
-                        }
-                        return CharacterClasses.literalCharacter("c\t\n\r\f\u0007\u001b".charAt(idx));
-                    }
-
-                case LITERAL_HEXADECIMAL:
-                    return CharacterClasses.literalCharacter(Integer.parseInt(
-                        t.text.charAt(2) == '{'
-                        ? t.text.substring(3, t.text.length() - 1)
-                        : t.text.substring(2)
-                    ));
-
-                case LITERAL_OCTAL:
-                    return CharacterClasses.literalCharacter(Integer.parseInt(t.text.substring(2, 8)));
-
-                case LEFT_BRACKET:
-                    {
-                        boolean        negate = this.peekRead("^");
-                        CharacterClass cc     = this.parseCcIntersection();
-                        this.read("]");
-
-                        if (negate) cc = CharacterClasses.negate(cc, '^' + cc.toString());
-
-                        return cc;
-                    }
-
-                case CC_PREDEFINED:
-                    {
-                        boolean unicode = (this.currentFlags & de.unkrig.ref4j.Pattern.UNICODE_CHARACTER_CLASS) != 0;
-
-                        CharacterClass result;
-                        switch (t.text.charAt(1)) {
-                        case 'd': case 'D': result = CharacterClasses.digit(unicode);         break;
-                        case 'h': case 'H': result = CharacterClasses.horizontalWhitespace(); break;
-                        case 's': case 'S': result = CharacterClasses.whitespace(unicode);    break;
-                        case 'v': case 'V': result = CharacterClasses.verticalWhitespace();   break;
-                        case 'w': case 'W': result = CharacterClasses.word(unicode);          break;
-                        default:            throw new AssertionError(t);
-                        }
-
-                        if (Character.isUpperCase(t.text.charAt(1))) result = CharacterClasses.negate(result, t.text);
-
-                        return result;
-                    }
-
-                case CC_POSIX:
-                    {
-                        String  ccName = t.text.substring(3, t.text.length() - 1);
-                        boolean u      = (this.currentFlags & de.unkrig.ref4j.Pattern.UNICODE_CHARACTER_CLASS) != 0;
-
-                        Predicate<Integer> codePointPredicate = (
-                            "Lower".equals(ccName)  ? (u ? Characters.IS_UNICODE_LOWER       : Characters.IS_POSIX_LOWER)  :  // SUPPRESS CHECKSTYLE LineLength:12
-                            "Upper".equals(ccName)  ? (u ? Characters.IS_UNICODE_UPPER       : Characters.IS_POSIX_UPPER)  :
-                            "ASCII".equals(ccName)  ? Characters.IS_POSIX_ASCII                                            :
-                            "Alpha".equals(ccName)  ? (u ? Characters.IS_UNICODE_ALPHA       : Characters.IS_POSIX_ALPHA)  :
-                            "Digit".equals(ccName)  ? (u ? Characters.IS_UNICODE_DIGIT       : Characters.IS_POSIX_DIGIT)  :
-                            "Alnum".equals(ccName)  ? (u ? Characters.IS_UNICODE_ALNUM       : Characters.IS_POSIX_ALNUM)  :
-                            "Punct".equals(ccName)  ? (u ? Characters.IS_UNICODE_PUNCT       : Characters.IS_POSIX_PUNCT)  :
-                            "Graph".equals(ccName)  ? (u ? Characters.IS_UNICODE_GRAPH       : Characters.IS_POSIX_GRAPH)  :
-                            "Print".equals(ccName)  ? (u ? Characters.IS_UNICODE_PRINT       : Characters.IS_POSIX_PRINT)  :
-                            "Blank".equals(ccName)  ? (u ? Characters.IS_UNICODE_BLANK       : Characters.IS_POSIX_BLANK)  :
-                            "Cntrl".equals(ccName)  ? (u ? Characters.IS_UNICODE_CNTRL       : Characters.IS_POSIX_CNTRL)  :
-                            "XDigit".equals(ccName) ? (u ? Characters.IS_UNICODE_HEX_DIGIT   : Characters.IS_POSIX_XDIGIT) :
-                            "Space".equals(ccName)  ? (u ? Characters.IS_UNICODE_WHITE_SPACE : Characters.IS_POSIX_SPACE)  :
-                            null
-                        );
-                        assert codePointPredicate != null;
-
-                        CharacterClass result = CharacterClasses.characterClass(codePointPredicate);
-
-                        if (t.text.charAt(1) == 'P') result = CharacterClasses.negate(result, t.text);
-
-                        return result;
-                    }
-
-                case CC_JAVA:
-                    {
-                        String             ccName             = t.text.substring(3, t.text.length() - 1);
-                        Predicate<Integer> codePointPredicate = (
-                            "javaLowerCase".equals(ccName)  ? Characters.IS_LOWER_CASE :
-                            "javaUpperCase".equals(ccName)  ? Characters.IS_UPPER_CASE :
-                            "javaWhitespace".equals(ccName) ? Characters.IS_WHITESPACE :
-                            "javaMirrored".equals(ccName)   ? Characters.IS_MIRRORED   :
-                            null
-                        );
-                        assert codePointPredicate != null;
-
-                        CharacterClass result = CharacterClasses.characterClass(codePointPredicate);
-
-                        if (t.text.charAt(1) == 'P') result = CharacterClasses.negate(result, t.text);
-
-                        return result;
-                    }
-
-                case CC_UNICODE_SCRIPT_OR_BINARY_PROPERTY:
-                    {
-                        String name = t.text.substring(5, t.text.length() - 1);
-
-                        // A UNICODE preperty, e.g. "TITLECASE"?
-                        Predicate<Integer> codePointPredicate = Characters.unicodePropertyFromName(name);
-                        if (codePointPredicate != null) {
-                            return CharacterClasses.characterClass(codePointPredicate);
-                        }
-
-                        // A UNICODE character property, e.g. category "Lu"?
-                        Byte gc = PatternFactory.getGeneralCategory(name);
-                        if (gc != null) return CharacterClasses.inUnicodeGeneralCategory(gc);
-
-                        // A Unicode "script"?
-                        // (Class UnicodeScript only available from Java 7.)
-
-                        throw new AssertionError((
-                            "Invalid or unimplemented Unicode script or property \""
-                            + name
-                            + "\""
-                        ));
-                    }
-
-                case CC_UNICODE_BLOCK:
-                    {
-                        String unicodeBlockName = t.text.substring(5, t.text.length() - 1);
-
-                        UnicodeBlock block;
-                        try {
-                            block = Character.UnicodeBlock.forName(unicodeBlockName);
-                        } catch (IllegalArgumentException iae) {
-                            throw new ParseException("Invalid unicode block \"" + unicodeBlockName + "\"");
-                        }
-
-                        CharacterClass result = CharacterClasses.inUnicodeBlock(block);
-
-                        if (t.text.charAt(1) == 'P') result = CharacterClasses.negate(result, t.text);
-
-                        return result;
-                    }
-
-                case CC_UNICODE_CATEGORY:
-                    {
-                        String  gcName = t.text.substring(3, 5);
-                        Byte    gc     = PatternFactory.getGeneralCategory(gcName);
-                        if (gc == null) throw new ParseException("Unknown general cateogry \"" + gcName + "\"");
-
-                        CharacterClass result = CharacterClasses.inUnicodeGeneralCategory(gc);
-
-                        if (t.text.charAt(1) == 'P') result = CharacterClasses.negate(result, t.text);
-
-                        return result;
-                    }
-
-                default:
-                    throw new ParseException("Character class expected instead of \"" + t + "\" (" + t.type + ")");
+                CharacterClass result = this.parseOptionalCharacterClass();
+                if (result == null) {
+                    throw new ParseException("Character class expected instead of \"" + this.peek() + "\"");
                 }
+
+                return result;
+            }
+
+            @Nullable CharacterClass
+            parseOptionalCharacterClass() throws ParseException {
+
+                String t;
+
+                if ((t = this.peekRead(TokenType.LITERAL_CHARACTER)) != null) {
+                    return this.literalCharacter(t.codePointAt(0));
+                }
+
+                if ((t = this.peekRead(TokenType.QUOTED_CHARACTER)) != null) {
+                    return this.literalCharacter(t.codePointAt(1));
+                }
+
+                if ((t = this.peekRead(TokenType.LITERAL_CONTROL1)) != null) {
+                    return this.literalCharacter("\t\n\r\f\u0007\u001b".charAt("tnrfae".indexOf(t.charAt(1))));
+                }
+
+                if ((t = this.peekRead(TokenType.LITERAL_CONTROL2)) != null) {
+                    return this.literalCharacter(t.charAt(2) & 0x1f);
+                }
+
+                if ((t = this.peekRead(TokenType.LITERAL_HEXADECIMAL1)) != null) {
+                    return this.literalCharacter(Integer.parseInt(t.substring(2), 16));
+                }
+
+                if ((t = this.peekRead(TokenType.LITERAL_HEXADECIMAL2)) != null) {
+                    char c1 = (char) Integer.parseInt(t.substring(2), 16);
+
+                    // Check for "\\uxxxx\\uyyyy" surrogate pair.
+                    if (Character.isHighSurrogate(c1)) {
+                        String t2 = this.peek(TokenType.LITERAL_HEXADECIMAL2);
+                        if (t2 != null) {
+                            char c2 = (char) Integer.parseInt(t2.substring(2), 16);
+                            if (Character.isLowSurrogate(c2)) {
+                                this.read();
+                                return this.literalCharacter(Character.toCodePoint(c1, c2));
+                            }
+                        }
+                    }
+
+                    return this.literalCharacter(c1);
+                }
+
+                if ((t = this.peekRead(TokenType.LITERAL_HEXADECIMAL3)) != null) {
+                    if (t.charAt(3) == '-') throw new ParseException(t);
+                    int cp;
+                    try {
+                        cp = Integer.parseInt(t.substring(3, t.length() - 1), 16);
+                    } catch (NumberFormatException nfe) {
+                        throw new ParseException(t);
+                    }
+                    if (cp < Character.MIN_CODE_POINT || cp > Character.MAX_CODE_POINT) {
+                        throw new ParseException("Invalid code point " + cp);
+                    }
+                    return this.literalCharacter(cp);
+                }
+
+                if ((t = this.peekRead(TokenType.LITERAL_OCTAL)) != null) {
+                    return this.literalCharacter(Integer.parseInt(t.substring(2), 8));
+                }
+
+                if ((t = this.peekRead(TokenType.LEFT_BRACKET)) != null) {
+                    boolean        negate = this.peekRead("^");
+                    CharacterClass cc     = this.parseCcIntersection();
+                    this.read("]");
+
+                    if (negate) cc = CharacterClasses.negate(cc, '^' + cc.toString());
+
+                    return cc;
+                }
+
+                if ((t = this.peekRead(TokenType.CC_PREDEFINED)) != null) {
+                    boolean unicode = (this.currentFlags & de.unkrig.ref4j.Pattern.UNICODE_CHARACTER_CLASS) != 0;
+
+                    CharacterClass result;
+                    switch (t.charAt(1)) {
+                    case 'd': case 'D': result = CharacterClasses.digit(unicode);         break;
+                    case 'h': case 'H': result = CharacterClasses.horizontalWhitespace(); break;
+                    case 's': case 'S': result = CharacterClasses.whitespace(unicode);    break;
+                    case 'v': case 'V': result = CharacterClasses.verticalWhitespace();   break;
+                    case 'w': case 'W': result = CharacterClasses.word(unicode);          break;
+                    default:            throw new AssertionError(t);
+                    }
+
+                    if (Character.isUpperCase(t.charAt(1))) result = CharacterClasses.negate(result, t);
+
+                    return result;
+                }
+
+                if ((t = this.peekRead(TokenType.CC_POSIX)) != null) {
+                    String  ccName = t.substring(3, t.length() - 1);
+                    boolean u      = (this.currentFlags & de.unkrig.ref4j.Pattern.UNICODE_CHARACTER_CLASS) != 0;
+
+                    Predicate<Integer> codePointPredicate = (
+                        "Lower".equals(ccName)  ? (u ? Characters.IS_UNICODE_LOWER       : Characters.IS_POSIX_LOWER)  :  // SUPPRESS CHECKSTYLE LineLength:12
+                        "Upper".equals(ccName)  ? (u ? Characters.IS_UNICODE_UPPER       : Characters.IS_POSIX_UPPER)  :
+                        "ASCII".equals(ccName)  ? Characters.IS_POSIX_ASCII                                            :
+                        "Alpha".equals(ccName)  ? (u ? Characters.IS_UNICODE_ALPHA       : Characters.IS_POSIX_ALPHA)  :
+                        "Digit".equals(ccName)  ? (u ? Characters.IS_UNICODE_DIGIT       : Characters.IS_POSIX_DIGIT)  :
+                        "Alnum".equals(ccName)  ? (u ? Characters.IS_UNICODE_ALNUM       : Characters.IS_POSIX_ALNUM)  :
+                        "Punct".equals(ccName)  ? (u ? Characters.IS_UNICODE_PUNCT       : Characters.IS_POSIX_PUNCT)  :
+                        "Graph".equals(ccName)  ? (u ? Characters.IS_UNICODE_GRAPH       : Characters.IS_POSIX_GRAPH)  :
+                        "Print".equals(ccName)  ? (u ? Characters.IS_UNICODE_PRINT       : Characters.IS_POSIX_PRINT)  :
+                        "Blank".equals(ccName)  ? (u ? Characters.IS_UNICODE_BLANK       : Characters.IS_POSIX_BLANK)  :
+                        "Cntrl".equals(ccName)  ? (u ? Characters.IS_UNICODE_CNTRL       : Characters.IS_POSIX_CNTRL)  :
+                        "XDigit".equals(ccName) ? (u ? Characters.IS_UNICODE_HEX_DIGIT   : Characters.IS_POSIX_XDIGIT) :
+                        "Space".equals(ccName)  ? (u ? Characters.IS_UNICODE_WHITE_SPACE : Characters.IS_POSIX_SPACE)  :
+                        null
+                    );
+                    assert codePointPredicate != null;
+
+                    CharacterClass result = CharacterClasses.characterClass(codePointPredicate);
+
+                    if (t.charAt(1) == 'P') result = CharacterClasses.negate(result, t);
+
+                    return result;
+                }
+
+                if ((t = this.peekRead(TokenType.CC_JAVA)) != null) {
+                    String             ccName             = t.substring(3, t.length() - 1);
+                    Predicate<Integer> codePointPredicate = (
+                        "javaLowerCase".equals(ccName)  ? Characters.IS_LOWER_CASE :
+                        "javaUpperCase".equals(ccName)  ? Characters.IS_UPPER_CASE :
+                        "javaWhitespace".equals(ccName) ? Characters.IS_WHITESPACE :
+                        "javaMirrored".equals(ccName)   ? Characters.IS_MIRRORED   :
+                        null
+                    );
+                    assert codePointPredicate != null;
+
+                    CharacterClass result = CharacterClasses.characterClass(codePointPredicate);
+
+                    if (t.charAt(1) == 'P') result = CharacterClasses.negate(result, t);
+
+                    return result;
+                }
+
+                if ((t = this.peekRead(TokenType.CC_UNICODE_SCRIPT_OR_BINARY_PROPERTY)) != null) {
+                    String name = t.substring(5, t.length() - 1);
+
+                    // A UNICODE preperty, e.g. "TITLECASE"?
+                    Predicate<Integer> codePointPredicate = Characters.unicodePropertyFromName(name);
+                    if (codePointPredicate != null) {
+                        return CharacterClasses.characterClass(codePointPredicate);
+                    }
+
+                    // A UNICODE character property, e.g. category "Lu"?
+                    Byte gc = PatternFactory.getGeneralCategory(name);
+                    if (gc != null) return CharacterClasses.inUnicodeGeneralCategory(gc);
+
+                    // A Unicode "script"?
+                    // (Class UnicodeScript only available from Java 7.)
+
+                    throw new AssertionError((
+                        "Invalid or unimplemented Unicode script or property \""
+                        + name
+                        + "\""
+                    ));
+                }
+
+                if ((t = this.peekRead(TokenType.CC_UNICODE_BLOCK)) != null) {
+                    String unicodeBlockName = t.substring(5, t.length() - 1);
+
+                    UnicodeBlock block;
+                    try {
+                        block = Character.UnicodeBlock.forName(unicodeBlockName);
+                    } catch (IllegalArgumentException iae) {
+                        throw new ParseException("Invalid unicode block \"" + unicodeBlockName + "\"");
+                    }
+
+                    CharacterClass result = CharacterClasses.inUnicodeBlock(block);
+
+                    if (t.charAt(1) == 'P') result = CharacterClasses.negate(result, t);
+
+                    return result;
+                }
+
+                if ((t = this.peekRead(TokenType.CC_UNICODE_CATEGORY)) != null) {
+                    String  gcName = t.substring(3, 5);
+                    Byte    gc     = PatternFactory.getGeneralCategory(gcName);
+                    if (gc == null) throw new ParseException("Unknown general cateogry \"" + gcName + "\"");
+
+                    CharacterClass result = CharacterClasses.inUnicodeGeneralCategory(gc);
+
+                    if (t.charAt(1) == 'P') result = CharacterClasses.negate(result, t);
+
+                    return result;
+                }
+
+                return null;
             }
 
             private CharacterClass
@@ -905,7 +771,7 @@ class PatternFactory extends de.unkrig.ref4j.PatternFactory {
                 result = elements.get(0);
                 for (int i = 1; i < elements.size(); i++) {
                     result = CharacterClasses.union(result, elements.get(i));
-                    
+
                     // In many cases, this will collapse a tree of union character classes into one, (bit)set-based
                     // character class.
                     result = CharacterClasses.optimize(result);
@@ -1008,5 +874,24 @@ class PatternFactory extends de.unkrig.ref4j.PatternFactory {
             }
         }
         return subject;
+    }
+
+    /**
+     * @return The code point represented by a {@link TokenType#LITERAL_HEXADECIMAL} token
+     */
+    public static int
+    literalHexadecimal(String s) throws ParseException {
+
+        int cp = Integer.parseInt((
+            s.charAt(2) == '{'
+            ? s.substring(3, s.length() - 1)
+            : s.substring(2)
+        ), 16);
+
+        if (cp < Character.MIN_CODE_POINT || cp > Character.MAX_CODE_POINT) {
+            throw new ParseException("Invalid code point " + cp);
+        }
+
+        return cp;
     }
 }

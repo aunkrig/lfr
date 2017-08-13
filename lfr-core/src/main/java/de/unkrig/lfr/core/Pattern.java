@@ -52,8 +52,11 @@ import static de.unkrig.lfr.core.Pattern.TokenType.INDEPENDENT_NON_CAPTURING_GRO
 import static de.unkrig.lfr.core.Pattern.TokenType.LEFT_BRACKET;
 import static de.unkrig.lfr.core.Pattern.TokenType.LINEBREAK_MATCHER;
 import static de.unkrig.lfr.core.Pattern.TokenType.LITERAL_CHARACTER;
-import static de.unkrig.lfr.core.Pattern.TokenType.LITERAL_CONTROL;
-import static de.unkrig.lfr.core.Pattern.TokenType.LITERAL_HEXADECIMAL;
+import static de.unkrig.lfr.core.Pattern.TokenType.LITERAL_CONTROL1;
+import static de.unkrig.lfr.core.Pattern.TokenType.LITERAL_CONTROL2;
+import static de.unkrig.lfr.core.Pattern.TokenType.LITERAL_HEXADECIMAL1;
+import static de.unkrig.lfr.core.Pattern.TokenType.LITERAL_HEXADECIMAL2;
+import static de.unkrig.lfr.core.Pattern.TokenType.LITERAL_HEXADECIMAL3;
 import static de.unkrig.lfr.core.Pattern.TokenType.LITERAL_OCTAL;
 import static de.unkrig.lfr.core.Pattern.TokenType.MATCH_FLAGS;
 import static de.unkrig.lfr.core.Pattern.TokenType.MATCH_FLAGS_NON_CAPTURING_GROUP;
@@ -153,13 +156,20 @@ class Pattern implements de.unkrig.ref4j.Pattern {
     enum TokenType {
 
         // Literals.
+        /** <var>x</var>  (including surrogate pairs) */
         LITERAL_CHARACTER,
         /** {@code \0}<var>nnn</var> */
         LITERAL_OCTAL,
-        /** {@code \x}<var>hh</var> <code>&#92;u</code><var>hhhh</var> <code>&#92;u{</code><var>hhhh</var><code>}</code> */ // SUPPRESS CHECKSTYLE LineLength
-        LITERAL_HEXADECIMAL,
-        /** {@code \t \n \r \f \a \e \c}<var>x</var> */
-        LITERAL_CONTROL,
+        /** {@code \x}<var>hh</var> */
+        LITERAL_HEXADECIMAL1,
+        /** <code>&#92;u</code><var>hhhh</var> */
+        LITERAL_HEXADECIMAL2,
+        /** <code>&#92;u{</code><var>h...h</var><code>}</code> */
+        LITERAL_HEXADECIMAL3,
+        /** {@code \t \n \r \f \a \e} */
+        LITERAL_CONTROL1,
+        /** {@code \c}<var>x</var> */
+        LITERAL_CONTROL2,
 
         // Character classes. Notice that "-" is not a metacharacter!
         /** {@code [} */
@@ -248,7 +258,7 @@ class Pattern implements de.unkrig.ref4j.Pattern {
         INDEPENDENT_NON_CAPTURING_GROUP,
 
         // Quotations.
-        /** {@code \\ \}<var>x</var> */
+        /** {@code \\ \}<var>x</var> (including surrogate pairs) */
         QUOTED_CHARACTER,
         /** {@code \Q} */
         QUOTATION_BEGIN,
@@ -347,27 +357,27 @@ class Pattern implements de.unkrig.ref4j.Pattern {
         // x         The character x
         // See below: +++
         // \\        The backslash character
-        ss.addRule(ss.ANY_STATE, "\\\\\\\\",                                  QUOTED_CHARACTER,    ss.REMAIN);
+        ss.addRule(ss.ANY_STATE, "\\\\\\\\",                                  QUOTED_CHARACTER,     ss.REMAIN);
         // \0n       The character with octal value 0n (0 <= n <= 7)
         // \0nn      The character with octal value 0nn (0 <= n <= 7)
         // \0mnn     The character with octal value 0mnn (0 <= m <= 3, 0 <= n <= 7)
-        ss.addRule(ss.ANY_STATE, "\\\\0(?:[0-3][0-7][0-7]|[0-7][0-7]|[0-7])", LITERAL_OCTAL,       ss.REMAIN);
+        ss.addRule(ss.ANY_STATE, "\\\\0(?:[0-3][0-7][0-7]|[0-7][0-7]|[0-7])", LITERAL_OCTAL,        ss.REMAIN);
         // \xhh      The character with hexadecimal value 0xhh
-        ss.addRule(ss.ANY_STATE, "\\\\u[0-9a-fA-F]{4}",                       LITERAL_HEXADECIMAL, ss.REMAIN);
+        ss.addRule(ss.ANY_STATE, "\\\\x[0-9a-fA-F]{2}",                       LITERAL_HEXADECIMAL1, ss.REMAIN);
         // /uhhhh    The character with hexadecimal value 0xhhhh
-        ss.addRule(ss.ANY_STATE, "\\\\x[0-9a-fA-F]{2}",                       LITERAL_HEXADECIMAL, ss.REMAIN);
+        ss.addRule(ss.ANY_STATE, "\\\\u[0-9a-fA-F]{4}",                       LITERAL_HEXADECIMAL2, ss.REMAIN);
         // \x{h...h} The character with hexadecimal value 0xh...h
         //                                    (Character.MIN_CODE_POINT  <= 0xh...h <=  Character.MAX_CODE_POINT)
-        ss.addRule(ss.ANY_STATE, "\\\\x\\{[0-9a-fA-F]+}",                     LITERAL_HEXADECIMAL, ss.REMAIN);
+        ss.addRule(ss.ANY_STATE, "\\\\x\\{.*?(?:}|$)",                        LITERAL_HEXADECIMAL3, ss.REMAIN);
         // \t        The tab character ('/u0009')
         // \n        The newline (line feed) character ('/u000A')
         // \r        The carriage-return character ('/u000D')
         // \f        The form-feed character ('/u000C')
         // \a        The alert (bell) character ('/u0007')
         // \e        The escape character ('/u001B')
-        ss.addRule(ss.ANY_STATE, "\\\\[tnrfae]",                              LITERAL_CONTROL,     ss.REMAIN);
+        ss.addRule(ss.ANY_STATE, "\\\\[tnrfae]",                              LITERAL_CONTROL1,     ss.REMAIN);
         // \cx The control character corresponding to x
-        ss.addRule(ss.ANY_STATE, "\\\\c[A-Za-z]",                             LITERAL_CONTROL,     ss.REMAIN);
+        ss.addRule(ss.ANY_STATE, "\\\\c[A-Za-z]",                             LITERAL_CONTROL2,     ss.REMAIN);
 
         // Character classes
         // [abc]       a, b, or c (simple class)
@@ -535,15 +545,15 @@ class Pattern implements de.unkrig.ref4j.Pattern {
 
         // Quotation
         // \   Nothing, but quotes the following character
-        ss.addRule(ss.ANY_STATE,                "\\\\[^0-9A-Za-z]", QUOTED_CHARACTER,  ss.REMAIN);
+        ss.addRule(ss.ANY_STATE,                "\\\\[^QE]", QUOTED_CHARACTER,  ss.REMAIN);
         // \Q  Nothing, but quotes all characters until \E
-        ss.addRule(ScannerState.DEFAULT,        "\\\\Q",            QUOTATION_BEGIN,   ScannerState.IN_QUOTATION);
-        ss.addRule(ScannerState.DEFAULT_X,      "\\\\Q",            QUOTATION_BEGIN,   ScannerState.IN_QUOTATION_X);
+        ss.addRule(ScannerState.DEFAULT,        "\\\\Q",     QUOTATION_BEGIN,   ScannerState.IN_QUOTATION);
+        ss.addRule(ScannerState.DEFAULT_X,      "\\\\Q",     QUOTATION_BEGIN,   ScannerState.IN_QUOTATION_X);
         // \E  Nothing, but ends quoting started by \Q
-        ss.addRule(ScannerState.IN_QUOTATION,   "\\\\E",            QUOTATION_END,     ScannerState.DEFAULT);
-        ss.addRule(ScannerState.IN_QUOTATION_X, "\\\\E",            QUOTATION_END,     ScannerState.DEFAULT_X);
-        ss.addRule(ScannerState.IN_QUOTATION,   ".",                LITERAL_CHARACTER, ScannerState.IN_QUOTATION);
-        ss.addRule(ScannerState.IN_QUOTATION_X, ".",                LITERAL_CHARACTER, ScannerState.IN_QUOTATION_X);
+        ss.addRule(ScannerState.IN_QUOTATION,   "\\\\E",     QUOTATION_END,     ScannerState.DEFAULT);
+        ss.addRule(ScannerState.IN_QUOTATION_X, "\\\\E",     QUOTATION_END,     ScannerState.DEFAULT_X);
+        ss.addRule(ScannerState.IN_QUOTATION,   ".",         LITERAL_CHARACTER, ScannerState.IN_QUOTATION);
+        ss.addRule(ScannerState.IN_QUOTATION_X, ".",         LITERAL_CHARACTER, ScannerState.IN_QUOTATION_X);
 
         // Special constructs (named-capturing and non-capturing)
         // (?<name>X)          X, as a named-capturing group

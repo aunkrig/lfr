@@ -387,7 +387,7 @@ class Sequences {
             while (start < matcher.regionEnd) {
 
                 // Find the next occurrence of the literal string.
-                int offset = this.indexOf.indexOf(matcher.subject, start, matcher.regionEnd);
+                int offset = this.indexOf.indexOf(matcher.subject, start, matcher.regionEnd - this.s.length());
                 if (offset == -1) break;
 
                 // See if the rest of the pattern matches.

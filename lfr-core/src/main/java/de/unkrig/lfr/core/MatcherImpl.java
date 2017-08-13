@@ -148,20 +148,7 @@ class MatcherImpl implements Matcher {
     }
 
     @Override public Matcher
-    reset() {
-        this.regionStart = 0;
-        this.regionEnd   = this.subject.length();
-        this.updateTransparentBounds();
-        this.updateAnchoringBounds();
-
-        this.hitStart           = false;
-        this.requireStart       = false;
-        this.hitEnd             = false;
-        this.requireEnd         = false;
-        this.endOfPreviousMatch = -1;
-        this.lastAppendPosition = 0;
-        return this;
-    }
+    reset() { return this.region(0, this.subject.length()); }
 
     @Override public Matcher
     reset(CharSequence input) {
@@ -299,6 +286,8 @@ class MatcherImpl implements Matcher {
     @Override public boolean
     find(int start) {
 
+        if (start < 0 || start > this.regionEnd) throw new IndexOutOfBoundsException(Integer.toString(start));
+
         this.hitStart     = false;
         this.requireStart = false;
         this.hitEnd       = false;
@@ -433,16 +422,15 @@ class MatcherImpl implements Matcher {
 
         this.regionStart = start;
         this.regionEnd   = end;
+        this.updateTransparentBounds();
+        this.updateAnchoringBounds();
 
-        if (this.hasAnchoringBounds) {
-            this.anchoringRegionStart = start;
-            this.anchoringRegionEnd   = end;
-        }
-
-        if (!this.hasTransparentBounds) {
-            this.transparentRegionStart = start;
-            this.transparentRegionEnd   = end;
-        }
+        this.hitStart           = false;
+        this.requireStart       = false;
+        this.hitEnd             = false;
+        this.requireEnd         = false;
+        this.endOfPreviousMatch = -1;
+        this.lastAppendPosition = 0;
 
         return this;
     }
