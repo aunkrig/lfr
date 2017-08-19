@@ -41,20 +41,20 @@ class CharacterClass extends CompositeSequence {
             return -1;
         }
 
-        int c = matcher.charAt(offset++);
+        int cp = matcher.charAt(offset++);
 
         // Special handling for UTF-16 surrogates.
-        if (Character.isHighSurrogate((char) c)) {
+        if (Character.isHighSurrogate((char) cp)) {
             if (offset < matcher.regionEnd) {
-                char c2 = matcher.charAt(offset);
-                if (Character.isLowSurrogate(c2)) {
-                    c = Character.toCodePoint((char) c, c2);
+                char ls = matcher.charAt(offset);
+                if (Character.isLowSurrogate(ls)) {
+                    cp = Character.toCodePoint((char) cp, ls);
                     offset++;
                 }
             }
         }
 
-        return this.matches(c) ? this.next.matches(matcher, offset) : -1;
+        return this.matches(cp) ? this.next.matches(matcher, offset) : -1;
     }
 
     /**

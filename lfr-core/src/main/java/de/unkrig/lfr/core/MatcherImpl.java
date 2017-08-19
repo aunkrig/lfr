@@ -96,6 +96,16 @@ class MatcherImpl implements Matcher {
     int[] initialGroups;
 
     /**
+     * The counters for the currently executing iterations.
+     */
+    int[] counters;
+
+    /**
+     * The template to store in {@link #counters} when the matching begins.
+     */
+    int[] initialCounters;
+
+    /**
      * Whether an attempt was made to peek <em>before</em> the {@link #regionStart}.
      */
     boolean hitStart;
@@ -116,7 +126,7 @@ class MatcherImpl implements Matcher {
     boolean requireEnd;
 
     /**
-     * The index <em>behind</em> the preceding match, or -1 if no matching was done, or the preceding match had
+     * The index <em>behind</em> the preceding match, or -1 if no matching was done, or -2 if the preceding match had
      * failed.
      */
     int endOfPreviousMatch = -1;
@@ -129,12 +139,46 @@ class MatcherImpl implements Matcher {
         this.pattern   = pattern;
         this.subject   = subject;
         this.regionEnd = (this.anchoringRegionEnd = (this.transparentRegionEnd = subject.length()));
-        this.groups    = (this.initialGroups = new int[2 + 2 * pattern.groupCount]);
+
+        this.groups = (this.initialGroups = new int[2 + 2 * pattern.groupCount]);
         Arrays.fill(this.groups, -1);
+
+        this.counters = (this.initialCounters = new int[pattern.quantifierNesting]);
+        Arrays.fill(this.counters, -1);
     }
 
     @Override public MatchResult
-    toMatchResult() { return this; }
+    toMatchResult() {
+
+        if (this.endOfPreviousMatch < 0) throw new IllegalStateException("No match available");
+
+        return new MatchResult() {
+
+            CharSequence subject = MatcherImpl.this.subject;
+            int[]        groups = MatcherImpl.this.groups.clone();
+
+            @Override public int groupCount() { return this.groups.length / 2 - 1; }
+
+            @Override public int              start() { return this.start(0); }
+            @Override public int              end()   { return this.end(0);   }
+            @Override @Nullable public String group() { return this.group(0); }
+
+            @Override public int
+            start(int groupNumber) { return this.groups[2 * groupNumber];     }
+
+            @Override public int
+            end(int groupNumber)   { return this.groups[2 * groupNumber + 1]; }
+
+            @Override @Nullable public String
+            group(int groupNumber) {
+                return (
+                    this.start(groupNumber) == -1
+                    ? null
+                    : this.subject.subSequence(this.start(groupNumber), this.end(groupNumber)).toString()
+                );
+            }
+        };
+    }
 
     @Override public Pattern
     pattern() { return this.pattern; }
@@ -159,7 +203,7 @@ class MatcherImpl implements Matcher {
     @Override public int
     start(int groupNumber) {
 
-        if (this.endOfPreviousMatch == -1) throw new IllegalStateException("No match available");
+        if (this.endOfPreviousMatch < 0) throw new IllegalStateException("No match available");
 
         return this.groups[2 * groupNumber];
     }
@@ -167,7 +211,7 @@ class MatcherImpl implements Matcher {
     @Override public int
     start(String groupName) {
 
-        if (this.endOfPreviousMatch == -1) throw new IllegalStateException("No match available");
+        if (this.endOfPreviousMatch < 0) throw new IllegalStateException("No match available");
 
         Integer groupNumber = this.pattern.namedGroups.get(groupName);
         if (groupNumber == null) throw new IllegalArgumentException("Invalid group name \"" + groupName + "\"");
@@ -178,7 +222,7 @@ class MatcherImpl implements Matcher {
     @Override public int
     end(int groupNumber) {
 
-        if (this.endOfPreviousMatch == -1) throw new IllegalStateException("No match available");
+        if (this.endOfPreviousMatch < 0) throw new IllegalStateException("No match available");
 
         return this.groups[2 * groupNumber + 1];
     }
@@ -186,7 +230,7 @@ class MatcherImpl implements Matcher {
     @Override public int
     end(String groupName) {
 
-        if (this.endOfPreviousMatch == -1) throw new IllegalStateException("No match available");
+        if (this.endOfPreviousMatch < 0) throw new IllegalStateException("No match available");
 
         Integer groupNumber = this.pattern.namedGroups.get(groupName);
         if (groupNumber == null) throw new IllegalArgumentException("Invalid group name \"" + groupName + "\"");
@@ -197,7 +241,7 @@ class MatcherImpl implements Matcher {
     @Nullable @Override public String
     group(int groupNumber) {
 
-        if (this.endOfPreviousMatch == -1) throw new IllegalStateException("No match available");
+        if (this.endOfPreviousMatch < 0) throw new IllegalStateException("No match available");
 
         int[] gs = this.groups;
 
@@ -210,7 +254,7 @@ class MatcherImpl implements Matcher {
     @Override @Nullable public String
     group(String groupName) {
 
-        if (this.endOfPreviousMatch == -1) throw new IllegalStateException("No match available");
+        if (this.endOfPreviousMatch < 0) throw new IllegalStateException("No match available");
 
         Integer groupNumber = this.pattern.namedGroups.get(groupName);
         if (groupNumber == null) throw new IllegalArgumentException("Invalid group name \"" + groupName + "\"");
@@ -245,7 +289,7 @@ class MatcherImpl implements Matcher {
         int newOffset = this.pattern.sequence.matches(this, this.regionStart);
 
         if (newOffset == -1) {
-            this.endOfPreviousMatch = -1;
+            this.endOfPreviousMatch = -2;
             return false;
         }
 
@@ -269,7 +313,7 @@ class MatcherImpl implements Matcher {
         int newOffset = this.pattern.sequence.matches(this, this.regionStart);
 
         if (newOffset == -1) {
-            this.endOfPreviousMatch = -1;
+            this.endOfPreviousMatch = -2;
             return false;
         }
 
@@ -281,7 +325,12 @@ class MatcherImpl implements Matcher {
     }
 
     @Override public boolean
-    find() { return this.find(this.endOfPreviousMatch == -1 ? this.regionStart : this.groups[1]); }
+    find() {
+        return (
+            this.endOfPreviousMatch != -2
+            && this.find(this.endOfPreviousMatch == -1 ? this.regionStart : this.groups[1])
+        );
+    }
 
     @Override public boolean
     find(int start) {
@@ -293,12 +342,12 @@ class MatcherImpl implements Matcher {
         this.hitEnd       = false;
         this.requireEnd   = false;
 
-        if (this.endOfPreviousMatch != -1 && start == this.groups[0]) {
+        if (this.endOfPreviousMatch >= 0 && start == this.groups[0]) {
 
             // The previous match is a zero-length match. To prevent an endless series of these matches, advance
             // start position by one.
             if (start >= this.regionEnd) {
-                this.endOfPreviousMatch = -1;
+                this.endOfPreviousMatch = -2;
                 this.hitEnd             = true;
                 return false;
             }
@@ -312,7 +361,7 @@ class MatcherImpl implements Matcher {
             return true;
         }
 
-        this.endOfPreviousMatch = -1;
+        this.endOfPreviousMatch = -2;
         return false;
     }
 
@@ -331,7 +380,7 @@ class MatcherImpl implements Matcher {
     @Override public Matcher
     appendReplacement(Appendable appendable, String replacement) {
 
-        if (this.endOfPreviousMatch == -1) throw new IllegalStateException("No match available");
+        if (this.endOfPreviousMatch < 0) throw new IllegalStateException("No match available");
 
         try {
 
@@ -500,6 +549,103 @@ class MatcherImpl implements Matcher {
     }
 
     /**
+     * If the subject infix ranging from the <var>offset</var> to the region end starts with the <var>cs</var>,
+     * then the offset is advanced and {@code true} is returned.
+     *
+     * @return The offset after the match, or -1 if <var>cs</var> does not match
+     */
+    int
+    caseInsensitivePeekRead(int offset, CharSequence cs) {
+
+        int csLength = cs.length();
+
+        if (offset + csLength > this.regionEnd) {
+
+            // Not enough chars left.
+            this.hitEnd = true;
+            return -1;
+        }
+
+        for (int i = 0; i < csLength; i++) {
+            char c1 = this.charAt(offset);
+            char c2 = cs.charAt(i);
+            if (!(
+                c1 == c2
+                || (c1 + 32 == c2 && c1 >= 'A' && c1 <= 'Z')
+                || (c1 - 32 == c2 && c1 >= 'a' && c1 <= 'z')
+            )) return -1;
+            offset++;
+        }
+
+        return offset;
+    }
+
+    /**
+     * If the subject infix ranging from the <var>offset</var> to the region end starts with the <var>cs</var>,
+     * then the offset is advanced and {@code true} is returned.
+     *
+     * @return The offset after the match, or -1 if <var>cs</var> does not match
+     */
+    int
+    unicodeCaseInsensitivePeekRead(int offset, CharSequence cs) {
+
+        int csLength = cs.length();
+
+        if (offset + csLength > this.regionEnd) {
+
+            // Not enough chars left.
+            this.hitEnd = true;
+            return -1;
+        }
+
+        for (int i = 0;;) {
+
+            if (i >= csLength)            return offset;
+            if (offset >= this.regionEnd) return -1;
+
+            int c1 = this.charAt(offset++);
+            char ls;
+            if (
+                Character.isHighSurrogate((char) c1)
+                && offset < this.regionEnd
+                && Character.isLowSurrogate((ls = this.charAt(offset)))
+            ) {
+                c1 = Character.toCodePoint((char) c1, ls);
+                offset++;
+            }
+
+            int c2 = cs.charAt(i++);
+            if (
+                Character.isHighSurrogate((char) c2)
+                && i < csLength
+                && Character.isLowSurrogate((ls = cs.charAt(i)))
+            ) {
+                c2 = Character.toCodePoint((char) c2, ls);
+                i++;
+            }
+
+            if (!MatcherImpl.equalsIgnoreCase(c1, c2)) return -1;
+        }
+    }
+
+    private static boolean
+    equalsIgnoreCase(int c1, int c2) {
+
+        if (c1 == c2) return true;
+
+        c1 = Character.toUpperCase(c1);
+        c2 = Character.toUpperCase(c2);
+        if (c1 == c2) return true;
+
+        // Also have to do THIS, see source code of "String.regionMatches()".
+        c1 = Character.toLowerCase(c1);
+        c2 = Character.toLowerCase(c2);
+        if (c1 == c2) return true;
+
+        return false;
+    }
+
+    /**
      * @return Whether the <var>predicate</var> evaluates for the character at the given offset
      */
     public boolean
@@ -518,7 +664,31 @@ class MatcherImpl implements Matcher {
      */
     char
     charAt(int offset) {
-        return this.subject.charAt(this.reverseSubject ? this.subject.length() - 1 - offset : offset);
+        if (!this.reverseSubject) return this.subject.charAt(offset);
+
+        // Reverse the offset.
+        offset = this.subject.length() - 1 - offset;
+
+        char c = this.subject.charAt(offset);
+
+        // Un-reverse CR-LF.
+        if (c == '\r' && offset + 1 < this.subject.length() && this.subject.charAt(offset + 1) == '\n') return '\n';
+        if (c == '\n' && offset     > 0                     && this.subject.charAt(offset - 1) == '\r') return '\r';
+
+        // Un-reverse high-surrogate-low-surrogate.
+        char c2;
+        if (
+            Character.isHighSurrogate(c)
+            && offset + 1 < this.subject.length()
+            && Character.isLowSurrogate((c2 = this.subject.charAt(offset + 1)))
+        ) return c2;
+        if (
+            Character.isLowSurrogate(c)
+            && offset > 0
+            && Character.isHighSurrogate((c2 = this.subject.charAt(offset - 1)))
+        ) return c2;
+
+        return c;
     }
 
     @Override public String
@@ -536,7 +706,7 @@ class MatcherImpl implements Matcher {
             .append(this.subject)
         );
 
-        if (this.endOfPreviousMatch != -1) {
+        if (this.endOfPreviousMatch >= 0) {
             sb.append(" lastmatch=").append(this.subject.subSequence(this.groups[0], this.groups[1]));
         }
 
@@ -567,22 +737,22 @@ class MatcherImpl implements Matcher {
         // Reverse the "region".
         {
             int tmp = this.regionStart;
-            this.regionEnd = l - this.regionEnd;
-            this.regionEnd = l - tmp;
+            this.regionStart = l - this.regionEnd;
+            this.regionEnd   = l - tmp;
         }
 
         // Reverse the "transparent region".
         {
             int tmp = this.transparentRegionStart;
-            this.transparentRegionEnd = l - this.transparentRegionEnd;
-            this.transparentRegionEnd = l - tmp;
+            this.transparentRegionStart = l - this.transparentRegionEnd;
+            this.transparentRegionEnd   = l - tmp;
         }
 
         // Reverse the "anchoring region".
         {
             int tmp = this.anchoringRegionStart;
-            this.anchoringRegionEnd = l - this.anchoringRegionEnd;
-            this.anchoringRegionEnd = l - tmp;
+            this.anchoringRegionStart = l - this.anchoringRegionEnd;
+            this.anchoringRegionEnd   = l - tmp;
         }
 
         // Reverse "hitStart" and "hitEnd".
@@ -622,6 +792,6 @@ class MatcherImpl implements Matcher {
         }
 
         // Reverse the "endOfPreviousMatch".
-        if (this.endOfPreviousMatch != -1) this.endOfPreviousMatch = l - this.endOfPreviousMatch;
+        if (this.endOfPreviousMatch >= 0) this.endOfPreviousMatch = l - this.endOfPreviousMatch;
     }
 }

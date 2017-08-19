@@ -35,19 +35,15 @@ import static de.unkrig.lfr.core.Pattern.TokenType.LITERAL_CHARACTER;
 import static de.unkrig.lfr.core.Pattern.TokenType.QUOTATION_END;
 import static de.unkrig.lfr.core.Pattern.TokenType.RIGHT_BRACKET;
 
-import java.lang.Character.UnicodeBlock;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
-import java.util.Map;
 import java.util.regex.PatternSyntaxException;
 
-import de.unkrig.commons.lang.AssertionUtil;
 import de.unkrig.commons.lang.Characters;
 import de.unkrig.commons.lang.protocol.Predicate;
+import de.unkrig.commons.lang.protocol.PredicateUtil;
 import de.unkrig.commons.lang.protocol.ProducerUtil;
 import de.unkrig.commons.lang.protocol.ProducerWhichThrows;
 import de.unkrig.commons.nullanalysis.NotNullByDefault;
@@ -123,7 +119,7 @@ class PatternFactory extends de.unkrig.ref4j.PatternFactory {
             throw pse;
         }
 
-        return new Pattern(regex, flags, sequence, rs.groupCount, rs.namedGroups);
+        return new Pattern(regex, flags, sequence, rs.groupCount, rs.namedGroups, rs.greatestQuantifierNesting);
     }
 
     /**
@@ -215,7 +211,13 @@ class PatternFactory extends de.unkrig.ref4j.PatternFactory {
             private Sequence
             parseQuantified() throws ParseException {
 
+                if (++rs.currentQuantifierNesting > rs.greatestQuantifierNesting) {
+                    rs.greatestQuantifierNesting = rs.currentQuantifierNesting;
+                }
+
                 final Sequence op = this.parsePrimary();
+
+                --rs.currentQuantifierNesting;
 
                 Token<TokenType> t = this.peek();
                 if (t == null) return op;
@@ -236,9 +238,12 @@ class PatternFactory extends de.unkrig.ref4j.PatternFactory {
 
                     case '{':
                         {
-                            String[] c = AssertionUtil.notNull(t.captured);
-                            min = Integer.parseInt(c[0]);
-                            max = c[1] == null ? min : c[2] == null ? Integer.MAX_VALUE : Integer.parseInt(c[2]);
+                            min = Integer.parseInt(t.captured[0]);
+                            max = (
+                                t.captured[1] == null ? min :
+                                t.captured[2] == null ? Integer.MAX_VALUE :
+                                Integer.parseInt(t.captured[2])
+                            );
                         }
                         break;
 
@@ -248,9 +253,9 @@ class PatternFactory extends de.unkrig.ref4j.PatternFactory {
 
                     switch (t.type) {
 
-                    case GREEDY_QUANTIFIER:     return Sequences.greedyQuantifierSequence(op, min, max);
-                    case RELUCTANT_QUANTIFIER:  return Sequences.reluctantQuantifierSequence(op, min, max);
-                    case POSSESSIVE_QUANTIFIER: return Sequences.possessiveQuantifierSequence(op, min, max);
+                    case GREEDY_QUANTIFIER:     return Sequences.quantifier(op, min, max, rs.currentQuantifierNesting, true);
+                    case RELUCTANT_QUANTIFIER:  return Sequences.quantifier(op, min, max, rs.currentQuantifierNesting, false);
+                    case POSSESSIVE_QUANTIFIER: return Sequences.possessiveQuantifier(op, min, max);
 
                     default:
                         throw new AssertionError(t);
@@ -269,12 +274,10 @@ class PatternFactory extends de.unkrig.ref4j.PatternFactory {
                     if (result != null) return result;
                 }
 
-                String t;
-                {
-                    Token<TokenType> token = this.peek();
-                    if (token == null) throw new ParseException("Unexpected end-of-input");
-                    t = token.text;
-                }
+                Token<TokenType> token = this.peek();
+                if (token == null) throw new ParseException("Unexpected end-of-input");
+
+                String t = token.text;
 
                 if (this.peekRead(TokenType.CC_ANY) != null) {
                     return (
@@ -345,34 +348,59 @@ class PatternFactory extends de.unkrig.ref4j.PatternFactory {
                 }
 
                 if (this.peekRead(TokenType.CAPTURING_GROUP_BACK_REFERENCE) != null) {
-                    int groupNumber = Integer.parseInt(t.substring(1));
-                    if (groupNumber > rs.groupCount) {
-                        throw new ParseException("Group number " + groupNumber + " too big");
+
+                    // Scanning backreferences is tricky, because it depends on the number of capturing groups: Thus,
+                    // we scan as many digits as possible, and, if they turn out to be "too many", we convert the
+                    // excess digits to a LiteralString.
+
+                    String prefix = token.captured[0];
+                    String suffix = "";
+
+                    int groupNumber;
+                    for (;;) {
+                        groupNumber = Integer.parseInt(prefix);
+
+                        if (groupNumber <= rs.groupCount) break;
+
+                        // An invalid group number 1...9 results in a match failure (this fact is missing from the JUR
+                        // documentation).
+                        if (groupNumber <= 9) return CharacterClasses.FAIL;
+
+                        // Move the last character of the prefix to the beginning of the suffix and retry.
+                        suffix = prefix.charAt(prefix.length() - 1) + suffix;
+                        prefix = prefix.substring(0, prefix.length() - 1);
                     }
-                    return Sequences.capturingGroupBackReference(groupNumber);
+
+                    Sequence result = this.capturingGroupBackReference(groupNumber);
+
+                    if (!suffix.isEmpty()) result = result.concat(new Sequences.LiteralString(suffix));
+
+                    return result;
                 }
 
                 if (this.peekRead(TokenType.BEGINNING_OF_LINE) != null) {
                     return (
                         (this.currentFlags & de.unkrig.ref4j.Pattern.MULTILINE) == 0
                         ? Sequences.beginningOfInput()
-                        : Sequences.beginningOfLine(
-                            (this.currentFlags & de.unkrig.ref4j.Pattern.UNIX_LINES) != 0
-                            ? Sequences.UNIX_LINE_BREAK_CHARACTERS
-                            : Sequences.LINE_BREAK_CHARACTERS
-                        )
+                        : (this.currentFlags & de.unkrig.ref4j.Pattern.UNIX_LINES) != 0
+                        ? Sequences.beginningOfUnixLine()
+                        : Sequences.beginningOfLine()
                     );
                 }
 
                 if (this.peekRead(TokenType.END_OF_LINE) != null) {
                     return (
                         (this.currentFlags & de.unkrig.ref4j.Pattern.MULTILINE) == 0
-                        ? Sequences.endOfInput()
-                        : Sequences.endOfLine(
-                            (this.currentFlags & de.unkrig.ref4j.Pattern.UNIX_LINES) != 0
-                            ? Sequences.UNIX_LINE_BREAK_CHARACTERS
-                            : Sequences.LINE_BREAK_CHARACTERS
-                        )
+
+                        // The JRE documentation falsely states that, in non-MULTILINE mode, "$" evaluates to "\z"
+                        // (end-of-input), however actually it evaluates to "\z" (end-of-input but for the final
+                        // terminator, if any). So for the sake of JUR compatibility, we implement this wrong
+                        // behavior:
+                        ? this.endOfInputButFinalTerminator() // endOfInput()
+
+                        : (this.currentFlags & de.unkrig.ref4j.Pattern.UNIX_LINES) != 0
+                        ? Sequences.endOfUnixLine()
+                        : Sequences.endOfLine()
                     );
                 }
 
@@ -393,7 +421,7 @@ class PatternFactory extends de.unkrig.ref4j.PatternFactory {
                 }
 
                 if (this.peekRead(TokenType.END_OF_INPUT_BUT_FINAL_TERMINATOR) != null) {
-                    return Sequences.endOfInputButFinalTerminator();
+                    return this.endOfInputButFinalTerminator();
                 }
 
                 if (this.peekRead(TokenType.END_OF_INPUT) != null) {
@@ -406,7 +434,7 @@ class PatternFactory extends de.unkrig.ref4j.PatternFactory {
                 }
 
                 if (this.peekRead(TokenType.LINEBREAK_MATCHER) != null) {
-                    return Sequences.linebreakSequence();
+                    return Sequences.linebreak();
                 }
 
                 if (this.peekRead(TokenType.NAMED_CAPTURING_GROUP) != null) {
@@ -468,6 +496,18 @@ class PatternFactory extends de.unkrig.ref4j.PatternFactory {
             }
 
             /**
+             * @return A back references, based on the currently effective CASE_INSENSITIVE and UNICODE_CASE flags
+             */
+            public Sequence
+            capturingGroupBackReference(int groupNumber) {
+                return (this.currentFlags & de.unkrig.ref4j.Pattern.CASE_INSENSITIVE) == 0
+                ? Sequences.capturingGroupBackReference(groupNumber)
+                : (this.currentFlags & de.unkrig.ref4j.Pattern.UNICODE_CASE) == 0
+                ? Sequences.caseInsensitiveCapturingGroupBackReference(groupNumber)
+                : Sequences.unicodeCaseInsensitiveCapturingGroupBackReference(groupNumber);
+            }
+
+            /**
              * @return A {@link CharacterClass} that matches the <var>codePoint</var>, honoring surrogates and {@code
              *         this} matcher's case-sensitivity flags
              */
@@ -480,6 +520,30 @@ class PatternFactory extends de.unkrig.ref4j.PatternFactory {
                     : (this.currentFlags & de.unkrig.ref4j.Pattern.UNICODE_CASE) == 0
                     ? CharacterClasses.caseInsensitiveLiteralCharacter(cp)
                     : CharacterClasses.unicodeCaseInsensitiveLiteralCharacter(cp)
+                );
+            }
+
+            /**
+             * @return A range, based on the currently effective CASE_INSENSITIVE and UNICODE_CASE flags
+             */
+            public CharacterClass
+            range(int lhsCp, int rhsCp) {
+
+                return (
+                    (this.currentFlags & de.unkrig.ref4j.Pattern.CASE_INSENSITIVE) == 0
+                    ? CharacterClasses.range(lhsCp, rhsCp)
+                    : (this.currentFlags & de.unkrig.ref4j.Pattern.UNICODE_CASE) == 0
+                    ? CharacterClasses.caseInsensitiveRange(lhsCp, rhsCp)
+                    : CharacterClasses.unicodeCaseInsensitiveRange(lhsCp, rhsCp)
+                );
+            }
+
+            public Sequence
+            endOfInputButFinalTerminator() {
+                return (
+                    (this.currentFlags & de.unkrig.ref4j.Pattern.UNIX_LINES) != 0
+                    ? Sequences.endOfInputButFinalUnixTerminator()
+                    : Sequences.endOfInputButFinalTerminator()
                 );
             }
 
@@ -632,103 +696,18 @@ class PatternFactory extends de.unkrig.ref4j.PatternFactory {
                     return result;
                 }
 
-                if ((t = this.peekRead(TokenType.CC_POSIX)) != null) {
-                    String  ccName = t.substring(3, t.length() - 1);
-                    boolean u      = (this.currentFlags & de.unkrig.ref4j.Pattern.UNICODE_CHARACTER_CLASS) != 0;
+                Token<TokenType> token = this.peek();
+                if (token != null && token.type == TokenType.CC_NAMED) {
 
-                    Predicate<Integer> codePointPredicate = (
-                        "Lower".equals(ccName)  ? (u ? Characters.IS_UNICODE_LOWER       : Characters.IS_POSIX_LOWER)  :  // SUPPRESS CHECKSTYLE LineLength:12
-                        "Upper".equals(ccName)  ? (u ? Characters.IS_UNICODE_UPPER       : Characters.IS_POSIX_UPPER)  :
-                        "ASCII".equals(ccName)  ? Characters.IS_POSIX_ASCII                                            :
-                        "Alpha".equals(ccName)  ? (u ? Characters.IS_UNICODE_ALPHA       : Characters.IS_POSIX_ALPHA)  :
-                        "Digit".equals(ccName)  ? (u ? Characters.IS_UNICODE_DIGIT       : Characters.IS_POSIX_DIGIT)  :
-                        "Alnum".equals(ccName)  ? (u ? Characters.IS_UNICODE_ALNUM       : Characters.IS_POSIX_ALNUM)  :
-                        "Punct".equals(ccName)  ? (u ? Characters.IS_UNICODE_PUNCT       : Characters.IS_POSIX_PUNCT)  :
-                        "Graph".equals(ccName)  ? (u ? Characters.IS_UNICODE_GRAPH       : Characters.IS_POSIX_GRAPH)  :
-                        "Print".equals(ccName)  ? (u ? Characters.IS_UNICODE_PRINT       : Characters.IS_POSIX_PRINT)  :
-                        "Blank".equals(ccName)  ? (u ? Characters.IS_UNICODE_BLANK       : Characters.IS_POSIX_BLANK)  :
-                        "Cntrl".equals(ccName)  ? (u ? Characters.IS_UNICODE_CNTRL       : Characters.IS_POSIX_CNTRL)  :
-                        "XDigit".equals(ccName) ? (u ? Characters.IS_UNICODE_HEX_DIGIT   : Characters.IS_POSIX_XDIGIT) :
-                        "Space".equals(ccName)  ? (u ? Characters.IS_UNICODE_WHITE_SPACE : Characters.IS_POSIX_SPACE)  :
-                        null
-                    );
-                    assert codePointPredicate != null;
+                    this.read();
 
-                    CharacterClass result = CharacterClasses.characterClass(codePointPredicate);
+                    Predicate<Integer> result = this.namedCharacterClassPredicate(token.captured[1]);
 
-                    if (t.charAt(1) == 'P') result = CharacterClasses.negate(result, t);
-
-                    return result;
-                }
-
-                if ((t = this.peekRead(TokenType.CC_JAVA)) != null) {
-                    String             ccName             = t.substring(3, t.length() - 1);
-                    Predicate<Integer> codePointPredicate = (
-                        "javaLowerCase".equals(ccName)  ? Characters.IS_LOWER_CASE :
-                        "javaUpperCase".equals(ccName)  ? Characters.IS_UPPER_CASE :
-                        "javaWhitespace".equals(ccName) ? Characters.IS_WHITESPACE :
-                        "javaMirrored".equals(ccName)   ? Characters.IS_MIRRORED   :
-                        null
-                    );
-                    assert codePointPredicate != null;
-
-                    CharacterClass result = CharacterClasses.characterClass(codePointPredicate);
-
-                    if (t.charAt(1) == 'P') result = CharacterClasses.negate(result, t);
-
-                    return result;
-                }
-
-                if ((t = this.peekRead(TokenType.CC_UNICODE_SCRIPT_OR_BINARY_PROPERTY)) != null) {
-                    String name = t.substring(5, t.length() - 1);
-
-                    // A UNICODE preperty, e.g. "TITLECASE"?
-                    Predicate<Integer> codePointPredicate = Characters.unicodePropertyFromName(name);
-                    if (codePointPredicate != null) {
-                        return CharacterClasses.characterClass(codePointPredicate);
+                    if (token.captured[0].equals("P")) {
+                        result = PredicateUtil.not(result);
                     }
 
-                    // A UNICODE character property, e.g. category "Lu"?
-                    Byte gc = PatternFactory.getGeneralCategory(name);
-                    if (gc != null) return CharacterClasses.inUnicodeGeneralCategory(gc);
-
-                    // A Unicode "script"?
-                    // (Class UnicodeScript only available from Java 7.)
-
-                    throw new AssertionError((
-                        "Invalid or unimplemented Unicode script or property \""
-                        + name
-                        + "\""
-                    ));
-                }
-
-                if ((t = this.peekRead(TokenType.CC_UNICODE_BLOCK)) != null) {
-                    String unicodeBlockName = t.substring(5, t.length() - 1);
-
-                    UnicodeBlock block;
-                    try {
-                        block = Character.UnicodeBlock.forName(unicodeBlockName);
-                    } catch (IllegalArgumentException iae) {
-                        throw new ParseException("Invalid unicode block \"" + unicodeBlockName + "\"");
-                    }
-
-                    CharacterClass result = CharacterClasses.inUnicodeBlock(block);
-
-                    if (t.charAt(1) == 'P') result = CharacterClasses.negate(result, t);
-
-                    return result;
-                }
-
-                if ((t = this.peekRead(TokenType.CC_UNICODE_CATEGORY)) != null) {
-                    String  gcName = t.substring(3, 5);
-                    Byte    gc     = PatternFactory.getGeneralCategory(gcName);
-                    if (gc == null) throw new ParseException("Unknown general cateogry \"" + gcName + "\"");
-
-                    CharacterClass result = CharacterClasses.inUnicodeGeneralCategory(gc);
-
-                    if (t.charAt(1) == 'P') result = CharacterClasses.negate(result, t);
-
-                    return result;
+                    return CharacterClasses.characterClass(result);
                 }
 
                 return null;
@@ -803,62 +782,85 @@ class PatternFactory extends de.unkrig.ref4j.PatternFactory {
                 int lhsCp = lhs.codePointAt(0);
 
                 // Parse hyphen.
-                if (!this.peekRead("-")) return CharacterClasses.literalCharacter(lhsCp);
+                if (!this.peekRead("-")) return this.literalCharacter(lhsCp);
 
                 // Parse range end character.
                 String rhs = this.peekRead(LITERAL_CHARACTER);
-                if (rhs == null) return CharacterClasses.oneOfTwo(lhsCp, '-');
+                if (rhs == null) {
+                    return CharacterClasses.union(this.literalCharacter(lhsCp), CharacterClasses.literalCharacter('-'));
+                }
 
-                return CharacterClasses.range(lhsCp, rhs.codePointAt(0));
+                int rhsCp = rhs.codePointAt(0);
+                return this.range(lhsCp, rhsCp);
+            }
+
+            Predicate<Integer>
+            namedCharacterClassPredicate(String name) throws ParseException {
+
+                Predicate<Integer> result;
+
+                if (name.startsWith("In")) {
+                    name = name.substring(2);
+
+                    // A unicode block?
+                    if ((result = Characters.unicodeBlockFromName(name)) != null) return result;
+                } else
+
+                if (name.startsWith("Is")) {
+                    name = name.substring(2);
+
+                    // A UNICODE property, e.g. "TITLECASE"?
+                    if ((result = Characters.unicodeBinaryPropertyFromName(name)) != null) return result;
+
+                    // Undocumented JUR feature: Also predefined character classes may be prefixed with "Is".
+                    boolean isUnicode = (this.currentFlags & de.unkrig.ref4j.Pattern.UNICODE_CHARACTER_CLASS) != 0;
+                    if ((result = (
+                        isUnicode
+                        ? Characters.unicodePredefinedCharacterClassFromName(name)
+                        : Characters.posixCharacterClassFromName(name)
+                    )) != null) return result;
+
+                    // A Unicode "script"?
+                    // (Class UnicodeScript only available from Java 7.)
+
+                } else
+                {
+
+                    // A POSIX character class?
+                    boolean isUnicode = (this.currentFlags & de.unkrig.ref4j.Pattern.UNICODE_CHARACTER_CLASS) != 0;
+                    if ((result = (
+                        isUnicode
+                        ? Characters.unicodePredefinedCharacterClassFromName(name)
+                        : Characters.posixCharacterClassFromName(name)
+                    )) != null) return result;
+
+                    // A Java character class?
+                    if ((result = Characters.javaCharacterClassFromName(name)) != null) return result;
+
+                    // A UNICODE property, e.g. "TITLECASE"?
+                    if ((result = Characters.unicodeBinaryPropertyFromName(name)) != null) return result;
+
+                    // A UNICODE character category, e.g. category "Lu"?
+                    if ((result = Characters.unicodeCategoryFromName(name)) != null) return result;
+
+                    // A Unicode "script"?
+                    // (Class UnicodeScript only available from Java 7.)
+
+                    // A unicode block?
+                    if ((result = Characters.unicodeBlockFromName(name)) != null) return result;
+
+                    // General category?
+                    if ((result = Characters.unicodeCategoryFromName(name)) != null) return result;
+                }
+
+                throw new ParseException((
+                    "Invalid or unimplemented UNICODE property, category, script or block \""
+                    + name
+                    + "\""
+                ));
             }
         }.parse();
     }
-
-    @Nullable private static Byte
-    getGeneralCategory(String name) {
-
-        Map<String, Byte> m = PatternFactory.generalCategories;
-        if (m == null) {
-            m = new HashMap<String, Byte>();
-
-            // The JRE provides no way to translate GC names int GC values.
-            m.put("CN", Character.UNASSIGNED);
-            m.put("LU", Character.UPPERCASE_LETTER);
-            m.put("LL", Character.LOWERCASE_LETTER);
-            m.put("LT", Character.TITLECASE_LETTER);
-            m.put("LM", Character.MODIFIER_LETTER);
-            m.put("LO", Character.OTHER_LETTER);
-            m.put("MN", Character.NON_SPACING_MARK);
-            m.put("ME", Character.ENCLOSING_MARK);
-            m.put("MC", Character.COMBINING_SPACING_MARK);
-            m.put("ND", Character.DECIMAL_DIGIT_NUMBER);
-            m.put("NL", Character.LETTER_NUMBER);
-            m.put("NO", Character.OTHER_NUMBER);
-            m.put("ZS", Character.SPACE_SEPARATOR);
-            m.put("ZL", Character.LINE_SEPARATOR);
-            m.put("ZP", Character.PARAGRAPH_SEPARATOR);
-            m.put("CC", Character.CONTROL);
-            m.put("CF", Character.FORMAT);
-            m.put("CO", Character.PRIVATE_USE);
-            m.put("CS", Character.SURROGATE);
-            m.put("PD", Character.DASH_PUNCTUATION);
-            m.put("PS", Character.START_PUNCTUATION);
-            m.put("PE", Character.END_PUNCTUATION);
-            m.put("PC", Character.CONNECTOR_PUNCTUATION);
-            m.put("PO", Character.OTHER_PUNCTUATION);
-            m.put("SM", Character.MATH_SYMBOL);
-            m.put("SC", Character.CURRENCY_SYMBOL);
-            m.put("SK", Character.MODIFIER_SYMBOL);
-            m.put("SO", Character.OTHER_SYMBOL);
-            m.put("PI", Character.INITIAL_QUOTE_PUNCTUATION);
-            m.put("PF", Character.FINAL_QUOTE_PUNCTUATION);
-
-            PatternFactory.generalCategories = Collections.unmodifiableMap(m);
-        }
-
-        return m.get(name.toUpperCase(Locale.ENGLISH));
-    }
-    @Nullable private static Map<String, Byte> generalCategories;
 
     private static String
     removeSpaces(String subject) {

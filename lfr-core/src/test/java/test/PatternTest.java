@@ -308,12 +308,8 @@ class PatternTest {
     @Test @SuppressWarnings("static-method") public void
     testCapturingGroupsBackreference() {
 
-        // JUR compiles invalid group references ok, and treats them as "no match". DULC, however, is more accurate
-        // and reports invalid group references already at COMPILE TIME.
-        String regex = "(\\d\\d)\\2";
-        Assert.assertEquals("  12  ", PatternTest.jurpc(regex).matcher("  12  ").replaceAll("x"));
-
-        new RegexTest(regex).patternSyntaxExceptionDulc();
+        // "\2" is an invalid backreference, which results in a match failure.
+        PatternTest.harnessReplaceAll("(\\d\\d)\\2", " a aa aaa", "x");
     }
 
     @Test @SuppressWarnings("static-method") public void
@@ -433,7 +429,7 @@ class PatternTest {
         String regex = ".*" + infix;
 
         PatternTest.assertSequenceToString(
-            "greedyQuantifier(negate(lineBreakCharacter), min=0, max=infinite) . knuthMorrisPratt(\"ABCDEFGHIJKLMNOP\") . end", // SUPPRESS CHECKSTYLE LineLength
+            "greedyQuantifier(operand=negate(lineBreakCharacter), min=0) . knuthMorrisPratt(\"ABCDEFGHIJKLMNOP\") . end", // SUPPRESS CHECKSTYLE LineLength
             regex
         );
 

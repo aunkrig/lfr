@@ -36,7 +36,7 @@ class AbstractSequence implements Sequence {
     find(MatcherImpl matcher, int start) {
 
         final int re = matcher.regionEnd;
-        for (; start <= re; start++) {
+        for (;;) {
 
             int newOffset = this.matches(matcher, start);
 
@@ -45,6 +45,14 @@ class AbstractSequence implements Sequence {
                 matcher.groups[1] = newOffset;
                 return true;
             }
+
+            if (start >= re) break;
+
+            if (
+                Character.isHighSurrogate(matcher.charAt(start++))
+                && start < re
+                && Character.isLowSurrogate(matcher.charAt(start))
+            ) start++;
         }
 
         matcher.hitEnd = true;

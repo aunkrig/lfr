@@ -73,6 +73,8 @@ class RegexTest {
         @Override public void
         assertMatchers(Matcher expected, Matcher actual) {
 
+            RegexTest.ASSERT_EQUAL_STATE.assertMatchers(expected, actual);
+
             int matchCount;
             for (matchCount = 0;; matchCount++) {
                 String message2 = "Pattern \"" + expected.pattern() + "\", Match #" + (matchCount + 1);

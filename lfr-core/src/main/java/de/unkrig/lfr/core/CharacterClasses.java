@@ -28,12 +28,16 @@ package de.unkrig.lfr.core;
 
 import java.util.ArrayList;
 import java.util.BitSet;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Set;
+import java.util.SortedSet;
+import java.util.TreeSet;
 
 import de.unkrig.commons.lang.Characters;
+import de.unkrig.commons.lang.PrettyPrinter;
 import de.unkrig.commons.lang.protocol.Predicate;
 
 /**
@@ -42,7 +46,18 @@ import de.unkrig.commons.lang.protocol.Predicate;
 final
 class CharacterClasses {
 
-	private CharacterClasses() {}
+	public static final CharacterClass
+    FAIL = new CharacterClass() {
+
+        @Override public boolean   matches(int c)                           { return false;  }
+        @Override public boolean   find(MatcherImpl matcherImpl, int start) { return false;  }
+        @Override public Sequence  concat(Sequence that)                    { return this;   }
+        @Override public Sequence  reverse()                                { return this;   }
+        @Override public String    toString()                               { return "fail"; }
+        @Override protected String toStringWithoutNext()                    { return "???";  }
+    };
+
+    private CharacterClasses() {}
 
     /**
      * Representation of a literal character, like "a" or "\.".
@@ -202,37 +217,104 @@ class CharacterClasses {
             c1 == c2 ? CharacterClasses.oneOfTwo(c1, c3) :
             c1 == c3 ? CharacterClasses.oneOfTwo(c1, c2) :
             c2 == c3 ? CharacterClasses.oneOfTwo(c1, c2) :
-            new CharacterClass() {
-
-                @Override public boolean
-                matches(int subject) { return subject == c1 || subject == c2 || subject == c3; }
-
-                @Override public int lowerBound() { return CharacterClasses.min(c1, c2, c3);     }
-                @Override public int upperBound() { return CharacterClasses.max(c1, c2, c3) + 1; }
-                @Override public int sizeBound()  { return 3;                   }
-
-                @Override public String
-                toStringWithoutNext() {
-                    return (
-                        new StringBuilder("oneOfThree('")
-                        .appendCodePoint(c1)
-                        .append("', '")
-                        .appendCodePoint(c2)
-                        .append("', '")
-                        .appendCodePoint(c3)
-                        .append("')")
-                        .toString()
-                    );
-                }
-            }
+            new OneOfThreeCharacterClass(c1, c2, c3)
         );
+    }
+
+    static
+    class OneOfThreeCharacterClass extends CharacterClass {
+
+        private final int cp1, cp2, cp3;
+
+        public
+        OneOfThreeCharacterClass(int cp1, int cp2, int cp3) {
+            this.cp1 = cp1;
+            this.cp2 = cp2;
+            this.cp3 = cp3;
+        }
+
+        @Override public boolean
+        matches(int subject) { return subject == this.cp1 || subject == this.cp2 || subject == this.cp3; }
+
+        @Override public int
+        lowerBound() { return CharacterClasses.min(this.cp1, this.cp2, this.cp3); }
+
+        @Override public int
+        upperBound() { return CharacterClasses.max(this.cp1, this.cp2, this.cp3) + 1; }
+
+        @Override public int
+        sizeBound() { return 3; }
+
+        @Override public String
+        toStringWithoutNext() {
+            return (
+                "oneOfThree("
+                + PrettyPrinter.codePointToString(this.cp1)
+                + ", "
+                + PrettyPrinter.codePointToString(this.cp2)
+                + ", "
+                + PrettyPrinter.codePointToString(this.cp3)
+                + ")"
+            );
+        }
     }
 
     /**
      * Checks whether a code point is one of those in in <var>chars</var>.
      */
     public static CharacterClass
-    oneOf(final String chars) { return new OneOfManyCharacterClass(chars); }
+    oneOf(final String chars) {
+
+        if (chars.isEmpty()) return CharacterClasses.FAIL;
+
+        SortedSet<Integer> s = new TreeSet<Integer>();
+        for (int offset = 0; offset < chars.length();) {
+            int cp = chars.codePointAt(offset);
+            s.add(cp);
+            offset += Character.charCount(cp);
+        }
+
+        return CharacterClasses.oneOf(s);
+    }
+
+    /**
+     * Checks whether a code point is one of those in in <var>chars</var>.
+     */
+    public static CharacterClass
+    oneOf(Collection<Integer> chars) {
+        return CharacterClasses.oneOf(new HashSet<Integer>(chars));
+    }
+
+    /**
+     * Checks whether a code point is one of those in in <var>chars</var>.
+     */
+    public static CharacterClass
+    oneOf(final Set<Integer> chars) {
+
+        if (chars.isEmpty()) return CharacterClasses.FAIL;
+
+        Iterator<Integer> it = chars.iterator();
+        switch (chars.size()) {
+        case 1: return new LiteralCharacter(chars.iterator().next());
+        case 2: return new OneOfTwoCharacterClass(it.next(), it.next());
+        case 3: return new OneOfThreeCharacterClass(it.next(), it.next(), it.next());
+        }
+
+        return new CharacterClass() {
+
+            @Override public boolean
+            matches(int c) { return chars.contains(c); }
+
+            @Override protected String
+            toStringWithoutNext() {
+                return (
+                    "oneOf("
+                    + PrettyPrinter.toString(new String(CharacterClasses.unwrap(chars), 0, chars.size()))
+                    + ")"
+                );
+            }
+        };
+    }
 
     public static final
     class OneOfManyCharacterClass extends CharacterClass {
@@ -286,19 +368,37 @@ class CharacterClasses {
      * Representation of a (UNICODE-)case-insensitive literal character.
      */
     public static CharacterClass
-    unicodeCaseInsensitiveLiteralCharacter(final int c) {
-        return CharacterClasses.oneOfThree(
-            Character.toLowerCase(c),
-            Character.toUpperCase(c),
-            Character.toTitleCase(c)
-        );
+    unicodeCaseInsensitiveLiteralCharacter(final int cp) {
+
+        String s = Characters.caseInsensitivelyEqualCharacters(cp);
+
+        if (s == null) return CharacterClasses.literalCharacter(cp);
+
+        return CharacterClasses.oneOf(s);
     }
 
     public static CharacterClass
     union(final CharacterClass lhs, final CharacterClass rhs) {
 
-        if (lhs instanceof CharacterClasses.EmptyCharacterClass) return rhs;
-        if (rhs instanceof CharacterClasses.EmptyCharacterClass) return lhs;
+        if (lhs instanceof EmptyCharacterClass) return rhs;
+
+        if (rhs instanceof EmptyCharacterClass) return lhs;
+
+        if (lhs instanceof LiteralCharacter && rhs instanceof LiteralCharacter) {
+            return CharacterClasses.oneOfTwo(((LiteralCharacter) lhs).c, ((LiteralCharacter) rhs).c);
+        }
+
+        if (lhs instanceof LiteralCharacter && rhs instanceof OneOfTwoCharacterClass) {
+            LiteralCharacter       lc  = (LiteralCharacter)       lhs;
+            OneOfTwoCharacterClass oot = (OneOfTwoCharacterClass) rhs;
+            return CharacterClasses.oneOfThree(lc.c, oot.c1, oot.c2);
+        }
+
+        if (lhs instanceof OneOfTwoCharacterClass && rhs instanceof LiteralCharacter) {
+            OneOfTwoCharacterClass oot = (OneOfTwoCharacterClass) lhs;
+            LiteralCharacter       lc  = (LiteralCharacter)       rhs;
+            return CharacterClasses.oneOfThree(oot.c1, oot.c2, lc.c);
+        }
 
         return new CharacterClass() {
             @Override public boolean   matches(int c)        { return lhs.matches(c) || rhs.matches(c);             }
@@ -369,7 +469,7 @@ class CharacterClasses {
         switch (size) {
 
         case 0:
-            return new CharacterClasses.EmptyCharacterClass();
+            return CharacterClasses.FAIL;
 
         case 1:
             return CharacterClasses.literalCharacter(integerSet.iterator().next());
@@ -488,6 +588,82 @@ class CharacterClasses {
         };
     }
 
+    /**
+     * Representation of a case-insensitive character class range like {@code "a-k"}.
+     */
+    public static CharacterClass
+    caseInsensitiveRange(final int lhs, final int rhs) {
+
+        if (lhs == rhs) return CharacterClasses.literalCharacter(lhs);
+
+        if (lhs > rhs) return new CharacterClasses.EmptyCharacterClass();
+
+        return new CharacterClass() {
+
+            @Override public boolean
+            matches(int subject) {
+
+                if (subject >= 'A' && subject <= 'Z' && subject + 32 >= lhs && subject + 32 <= rhs) return true;
+
+                if (subject >= 'a' && subject <= 'z' && subject - 32 >= lhs && subject - 32 <= rhs) return true;
+
+                return subject >= lhs && subject <= rhs;
+            }
+
+            @Override public String
+            toStringWithoutNext() {
+                return (
+                    new StringBuilder("caseInsensitiveRange('")
+                    .appendCodePoint(lhs)
+                    .append("' - '")
+                    .appendCodePoint(rhs)
+                    .append("')")
+                    .toString()
+                );
+            }
+        };
+    }
+
+    /**
+     * Representation of a case-insensitive character class range like {@code "a-k"}.
+     */
+    public static CharacterClass
+    unicodeCaseInsensitiveRange(final int lhs, final int rhs) {
+
+        if (lhs == rhs) return CharacterClasses.literalCharacter(lhs);
+
+        if (lhs > rhs) return CharacterClasses.FAIL;
+
+        return new CharacterClass() {
+
+            @Override public boolean
+            matches(int subject) {
+
+                if (subject >= lhs && subject <= rhs) return true;
+
+                subject = Character.toUpperCase(subject);
+                if (subject >= lhs && subject <= rhs) return true;
+
+                subject = Character.toLowerCase(subject);
+                if (subject >= lhs && subject <= rhs) return true;
+
+                return false;
+            }
+
+            @Override public String
+            toStringWithoutNext() {
+                return (
+                    new StringBuilder("unicodeCaseInsensitiveRange('")
+                    .appendCodePoint(lhs)
+                    .append("' - '")
+                    .appendCodePoint(rhs)
+                    .append("')")
+                    .toString()
+                );
+            }
+        };
+    }
+
     /**  An (ASCII) digit: [0-9] */
     public static CharacterClass
     digit(boolean unicode) {
@@ -594,5 +770,16 @@ class CharacterClasses {
     max(int i1, int i2, int i3) {
         if (i1 > i2) return i1 > i3 ? i1 : i3;
         return i2 > i3 ? i2 : i3;
+    }
+
+    /**
+     * @return The elements of the given collection
+     */
+    private static int[]
+    unwrap(Collection<Integer> c) {
+        int[] result = new int[c.size()];
+        int idx = 0;
+        for (int i : c) result[idx++] = i;
+        return result;
     }
 }
