@@ -108,7 +108,8 @@ interface Matcher extends java.util.regex.MatchResult {
     @Override @Nullable String group(int group);
 
     /**
-     * @see java.util.regex.Matcher#group(String)
+     * @throws NullPointerException <var>name</var> is {@code null}
+     * @see                         java.util.regex.Matcher#group(String)
      */
     @Nullable String group(String name);
 
