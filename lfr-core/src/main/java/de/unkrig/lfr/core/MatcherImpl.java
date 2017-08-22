@@ -58,8 +58,13 @@ class MatcherImpl implements Matcher {
         ANY,
     }
 
+    private static final java.util.regex.Pattern
+    VALID_GROUP_NAME = java.util.regex.Pattern.compile("[\\p{Lu}\\p{Ll}][\\p{Lu}\\p{Ll}\\p{Digit}]*");
+
+    private static final java.util.regex.Pattern
+    VALID_GROUP_NUMBER = java.util.regex.Pattern.compile("\\p{Digit}+");
+
     private Pattern pattern;
-    private boolean reverseSubject;
     private boolean hasTransparentBounds;
     private boolean hasAnchoringBounds = true;
 
@@ -209,7 +214,9 @@ class MatcherImpl implements Matcher {
     }
 
     @Override public int
-    start(String groupName) {
+    start(@Nullable String groupName) {
+
+        if (groupName == null) throw new NullPointerException();
 
         if (this.endOfPreviousMatch < 0) throw new IllegalStateException("No match available");
 
@@ -228,7 +235,9 @@ class MatcherImpl implements Matcher {
     }
 
     @Override public int
-    end(String groupName) {
+    end(@Nullable String groupName) {
+
+        if (groupName == null) throw new NullPointerException();
 
         if (this.endOfPreviousMatch < 0) throw new IllegalStateException("No match available");
 
@@ -252,7 +261,9 @@ class MatcherImpl implements Matcher {
     }
 
     @Override @Nullable public String
-    group(String groupName) {
+    group(@Nullable String groupName) {
+
+        if (groupName == null) throw new NullPointerException();
 
         if (this.endOfPreviousMatch < 0) throw new IllegalStateException("No match available");
 
@@ -345,7 +356,7 @@ class MatcherImpl implements Matcher {
         if (this.endOfPreviousMatch >= 0 && start == this.groups[0]) {
 
             // The previous match is a zero-length match. To prevent an endless series of these matches, advance
-            // start position by one.
+            // the start position by one.
             if (start >= this.regionEnd) {
                 this.endOfPreviousMatch = -2;
                 this.hitEnd             = true;
@@ -382,20 +393,49 @@ class MatcherImpl implements Matcher {
 
         if (this.endOfPreviousMatch < 0) throw new IllegalStateException("No match available");
 
-        try {
+        // Expand the replacement string.
+        StringBuilder sb = new StringBuilder();
+        for (int cursor = 0; cursor < replacement.length();) {
+            char c = replacement.charAt(cursor++);
 
-            // Append text between the previous match and THIS match.
-            appendable.append(this.subject.subSequence(this.lastAppendPosition, this.groups[0]));
+            if (c == '\\') {
+                sb.append(replacement.charAt(cursor++));
+            } else
+            if (c == '$') {
+                if (cursor == replacement.length()) {
+                    throw new IllegalArgumentException("Illegal group reference: group index is missing");
+                }
 
-            // Append the (expanded) replacement string.
-            for (int cursor = 0; cursor < replacement.length();) {
-                char c = replacement.charAt(cursor++);
+                int groupNumber = -1;
 
-                if (c == '\\') {
-                    appendable.append(replacement.charAt(cursor++));
+                if (replacement.charAt(cursor) == '{') {
+                    int from = ++cursor, to;
+                    for (;; cursor++) {
+                        if (cursor == replacement.length()) {
+                            throw new IllegalArgumentException("named capturing group is missing trailing '}'");
+                        }
+                        c = replacement.charAt(cursor);
+                        if (c == '}') {
+                            to = cursor++;
+                            break;
+                        }
+                    }
+                    String s = replacement.substring(from, to);
+
+                    if (MatcherImpl.VALID_GROUP_NAME.matcher(s).matches()) {
+                        Integer tmp = MatcherImpl.this.pattern.namedGroups.get(s);
+                        if (tmp == null) throw new IllegalArgumentException("No group with name {" + s + "}");
+                        groupNumber = tmp;
+                    } else
+                    if (MatcherImpl.VALID_GROUP_NUMBER.matcher(s).matches()) {
+                        groupNumber = Integer.parseInt(s);
+                    } else
+                    {
+                        throw new IllegalArgumentException("Invalid group name \"" + s + "\"");
+                    }
                 } else
-                if (c == '$') {
-                    int groupNumber = Character.digit(replacement.charAt(cursor++), 10);
+                {
+                    groupNumber = Character.digit(replacement.charAt(cursor++), 10);
                     if (groupNumber == -1) throw new IllegalArgumentException("Illegal group reference");
 
                     for (; cursor < replacement.length(); cursor++) {
@@ -407,13 +447,22 @@ class MatcherImpl implements Matcher {
                         if (newGroupNumber > this.groupCount()) break;
                         groupNumber = newGroupNumber;
                     }
-
-                    if (this.group(groupNumber) != null) appendable.append(this.group(groupNumber));
-                } else
-                {
-                    appendable.append(c);
                 }
+
+                if (this.group(groupNumber) != null) sb.append(this.group(groupNumber));
+            } else
+            {
+                sb.append(c);
             }
+        }
+
+        try {
+
+            // Append text between the previous match and THIS match.
+            appendable.append(this.subject.subSequence(this.lastAppendPosition, this.groups[0]));
+
+            // Append the expanded replacement string.
+            appendable.append(sb);
 
             this.lastAppendPosition = this.groups[1];
         } catch (IOException ioe) {
@@ -532,16 +581,17 @@ class MatcherImpl implements Matcher {
     peekRead(int offset, CharSequence cs) {
 
         int csLength = cs.length();
-
-        if (offset + csLength > this.regionEnd) {
-
-            // Not enough chars left.
-            this.hitEnd = true;
-            return -1;
-        }
-
         for (int i = 0; i < csLength; i++) {
-            if (this.charAt(offset) != cs.charAt(i)) return -1;
+
+            if (offset >= this.regionEnd) {
+
+                // Not enough chars left.
+                this.hitEnd = true;
+                return -1;
+            }
+
+            if (this.subject.charAt(offset) != cs.charAt(i)) return -1;
+
             offset++;
         }
 
@@ -567,7 +617,7 @@ class MatcherImpl implements Matcher {
         }
 
         for (int i = 0; i < csLength; i++) {
-            char c1 = this.charAt(offset);
+            char c1 = this.subject.charAt(offset);
             char c2 = cs.charAt(i);
             if (!(
                 c1 == c2
@@ -603,12 +653,12 @@ class MatcherImpl implements Matcher {
             if (i >= csLength)            return offset;
             if (offset >= this.regionEnd) return -1;
 
-            int c1 = this.charAt(offset++);
+            int c1 = this.subject.charAt(offset++);
             char ls;
             if (
                 Character.isHighSurrogate((char) c1)
                 && offset < this.regionEnd
-                && Character.isLowSurrogate((ls = this.charAt(offset)))
+                && Character.isLowSurrogate((ls = this.subject.charAt(offset)))
             ) {
                 c1 = Character.toCodePoint((char) c1, ls);
                 offset++;
@@ -656,39 +706,37 @@ class MatcherImpl implements Matcher {
             return false;
         }
 
-        return predicate.evaluate(this.charAt(offset));
+        return predicate.evaluate(this.subject.charAt(offset));
     }
 
-    /**
-     * @see String#charAt(int)
-     */
-    char
-    charAt(int offset) {
-        if (!this.reverseSubject) return this.subject.charAt(offset);
+    int
+    codePointAt(int offset) {
 
-        // Reverse the offset.
-        offset = this.subject.length() - 1 - offset;
+        if (offset >= this.transparentRegionEnd) throw new IllegalArgumentException();
 
-        char c = this.subject.charAt(offset);
+        char hs = this.subject.charAt(offset);
 
-        // Un-reverse CR-LF.
-        if (c == '\r' && offset + 1 < this.subject.length() && this.subject.charAt(offset + 1) == '\n') return '\n';
-        if (c == '\n' && offset     > 0                     && this.subject.charAt(offset - 1) == '\r') return '\r';
+        if (Character.isHighSurrogate(hs) && offset + 1 < this.transparentRegionEnd) {
+            char ls = this.subject.charAt(offset + 1);
+            if (Character.isLowSurrogate(ls)) return Character.toCodePoint(hs, ls);
+        }
 
-        // Un-reverse high-surrogate-low-surrogate.
-        char c2;
-        if (
-            Character.isHighSurrogate(c)
-            && offset + 1 < this.subject.length()
-            && Character.isLowSurrogate((c2 = this.subject.charAt(offset + 1)))
-        ) return c2;
-        if (
-            Character.isLowSurrogate(c)
-            && offset > 0
-            && Character.isHighSurrogate((c2 = this.subject.charAt(offset - 1)))
-        ) return c2;
+        return hs;
+    }
 
-        return c;
+    int
+    codePointBefore(int offset) {
+
+        if (offset - 1 < this.transparentRegionStart) throw new IllegalArgumentException();
+
+        char ls = this.subject.charAt(offset - 1);
+
+        if (Character.isLowSurrogate(ls) && offset - 2 >= this.transparentRegionStart) {
+            char hs = this.subject.charAt(offset - 2);
+            if (Character.isHighSurrogate(hs)) return Character.toCodePoint(hs, ls);
+        }
+
+        return ls;
     }
 
     @Override public String
@@ -704,6 +752,7 @@ class MatcherImpl implements Matcher {
             .append(this.regionEnd)
             .append(" subject=")
             .append(this.subject)
+            .append("]")
         );
 
         if (this.endOfPreviousMatch >= 0) {
@@ -730,7 +779,7 @@ class MatcherImpl implements Matcher {
     reverse() {
 
         // Reverse the subject.
-        this.reverseSubject = !this.reverseSubject;
+        this.subject = ReverseCharSequence.reverse(this.subject);
 
         int l = this.subject.length();
 

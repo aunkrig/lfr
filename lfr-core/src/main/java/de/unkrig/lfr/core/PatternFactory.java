@@ -31,8 +31,6 @@ package de.unkrig.lfr.core;
 import static de.unkrig.lfr.core.Pattern.TokenType.CC_INTERSECTION;
 import static de.unkrig.lfr.core.Pattern.TokenType.EITHER_OR;
 import static de.unkrig.lfr.core.Pattern.TokenType.END_GROUP;
-import static de.unkrig.lfr.core.Pattern.TokenType.LITERAL_CHARACTER;
-import static de.unkrig.lfr.core.Pattern.TokenType.QUOTATION_END;
 import static de.unkrig.lfr.core.Pattern.TokenType.RIGHT_BRACKET;
 
 import java.util.ArrayList;
@@ -137,7 +135,14 @@ class PatternFactory extends de.unkrig.ref4j.PatternFactory {
         // Skip COMMENT tokens.
         ProducerWhichThrows<Token<TokenType>, ScanException>
         filteredRs = ProducerUtil.filter(rs, new Predicate<Token<TokenType>>() {
-            @Override public boolean evaluate(Token<TokenType> subject) { return subject.type != TokenType.COMMENT; }
+            @Override public boolean
+            evaluate(Token<TokenType> subject) {
+                return (
+                    subject.type != TokenType.COMMENT
+                    && subject.type != TokenType.QUOTATION_BEGIN
+                    && subject.type != TokenType.QUOTATION_END
+                );
+            }
         });
 
         return new AbstractParser<TokenType>(filteredRs) {
@@ -190,16 +195,16 @@ class PatternFactory extends de.unkrig.ref4j.PatternFactory {
             private Sequence
             parseSequence() throws ParseException {
 
-                if (this.peek(null, EITHER_OR, END_GROUP, QUOTATION_END) != -1) return Sequences.TERMINAL;
+                if (this.peek(null, EITHER_OR, END_GROUP) != -1) return Sequences.TERMINAL;
 
                 Sequence result = this.parseQuantified();
-                if (this.peek(null, EITHER_OR, END_GROUP, QUOTATION_END) != -1) return result;
+                if (this.peek(null, EITHER_OR, END_GROUP) != -1) return result;
 
                 List<Sequence> tmp = new ArrayList<Sequence>();
                 tmp.add(result);
                 do {
                     tmp.add(this.parseQuantified());
-                } while (this.peek(null, EITHER_OR, END_GROUP, QUOTATION_END) == -1);
+                } while (this.peek(null, EITHER_OR, END_GROUP) == -1);
 
                 result = Sequences.TERMINAL;
                 for (int i = tmp.size() - 1; i >= 0; i--) {
@@ -291,12 +296,6 @@ class PatternFactory extends de.unkrig.ref4j.PatternFactory {
 
                 if (this.peekRead(TokenType.QUOTED_CHARACTER) != null) {
                     return CharacterClasses.literalCharacter(t.codePointAt(1));
-                }
-
-                if (this.peekRead(TokenType.QUOTATION_BEGIN) != null) {
-                    Sequence result = this.parseSequence();
-                    if (this.peek() != null) this.read(TokenType.QUOTATION_END);
-                    return result;
                 }
 
                 if (this.peekRead(TokenType.CAPTURING_GROUP) != null) {
@@ -405,11 +404,11 @@ class PatternFactory extends de.unkrig.ref4j.PatternFactory {
                 }
 
                 if (this.peekRead(TokenType.WORD_BOUNDARY) != null) {
-                    return Sequences.wordBoundary();
+                    return this.wordBoundary();
                 }
 
                 if (this.peekRead(TokenType.NON_WORD_BOUNDARY) != null) {
-                    return Sequences.negate(Sequences.wordBoundary());
+                    return Sequences.negate(this.wordBoundary());
                 }
 
                 if (this.peekRead(TokenType.BEGINNING_OF_INPUT) != null) {
@@ -505,6 +504,15 @@ class PatternFactory extends de.unkrig.ref4j.PatternFactory {
                 : (this.currentFlags & de.unkrig.ref4j.Pattern.UNICODE_CASE) == 0
                 ? Sequences.caseInsensitiveCapturingGroupBackReference(groupNumber)
                 : Sequences.unicodeCaseInsensitiveCapturingGroupBackReference(groupNumber);
+            }
+
+            private Sequence
+            wordBoundary() {
+                return (
+                    (this.currentFlags & de.unkrig.ref4j.Pattern.UNICODE_CHARACTER_CLASS) == 0
+                    ? Sequences.wordBoundary()
+                    : Sequences.unicodeWordBoundary()
+                );
             }
 
             /**
@@ -607,68 +615,16 @@ class PatternFactory extends de.unkrig.ref4j.PatternFactory {
                 return result;
             }
 
+            /**
+             * @return {@code null} iff the next token is not a character class
+             */
             @Nullable CharacterClass
             parseOptionalCharacterClass() throws ParseException {
 
-                String t;
+                int cp = this.parseOptionalCharacterLiteral();
+                if (cp != -1) return this.literalCharacter(cp);
 
-                if ((t = this.peekRead(TokenType.LITERAL_CHARACTER)) != null) {
-                    return this.literalCharacter(t.codePointAt(0));
-                }
-
-                if ((t = this.peekRead(TokenType.QUOTED_CHARACTER)) != null) {
-                    return this.literalCharacter(t.codePointAt(1));
-                }
-
-                if ((t = this.peekRead(TokenType.LITERAL_CONTROL1)) != null) {
-                    return this.literalCharacter("\t\n\r\f\u0007\u001b".charAt("tnrfae".indexOf(t.charAt(1))));
-                }
-
-                if ((t = this.peekRead(TokenType.LITERAL_CONTROL2)) != null) {
-                    return this.literalCharacter(t.charAt(2) & 0x1f);
-                }
-
-                if ((t = this.peekRead(TokenType.LITERAL_HEXADECIMAL1)) != null) {
-                    return this.literalCharacter(Integer.parseInt(t.substring(2), 16));
-                }
-
-                if ((t = this.peekRead(TokenType.LITERAL_HEXADECIMAL2)) != null) {
-                    char c1 = (char) Integer.parseInt(t.substring(2), 16);
-
-                    // Check for "\\uxxxx\\uyyyy" surrogate pair.
-                    if (Character.isHighSurrogate(c1)) {
-                        String t2 = this.peek(TokenType.LITERAL_HEXADECIMAL2);
-                        if (t2 != null) {
-                            char c2 = (char) Integer.parseInt(t2.substring(2), 16);
-                            if (Character.isLowSurrogate(c2)) {
-                                this.read();
-                                return this.literalCharacter(Character.toCodePoint(c1, c2));
-                            }
-                        }
-                    }
-
-                    return this.literalCharacter(c1);
-                }
-
-                if ((t = this.peekRead(TokenType.LITERAL_HEXADECIMAL3)) != null) {
-                    if (t.charAt(3) == '-') throw new ParseException(t);
-                    int cp;
-                    try {
-                        cp = Integer.parseInt(t.substring(3, t.length() - 1), 16);
-                    } catch (NumberFormatException nfe) {
-                        throw new ParseException(t);
-                    }
-                    if (cp < Character.MIN_CODE_POINT || cp > Character.MAX_CODE_POINT) {
-                        throw new ParseException("Invalid code point " + cp);
-                    }
-                    return this.literalCharacter(cp);
-                }
-
-                if ((t = this.peekRead(TokenType.LITERAL_OCTAL)) != null) {
-                    return this.literalCharacter(Integer.parseInt(t.substring(2), 8));
-                }
-
-                if ((t = this.peekRead(TokenType.LEFT_BRACKET)) != null) {
+                if (this.peekRead(TokenType.LEFT_BRACKET) != null) {
                     boolean        negate = this.peekRead("^");
                     CharacterClass cc     = this.parseCcIntersection();
                     this.read("]");
@@ -678,6 +634,7 @@ class PatternFactory extends de.unkrig.ref4j.PatternFactory {
                     return cc;
                 }
 
+                String t;
                 if ((t = this.peekRead(TokenType.CC_PREDEFINED)) != null) {
                     boolean unicode = (this.currentFlags & de.unkrig.ref4j.Pattern.UNICODE_CHARACTER_CLASS) != 0;
 
@@ -711,6 +668,74 @@ class PatternFactory extends de.unkrig.ref4j.PatternFactory {
                 }
 
                 return null;
+            }
+
+            /**
+             * @return The code point expressed by the character literal, or {@code -1} iff the next token is not a
+             *         character literal
+             */
+            int
+            parseOptionalCharacterLiteral() throws ParseException {
+
+                String t;
+
+                if ((t = this.peekRead(TokenType.LITERAL_CHARACTER)) != null) {
+                    return t.codePointAt(0);
+                }
+
+                if ((t = this.peekRead(TokenType.QUOTED_CHARACTER)) != null) {
+                    return t.codePointAt(1);
+                }
+
+                if ((t = this.peekRead(TokenType.LITERAL_CONTROL1)) != null) {
+                    return "\t\n\r\f\u0007\u001b".charAt("tnrfae".indexOf(t.charAt(1)));
+                }
+
+                if ((t = this.peekRead(TokenType.LITERAL_CONTROL2)) != null) {
+                    return t.charAt(2) & 0x1f;
+                }
+
+                if ((t = this.peekRead(TokenType.LITERAL_HEXADECIMAL1)) != null) {
+                    return Integer.parseInt(t.substring(2), 16);
+                }
+
+                if ((t = this.peekRead(TokenType.LITERAL_HEXADECIMAL2)) != null) {
+                    char c = (char) Integer.parseInt(t.substring(2), 16);
+
+                    // Check for "\\uxxxx\\uyyyy" surrogate pair.
+                    if (Character.isHighSurrogate(c)) {
+                        String t2 = this.peek(TokenType.LITERAL_HEXADECIMAL2);
+                        if (t2 != null) {
+                            char ls = (char) Integer.parseInt(t2.substring(2), 16);
+                            if (Character.isLowSurrogate(ls)) {
+                                this.read();
+                                return Character.toCodePoint(c, ls);
+                            }
+                        }
+                    }
+
+                    return c;
+                }
+
+                if ((t = this.peekRead(TokenType.LITERAL_HEXADECIMAL3)) != null) {
+                    if (t.charAt(3) == '-') throw new ParseException(t);
+                    int cp;
+                    try {
+                        cp = Integer.parseInt(t.substring(3, t.length() - 1), 16);
+                    } catch (NumberFormatException nfe) {
+                        throw new ParseException(t);
+                    }
+                    if (cp < Character.MIN_CODE_POINT || cp > Character.MAX_CODE_POINT) {
+                        throw new ParseException("Invalid code point " + cp);
+                    }
+                    return cp;
+                }
+
+                if ((t = this.peekRead(TokenType.LITERAL_OCTAL)) != null) {
+                    return Integer.parseInt(t.substring(2), 8);
+                }
+
+                return -1;
             }
 
             private CharacterClass
@@ -763,41 +788,66 @@ class PatternFactory extends de.unkrig.ref4j.PatternFactory {
              * <pre>
              *   cc-range :=
              *        character-class
-             *        | literal-character                       // x   => 'x'
+             *        | character-literal                       // x   => 'x'
              *        | '-'                                     // -   => '-'
-             *        | literal-character '-'                   // x-  => 'x' or '-'
+             *        | character-literal '-'                   // x-  => 'x' or '-'
              *        | '-' '-'                                 // --  => '-' or '-'      (effectively: '-')
-             *        | literal-character '-' literal-character // x-y => 'x' through 'y'
-             *        | '-' '-' literal-character               // --x => '-' through 'x'
-             *        | literal-character '-' '-'               // x-- => 'x' through '-'
+             *        | character-literal '-' character-literal // x-y => 'x' through 'y'
+             *        | '-' '-' character-literal               // --x => '-' through 'x'
+             *        | character-literal '-' '-'               // x-- => 'x' through '-'
              *        | '-' '-' '-'                             // --- => '-' through '-' (effectively: '-')
              * </pre>
+             *
+             * @see #parseOptionalCharacterLiteral()
              */
             private CharacterClass
             parseCcRange() throws ParseException {
 
                 // Parse range start character.
-                String lhs = this.peekRead(LITERAL_CHARACTER);
-                if (lhs == null) return this.parseCharacterClass();
-                int lhsCp = lhs.codePointAt(0);
+                int lhs = this.parseOptionalCharacterLiteral();
+                if (lhs == -1) return this.parseCharacterClass();
 
                 // Parse hyphen.
-                if (!this.peekRead("-")) return this.literalCharacter(lhsCp);
+                if (!this.peekRead("-")) return this.literalCharacter(lhs);
 
                 // Parse range end character.
-                String rhs = this.peekRead(LITERAL_CHARACTER);
-                if (rhs == null) {
-                    return CharacterClasses.union(this.literalCharacter(lhsCp), CharacterClasses.literalCharacter('-'));
+                int rhs = this.parseOptionalCharacterLiteral();
+                if (rhs == -1) {
+                    return CharacterClasses.union(this.literalCharacter(lhs), CharacterClasses.literalCharacter('-'));
                 }
 
-                int rhsCp = rhs.codePointAt(0);
-                return this.range(lhsCp, rhsCp);
+                return this.range(lhs, rhs);
             }
 
             Predicate<Integer>
             namedCharacterClassPredicate(String name) throws ParseException {
 
+                int                eq;
                 Predicate<Integer> result;
+
+                if ((eq = name.indexOf('=')) != -1) {
+                    String prefix = name.substring(0, eq);
+                    name = name.substring(eq + 1);
+
+                    if ("sc".equals(prefix) || "script".equals(prefix)) {
+                        if ((result = Characters.unicodeScriptPredicate(name)) != null) return result;
+                        new ParseException("Unknown UNICODE script \"" + name + "\"");
+                    }
+                    if ("gc".equals(prefix) || "general_category".equals(prefix)) {
+                        if ((result = Characters.unicodeCategoryFromName(name)) != null) return result;
+                        new ParseException("Unknown UNICODE general category \"" + name + "\"");
+                    }
+                    if ("blk".equals(prefix) || "block".equals(prefix)) {
+                        if ((result = Characters.unicodeBlockFromName(name)) != null) return result;
+                        new ParseException("Unknown UNICODE block \"" + name + "\"");
+                    }
+
+                    throw new ParseException(
+                        "Invalid character familiy qualifier \""
+                        + prefix
+                        + "\"; valid qualifiers are \"script\" (JRE 1.7+ only), \"general_category\" and \"block\""
+                    );
+                }
 
                 if (name.startsWith("In")) {
                     name = name.substring(2);
@@ -805,26 +855,8 @@ class PatternFactory extends de.unkrig.ref4j.PatternFactory {
                     // A unicode block?
                     if ((result = Characters.unicodeBlockFromName(name)) != null) return result;
                 } else
-
-                if (name.startsWith("Is")) {
-                    name = name.substring(2);
-
-                    // A UNICODE property, e.g. "TITLECASE"?
-                    if ((result = Characters.unicodeBinaryPropertyFromName(name)) != null) return result;
-
-                    // Undocumented JUR feature: Also predefined character classes may be prefixed with "Is".
-                    boolean isUnicode = (this.currentFlags & de.unkrig.ref4j.Pattern.UNICODE_CHARACTER_CLASS) != 0;
-                    if ((result = (
-                        isUnicode
-                        ? Characters.unicodePredefinedCharacterClassFromName(name)
-                        : Characters.posixCharacterClassFromName(name)
-                    )) != null) return result;
-
-                    // A Unicode "script"?
-                    // (Class UnicodeScript only available from Java 7.)
-
-                } else
                 {
+                    if (name.startsWith("Is")) name = name.substring(2);
 
                     // A POSIX character class?
                     boolean isUnicode = (this.currentFlags & de.unkrig.ref4j.Pattern.UNICODE_CHARACTER_CLASS) != 0;
@@ -845,12 +877,17 @@ class PatternFactory extends de.unkrig.ref4j.PatternFactory {
 
                     // A Unicode "script"?
                     // (Class UnicodeScript only available from Java 7.)
+                    // For JRE 1.6 compatibility, go through reflection.
+                    if (Characters.unicodeScriptAvailable()) {
+                        if ((result = Characters.unicodeScriptPredicate(name)) != null) return result;
+                    }
 
                     // A unicode block?
                     if ((result = Characters.unicodeBlockFromName(name)) != null) return result;
 
                     // General category?
                     if ((result = Characters.unicodeCategoryFromName(name)) != null) return result;
+
                 }
 
                 throw new ParseException((
