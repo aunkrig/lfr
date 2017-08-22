@@ -49,9 +49,9 @@ class AbstractSequence implements Sequence {
             if (start >= re) break;
 
             if (
-                Character.isHighSurrogate(matcher.charAt(start++))
+                Character.isHighSurrogate(matcher.subject.charAt(start++))
                 && start < re
-                && Character.isLowSurrogate(matcher.charAt(start))
+                && Character.isLowSurrogate(matcher.subject.charAt(start))
             ) start++;
         }
 

@@ -41,12 +41,12 @@ class CharacterClass extends CompositeSequence {
             return -1;
         }
 
-        int cp = matcher.charAt(offset++);
+        int cp = matcher.subject.charAt(offset++);
 
         // Special handling for UTF-16 surrogates.
         if (Character.isHighSurrogate((char) cp)) {
             if (offset < matcher.regionEnd) {
-                char ls = matcher.charAt(offset);
+                char ls = matcher.subject.charAt(offset);
                 if (Character.isLowSurrogate(ls)) {
                     cp = Character.toCodePoint((char) cp, ls);
                     offset++;

@@ -667,7 +667,7 @@ class CharacterClasses {
     /**  An (ASCII) digit: [0-9] */
     public static CharacterClass
     digit(boolean unicode) {
-        return CharacterClasses.characterClass(unicode ? Characters.IS_UNICODE_DIGIT : Characters.IS_DIGIT);
+        return CharacterClasses.characterClass(unicode ? Characters.IS_UNICODE_DIGIT : Characters.IS_POSIX_DIGIT);
     }
 
     /**
