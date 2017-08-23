@@ -46,7 +46,10 @@ import de.unkrig.commons.lang.protocol.Predicate;
 final
 class CharacterClasses {
 
-	public static final CharacterClass
+    /**
+     * Always causes a match to fail.
+     */
+    public static final CharacterClass
     FAIL = new CharacterClass() {
 
         @Override public boolean   matches(int c)                           { return false;  }
@@ -226,7 +229,6 @@ class CharacterClasses {
 
         private final int cp1, cp2, cp3;
 
-        public
         OneOfThreeCharacterClass(int cp1, int cp2, int cp3) {
             this.cp1 = cp1;
             this.cp2 = cp2;
@@ -377,6 +379,9 @@ class CharacterClasses {
         return CharacterClasses.oneOf(s);
     }
 
+    /**
+     * @return The (highly optimized) union of the <var>lhs</var> and the <var>rhs</var> character classes
+     */
     public static CharacterClass
     union(final CharacterClass lhs, final CharacterClass rhs) {
 
@@ -517,9 +522,9 @@ class CharacterClasses {
             return new CharacterClass() {
 
                 @Override public boolean matches(int c) { return integerSet.contains(c); }
-                @Override public int  lowerBound()      { return minValue;               }
-                @Override public int  upperBound()      { return maxValue + 1;           }
-                @Override public int  sizeBound()       { return size;                   }
+                @Override public int     lowerBound()   { return minValue;               }
+                @Override public int     upperBound()   { return maxValue + 1;           }
+                @Override public int     sizeBound()    { return size;                   }
 
                 @Override public String
                 toStringWithoutNext() {
@@ -773,12 +778,12 @@ class CharacterClasses {
     }
 
     /**
-     * @return The elements of the given collection
+     * @return The elements of the given {@link Integer} collection
      */
     private static int[]
     unwrap(Collection<Integer> c) {
         int[] result = new int[c.size()];
-        int idx = 0;
+        int   idx    = 0;
         for (int i : c) result[idx++] = i;
         return result;
     }

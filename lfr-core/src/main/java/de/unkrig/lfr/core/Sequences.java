@@ -875,9 +875,6 @@ class Sequences {
 
     /**
      * Implements {@code "^"} with MULTILINE.
-     *
-     * @param reverse If {@code false}, then the position between {@code "\r\n"} is not regarded as beginning-of-line,
-     *                otherwise, then the position between {@code "\n\r"} is not regarded as beginning-of-line
      */
     public static Sequence
     beginningOfLine() {
@@ -1071,9 +1068,6 @@ class Sequences {
 
     /**
      * Implements {@code "$"} with MULTILINE.
-     *
-     * @param reverse If {@code false}, then the position between {@code "\r\n"} is not regarded as end-of-line,
-     *                otherwise, then the position between {@code "\n\r"} is not regarded as end-of-line
      */
     public static Sequence
     endOfLine() {
@@ -1091,10 +1085,10 @@ class Sequences {
 
                 char c = matcher.subject.charAt(offset);
                 return (
-                    (
-                        c == '\n'
-                        && (offset == matcher.anchoringRegionStart || matcher.codePointBefore(offset) != '\r')
-                    )
+                    (c == '\n' && (
+                        offset == matcher.anchoringRegionStart
+                        || Character.codePointBefore(matcher.subject, offset) != '\r'
+                    ))
                     || c == '\r'
                     || c == '\u000B'
                     || c == '\f'
@@ -1159,7 +1153,11 @@ class Sequences {
 
                 // Check for linebreak characters in a highly optimized manner.
                 if (c <= 0x0d) {
-                    if (c == this.c1 && offset < matcher.regionEnd - 1 && matcher.subject.charAt(offset + 1) == this.c2) {
+                    if (
+                        c == this.c1
+                        && offset < matcher.regionEnd - 1
+                        && matcher.subject.charAt(offset + 1) == this.c2
+                    ) {
                         return this.next.matches(matcher, offset + 2);
                     }
                     return c >= 0x0a ? this.next.matches(matcher, offset + 1) : -1;
@@ -1219,12 +1217,12 @@ class Sequences {
                     matcher.hitEnd     = true;
                     matcher.requireEnd = true;
                     if (offset == matcher.transparentRegionStart) return -1; // Zero-length region.
-                    result = isWordCharacter.evaluate(matcher.codePointBefore(offset));
+                    result = isWordCharacter.evaluate(Character.codePointBefore(matcher.subject, offset));
                 } else
                 if (offset <= matcher.transparentRegionStart) {
 
                     // At start of transparent region.
-                    result = isWordCharacter.evaluate(matcher.codePointAt(offset));
+                    result = isWordCharacter.evaluate(Character.codePointAt(matcher.subject, offset));
                 } else
                 if (matcher.subject.charAt(offset) == '\u030a') {
                     result = false;
@@ -1232,8 +1230,8 @@ class Sequences {
                 {
 
                     // IN transparent region (not at its start nor at its end).
-                    int cpBefore = matcher.codePointBefore(offset);
-                    int cpAt     = matcher.codePointAt(offset);
+                    int cpBefore = Character.codePointBefore(matcher.subject, offset);
+                    int cpAt     = Character.codePointAt(matcher.subject, offset);
 
                     if (cpBefore == '\u030a') {
                         for (int i = offset - 1;; i--) {
@@ -1242,7 +1240,7 @@ class Sequences {
                                 break;
                             }
 
-                            cpBefore = matcher.codePointBefore(i);
+                            cpBefore = Character.codePointBefore(matcher.subject, i);
                             if (cpBefore != '\u030a') break;
                         }
                     }

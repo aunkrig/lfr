@@ -374,6 +374,8 @@ class Pattern implements de.unkrig.ref4j.Pattern, Serializable {
     static {
         StatefulScanner<TokenType, ScannerState> ss = Pattern.REGEX_SCANNER;
 
+        // SUPPRESS CHECKSTYLE LineLength:210
+
         // Ignore "#..." comments and whitespace in "comments mode".
         ss.addRule(Pattern.IN_COMMENTS_MODE, "#[^\n\u000B\f\r\u0085\u2028\u2029]*", TokenType.COMMENT).goTo(ss.REMAIN);
         ss.addRule(Pattern.IN_COMMENTS_MODE, "\\s+",                                TokenType.COMMENT).goTo(ss.REMAIN);
@@ -560,7 +562,7 @@ class Pattern implements de.unkrig.ref4j.Pattern, Serializable {
         // Special constructs (named-capturing and non-capturing)
         // (?<name>X)          X, as a named-capturing group
         ss.addRule(ScannerState.DEFAULT,   "\\(\\?<([\\p{Lu}\\p{Ll}][\\p{Lu}\\p{Ll}\\p{Digit}]*)>",
-                                                                                  NAMED_CAPTURING_GROUP).goTo(ss.REMAIN); // SUPPRESS CHECKSTYLE LineLength:18
+                                                                                  NAMED_CAPTURING_GROUP).goTo(ss.REMAIN);
         ss.addRule(ScannerState.DEFAULT_X, "\\(\\s*\\?<\\s*(\\w+)>",              NAMED_CAPTURING_GROUP).goTo(ss.REMAIN);
         // (?:X)               X, as a non-capturing group
         ss.addRule(ScannerState.DEFAULT,   "\\(\\?:",                             NON_CAPTURING_GROUP).goTo(ss.REMAIN);
@@ -655,7 +657,7 @@ class Pattern implements de.unkrig.ref4j.Pattern, Serializable {
         }
 
         List<String> result = new ArrayList<String>();
-        int eopm = 0; // "End of previous match"
+        int          eopm   = 0; // "End of previous match"
         for (int i = 0;; i++) {
 
             if (limit > 0 && i >= limit - 1) {

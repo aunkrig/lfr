@@ -640,12 +640,12 @@ class PatternTest {
         PatternTest.assertSequenceToString("bitSet('A', 'C', 'E', 'G', 'I', 'K') . end",           "[ACEGIK]");
         PatternTest.assertSequenceToString("range('A' - 'E') . end",                               "[A-E]");
         PatternTest.assertSequenceToString("bitSet('D', 'E', 'F', 'G', 'H', 'I', 'J', 'K') . end", "[A-K&&D-Z]");
-        PatternTest.assertSequenceToString(PatternTest.jurpc("set\\('.'(?:, '.'){63}\\) . end"),   "[A-Za-z0-9_\u0400]");
+        PatternTest.assertSequenceToString(PatternTest.jurpc("set\\('.'(?:, '.'){63}\\) . end"),   "[A-Za-z0-9_\u0400]"); // SUPPRESS CHECKSTYLE LineLength
     }
 
     @Test @SuppressWarnings("static-method") public void
     testQuantifierOptimizations1() {
-    	PatternTest.assertSequenceToString("'A' . end", "A");
+        PatternTest.assertSequenceToString("'A' . end", "A");
     }
 
     @Test @SuppressWarnings("static-method") public void
@@ -719,7 +719,7 @@ class PatternTest {
 
         for (char c : tripleCaseLetters) {
             OracleEssentials.harnessFull(new String(new char[] { c }), new String(tripleCaseLetters));
-            OracleEssentials.harnessFull(new String(new char[] { c }), new String(tripleCaseLetters), Pattern.CASE_INSENSITIVE);
+            OracleEssentials.harnessFull(new String(new char[] { c }), new String(tripleCaseLetters), Pattern.CASE_INSENSITIVE); // SUPPRESS CHECKSTYLE LineLength
         }
     }
 

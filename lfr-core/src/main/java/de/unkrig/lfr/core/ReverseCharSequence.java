@@ -33,12 +33,22 @@ package de.unkrig.lfr.core;
 public abstract
 class ReverseCharSequence implements CharSequence {
 
+    /**
+     * @return The original char sequence; actually "the reverse of the reverse"
+     */
     protected abstract CharSequence
     original();
 
+    /**
+     * @return Depending on the subject, {@link #reverseByCopy(CharSequence)} or {@link #reverseInPlace(CharSequence)}
+     */
     public static CharSequence
-    reverse(CharSequence cs) {
-        return cs.length() <= 10 ? ReverseCharSequence.reverseByCopy(cs) : ReverseCharSequence.reverseInPlace(cs);
+    reverse(CharSequence subject) {
+        return (
+            subject.length() <= 10
+            ? ReverseCharSequence.reverseByCopy(subject)
+            : ReverseCharSequence.reverseInPlace(subject)
+        );
     }
 
     /**
@@ -46,9 +56,9 @@ class ReverseCharSequence implements CharSequence {
      * <em>not</em> reversed.
      */
     public static String
-    reverseByCopy(CharSequence cs) {
+    reverseByCopy(CharSequence subject) {
 
-        StringBuilder sb = new StringBuilder(cs).reverse();
+        StringBuilder sb = new StringBuilder(subject).reverse();
 
         // Un-reverse CR-LF sequences.
         for (int i = sb.length() - 2; i >= 0; i--) {
@@ -68,19 +78,19 @@ class ReverseCharSequence implements CharSequence {
      * behavior of the returned {@link CharSequence} is undefined if the original changes.
      */
     public static CharSequence
-    reverseInPlace(final CharSequence cs) {
+    reverseInPlace(final CharSequence subject) {
 
-        if (cs instanceof ReverseCharSequence) return ((ReverseCharSequence) cs).original();
+        if (subject instanceof ReverseCharSequence) return ((ReverseCharSequence) subject).original();
 
         return new ReverseCharSequence() {
 
-            final int len   = cs.length();
+            final int len   = subject.length();
             final int lenm1 = this.len - 1;
 
             // IMPLEMENT ReverseCharSequence
 
             @Override protected CharSequence
-            original() { return cs; }
+            original() { return subject; }
 
             // IMPLEMENT CharSequence
 
@@ -93,30 +103,30 @@ class ReverseCharSequence implements CharSequence {
                 // Reverse the offset.
                 offset = this.lenm1 - offset;
 
-                char c = cs.charAt(offset);
+                char c = subject.charAt(offset);
 
                 // Un-reverse CR-LF sequences.
-                if (c == '\r' && offset < this.lenm1 && cs.charAt(offset + 1) == '\n') return '\n';
-                if (c == '\n' && offset > 0          && cs.charAt(offset - 1) == '\r') return '\r';
+                if (c == '\r' && offset < this.lenm1 && subject.charAt(offset + 1) == '\n') return '\n';
+                if (c == '\n' && offset > 0          && subject.charAt(offset - 1) == '\r') return '\r';
 
                 // Un-reverse high-surrogate-low-surrogate.
                 char c2;
                 if (
                     Character.isHighSurrogate(c)
                     && offset < this.lenm1
-                    && Character.isLowSurrogate((c2 = cs.charAt(offset + 1)))
+                    && Character.isLowSurrogate((c2 = subject.charAt(offset + 1)))
                 ) return c2;
                 if (
                     Character.isLowSurrogate(c)
                     && offset > 0
-                    && Character.isHighSurrogate((c2 = cs.charAt(offset - 1)))
+                    && Character.isHighSurrogate((c2 = subject.charAt(offset - 1)))
                 ) return c2;
 
                 return c;
             }
 
             @Override public CharSequence
-            subSequence(int start, int end) { return ReverseCharSequence.subsequence(cs, start, end); }
+            subSequence(int start, int end) { return ReverseCharSequence.subSequence(subject, start, end); }
 
             @Override
             public String toString() {
@@ -128,8 +138,11 @@ class ReverseCharSequence implements CharSequence {
         };
     }
 
-    static CharSequence
-    subsequence(final CharSequence cs, final int start, final int end) {
+    /**
+     * Trivial implementation of a "subsequence".
+     */
+    private static CharSequence
+    subSequence(final CharSequence cs, final int start, final int end) {
 
         return new CharSequence() {
 
@@ -141,7 +154,7 @@ class ReverseCharSequence implements CharSequence {
 
             @Override public CharSequence
             subSequence(int start2, int end2) {
-                return ReverseCharSequence.subsequence(cs, start + start2, start + end2);
+                return ReverseCharSequence.subSequence(cs, start + start2, start + end2);
             }
 
             @Override public String

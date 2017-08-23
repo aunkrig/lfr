@@ -173,7 +173,10 @@ class PatternFactory extends de.unkrig.ref4j.PatternFactory {
                 }
 
                 // Switch between COMMENTS mode and non-COMMENTS mode.
-                if ((newFlags & (de.unkrig.ref4j.Pattern.LITERAL | de.unkrig.ref4j.Pattern.COMMENTS)) == de.unkrig.ref4j.Pattern.COMMENTS) {
+                if (
+                    (newFlags & (de.unkrig.ref4j.Pattern.LITERAL | de.unkrig.ref4j.Pattern.COMMENTS))
+                    == de.unkrig.ref4j.Pattern.COMMENTS
+                ) {
                     rs.setCurrentState(ScannerState.DEFAULT_X);
                 } else {
                     rs.setCurrentState(ScannerState.DEFAULT);
@@ -272,7 +275,7 @@ class PatternFactory extends de.unkrig.ref4j.PatternFactory {
 
                     switch (t.type) {
 
-                    case GREEDY_QUANTIFIER:     return Sequences.quantifier(op, min, max, rs.currentQuantifierNesting, true);
+                    case GREEDY_QUANTIFIER:     return Sequences.quantifier(op, min, max, rs.currentQuantifierNesting, true); // SUPPRESS CHECKSTYLE LineLength:3
                     case RELUCTANT_QUANTIFIER:  return Sequences.quantifier(op, min, max, rs.currentQuantifierNesting, false);
                     case POSSESSIVE_QUANTIFIER: return Sequences.possessiveQuantifier(op, min, max);
 

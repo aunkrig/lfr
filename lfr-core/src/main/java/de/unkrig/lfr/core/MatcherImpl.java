@@ -78,8 +78,14 @@ class MatcherImpl implements Matcher {
      */
     int regionStart, regionEnd;
 
+    /**
+     * Where lookaheads and lookbehinds can see.
+     */
     int transparentRegionStart, transparentRegionEnd;
 
+    /**
+     * Where anchors (such as {@code "^"} and {@code "$"} match.
+     */
     int anchoringRegionStart, anchoringRegionEnd;
 
     // STATE
@@ -138,6 +144,9 @@ class MatcherImpl implements Matcher {
 
     private int lastAppendPosition;
 
+    /**
+     * Whether the current matching must end at {@link End#END_OF_SUBJECT} or {@link End#ANY}where.
+     */
     @Nullable MatcherImpl.End end;
 
     MatcherImpl(Pattern pattern, CharSequence subject) {
@@ -653,7 +662,7 @@ class MatcherImpl implements Matcher {
             if (i >= csLength)            return offset;
             if (offset >= this.regionEnd) return -1;
 
-            int c1 = this.subject.charAt(offset++);
+            int  c1 = this.subject.charAt(offset++);
             char ls;
             if (
                 Character.isHighSurrogate((char) c1)
@@ -707,36 +716,6 @@ class MatcherImpl implements Matcher {
         }
 
         return predicate.evaluate(this.subject.charAt(offset));
-    }
-
-    int
-    codePointAt(int offset) {
-
-        if (offset >= this.transparentRegionEnd) throw new IllegalArgumentException();
-
-        char hs = this.subject.charAt(offset);
-
-        if (Character.isHighSurrogate(hs) && offset + 1 < this.transparentRegionEnd) {
-            char ls = this.subject.charAt(offset + 1);
-            if (Character.isLowSurrogate(ls)) return Character.toCodePoint(hs, ls);
-        }
-
-        return hs;
-    }
-
-    int
-    codePointBefore(int offset) {
-
-        if (offset - 1 < this.transparentRegionStart) throw new IllegalArgumentException();
-
-        char ls = this.subject.charAt(offset - 1);
-
-        if (Character.isLowSurrogate(ls) && offset - 2 >= this.transparentRegionStart) {
-            char hs = this.subject.charAt(offset - 2);
-            if (Character.isHighSurrogate(hs)) return Character.toCodePoint(hs, ls);
-        }
-
-        return ls;
     }
 
     @Override public String
