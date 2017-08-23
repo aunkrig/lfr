@@ -2,19 +2,19 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>de.unkrig.lfr</groupId>
   <artifactId>ref4j</artifactId>
-  <version>0.0.1-SNAPSHOT</version>
+  <version>1.0</version>
   <name>Regular Expression Facade for Java</name>
   <description>A facade or abstraction for various regular expression frameworks (currently java.util.regex and de.unkrig.lfr).</description>
   <dependencies>
   	<dependency>
   		<groupId>de.unkrig.commons</groupId>
   		<artifactId>commons-nullanalysis</artifactId>
-  		<version>1.2.11-SNAPSHOT</version>
+  		<version>1.2.11</version>
   	</dependency>
   	<dependency>
   		<groupId>de.unkrig.commons</groupId>
   		<artifactId>commons-util</artifactId>
-  		<version>1.2.11-SNAPSHOT</version>
+  		<version>1.2.11</version>
   	</dependency>
 		<dependency>
 			<groupId>junit</groupId>
