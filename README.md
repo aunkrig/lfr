@@ -1,6 +1,6 @@
 # Lightning-fast Regular Expressions
 
-Lightning-fast Regular Expressions ("LFR") is a 99%-complete reimplementation of <code>java.util.regex</code> ("JUR") with better <code>match()</code> and <code>find()</code> performance. Yet the design is much cleaner and easier to understand and extend (only 3,300 LOC compared to 7,850 in JRE 8).
+Lightning-fast Regular Expressions ("LFR") is a 99.9%-complete reimplementation of <code>java.util.regex</code> ("JUR") with better <code>match()</code> and <code>find()</code> performance. Yet the design is much cleaner and easier to understand and extend (only 3,300 LOC compared to 7,850 in JRE 8).
 
 ## Differences between LFR and JUR
   
