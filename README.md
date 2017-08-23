@@ -1,6 +1,6 @@
 # Lightning-fast Regular Expressions
 
-Lightning-fast Regular Expressions ("LFR") is a 99.9%-complete reimplementation of <code>java.util.regex</code> ("JUR") with better <code>match()</code> and <code>find()</code> performance. Yet the design is much cleaner and easier to understand and extend (only 3,300 LOC compared to 7,850 in JRE 8).
+Lightning-fast Regular Expressions ("LFR") is a 99.9%-complete reimplementation of <code>java.util.regex</code> ("JUR") with better <code>match()</code> and <code>find()</code> performance. Yet the design is much cleaner and easier to understand and extend (only 5,400 LOC compared to 7,850 in JRE 8).
 
 ## Differences between LFR and JUR
   
@@ -20,15 +20,15 @@ Plus:
 
 ### API DIFFERENCES
 
-Classes <code>Pattern</code> and <code>Matcher</code> were duplicated from JUR to LFR with identical fields and methods. The JUR <code>MatchResult</code> and <code>PatternSyntaxException</code> were re-used instead of being duplicated.
+The classes <code>Pattern</code> and <code>Matcher</code> were duplicated from JUR (package <code>java.util.regex</code> to LFR (package <code>de.unkrig.lfr.core</code>) with identical fields and methods.
+
+The JUR <code>MatchResult</code> and <code>PatternSyntaxException</code> were re-used instead of being duplicated.
+
+Because the LFR <code>Pattern</code> is an <em>interface</em> (as opposed to JUR, where it is a class), all its static methods were moved to the <code>PatternFactory</code> class. E.g., instead of "<code>Pattern.compile(...)</code>" you now have to write "<code>PatternFactory.INSTANCE.compile(...)</code>".
+
+Because the LFR <code>Matcher</code> is an <em>interface</em> (as opposed to JUR, where it is a class), its static method <code>quoteReplacement()</code> was also moved to <code>PatternFactory</code>.
 
 There are the following differences in the API:
-
-Neutral:
-
-* Because the LFR <code>Pattern</code> is an <em>interface</em> (as opposed to JUR, where it is a class), all its static methods were moved to the <code>PatternFactory</code> class. E.g., instead of "<code>Pattern.compile(...)</code>" you now have to write "<code>PatternFactory.INSTANCE.compile(...)</code>".
-
-* Because the LFR <code>Matcher</code> is an <em>interface</em> (as opposed to JUR, where it is a class), its static method <code>quoteReplacement()</code>; was moved to <code>PatternFactory</code>.
 
 Plus:
 
@@ -42,6 +42,8 @@ Plus:
   
   This is useful for testing how a regex compiled, and especially which optimizations have taken place.
 
+* LFR can be used with JRE 1.6+, and makes some later features (like "named groups", available since JRE 1.7) available in earlier JREs.
+
 ## Performance
 
 Minus:
@@ -52,19 +54,23 @@ Plus:
 
 * Regex <em>evaluation</em> (<code>Matcher.matches()</code>, <code>find()</code>, <code>lookingAt()</code>, ...) is roughly 30% faster than with JUR. This was measured with the LFR test case suite; other use cases (other regexes, other subjects, other API calls, ...) may yield different results.
 
-* LFR drastically improves the evaluation performance of the following special cases:
+* LFR drastically improves the evaluation performance for  the following special cases:
 
   * Patterns that start with 16 or more literal characters (for <code>Matcher.find()</code>)
 
   * Patterns that contain a greedy or reluctant quantifier of ANY, followed by 16 or more literal characters; e.g. <code>"xxx.*ABCDEFGHIJKLMNOPxxx"</code> or <code>"xxx.{4,39}?ABCDEFGHIJKLMNOPxxx"</code>
 
-  * Patterns that contain a possessive quantifier of ANY; e.g. <code>"xxxA++xxx"</code>
+  * Patterns that contain a possessive quantifier of ANY; e.g. <code>"xxx.++xxx"</code>
 
   ("ANY" means the "." pattern, and the DOTALL flag being active.)
 
 ## Facade
 
-If you want to switch between JUR and LFR at *runtime*, you can use "de.unkrig.ref4j", the "regular expressions facade for Java".
+If you want to switch between JUR and LFR at *runtime*, you can use "<code>de.unkrig.ref4j</code>", the "regular expressions facade for Java".
+
+## Integration
+
+All versions of LFR are available on [MAVEN CENTRAL](http://search.maven.org); download the latest JAR file from there, or add it as a dependency in MAVEN.
 
 ## License
 
