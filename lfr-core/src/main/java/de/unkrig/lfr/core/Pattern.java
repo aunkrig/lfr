@@ -71,6 +71,8 @@ import static de.unkrig.lfr.core.Pattern.TokenType.RELUCTANT_QUANTIFIER;
 import static de.unkrig.lfr.core.Pattern.TokenType.RIGHT_BRACKET;
 import static de.unkrig.lfr.core.Pattern.TokenType.WORD_BOUNDARY;
 
+import java.io.IOException;
+import java.io.ObjectInputStream;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.EnumSet;
@@ -78,6 +80,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import de.unkrig.commons.lang.ObjectUtil;
 import de.unkrig.commons.text.scanner.StatefulScanner;
 
 /**
@@ -136,22 +139,22 @@ class Pattern implements de.unkrig.ref4j.Pattern, Serializable {
     /**
      * Internal representation of the parsed regular expression.
      */
-    final Sequence sequence;
+    transient Sequence sequence;
 
     /**
      * The number of capturing groups that this regular expression declares (zero or more).
      */
-    final int groupCount;
+    transient int groupCount;
 
     /**
      * The mapping of named capturing group to group number.
      */
-    final Map<String, Integer> namedGroups;
+    transient Map<String, Integer> namedGroups;
 
     /**
      * Zero iff the pattern contains no quantifiers, 1 iff the pattern contains only unnested quatifiers, etc.
      */
-    final int quantifierNesting;
+    transient int quantifierNesting;
 
     // SUPPRESS CHECKSTYLE JavadocVariable:59
     enum TokenType {
@@ -300,12 +303,27 @@ class Pattern implements de.unkrig.ref4j.Pattern, Serializable {
 
     // ==========================================================
 
-    Pattern(String pattern, int flags, Sequence sequence, int groupCount, Map<String, Integer> namedGroups, int quantifierNesting) {
+    /**
+     * Notice that when this constructor is used, the pattern object is <em>not</em> completely initialized - you must
+     * call {@link #init(Sequence, int, Map, int)} first!
+     */
+    Pattern(String pattern, int flags) {
 
-        this.flags             = flags;
-        this.pattern           = pattern;
-        this.namedGroups       = namedGroups;
-        this.quantifierNesting = quantifierNesting;
+        this.flags   = flags;
+        this.pattern = pattern;
+
+        // The following are only initialized by "init()", but we don't want to add any NULL checks.
+        this.sequence    = ObjectUtil.almostNull();
+        this.namedGroups = ObjectUtil.almostNull();
+    }
+
+    void
+    init(
+        Sequence             sequence,
+        int                  groupCount,
+        Map<String, Integer> namedGroups,
+        int                  quantifierNesting
+    ) {
 
         sequence = sequence.concat(new AbstractSequence() {
 
@@ -324,8 +342,10 @@ class Pattern implements de.unkrig.ref4j.Pattern, Serializable {
             toString() { return "end"; }
         });
 
-        this.sequence   = sequence;
-        this.groupCount = groupCount;
+        this.sequence          = sequence;
+        this.groupCount        = groupCount;
+        this.namedGroups       = namedGroups;
+        this.quantifierNesting = quantifierNesting;
     }
 
     static
@@ -684,5 +704,13 @@ class Pattern implements de.unkrig.ref4j.Pattern, Serializable {
         mi.end = MatcherImpl.End.END_OF_SUBJECT;
 
         return this.sequence.matches(mi, offset) != -1;
+    }
+
+    private void
+    readObject(ObjectInputStream ois) throws IOException, ClassNotFoundException {
+
+        ois.defaultReadObject();
+
+        PatternFactory.compile2(this);
     }
 }

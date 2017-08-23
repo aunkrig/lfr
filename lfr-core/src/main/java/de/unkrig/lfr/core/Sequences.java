@@ -31,6 +31,7 @@ import java.util.Arrays;
 import de.unkrig.commons.lang.Characters;
 import de.unkrig.commons.lang.StringUtil;
 import de.unkrig.commons.lang.StringUtil.IndexOf;
+import de.unkrig.commons.lang.protocol.Predicate;
 import de.unkrig.commons.nullanalysis.Nullable;
 
 /**
@@ -578,11 +579,16 @@ class Sequences {
             matches(MatcherImpl matcher, int offset) {
 
                 for (int i = 0; i < alternatives.length; i++) {
-                    int result = alternatives[i].matches(matcher, offset);
-                    if (result != -1) {
-                        result = this.next.matches(matcher, result);
-                        if (result != -1) return result;
+
+                    final int[] savedGroups = matcher.groups;
+                    {
+                        int result = alternatives[i].matches(matcher, offset);
+                        if (result != -1) {
+                            result = this.next.matches(matcher, result);
+                            if (result != -1) return result;
+                        }
                     }
+                    matcher.groups = savedGroups;
                 }
 
                 return -1;
@@ -843,6 +849,8 @@ class Sequences {
             @Override public boolean
             find(MatcherImpl matcher, int start) {
 
+                matcher.hitEnd = false;
+
                 int newOffset = this.matches(matcher, start);
                 if (newOffset != -1) {
                     matcher.groups[0] = start;
@@ -886,9 +894,9 @@ class Sequences {
                     return -1;
                 }
 
-                char c = matcher.charAt(offset - 1);
+                char c = matcher.subject.charAt(offset - 1);
                 if (
-                    (c == '\r' && matcher.charAt(offset) != '\n')
+                    (c == '\r' && matcher.subject.charAt(offset) != '\n')
                     || c == '\n'
                     || c == '\u000B'
                     || c == '\f'
@@ -921,7 +929,7 @@ class Sequences {
 
                 if (
                     offset == matcher.anchoringRegionStart
-                    || (matcher.charAt(offset - 1) == '\n' && offset != matcher.anchoringRegionEnd)
+                    || (matcher.subject.charAt(offset - 1) == '\n' && offset != matcher.anchoringRegionEnd)
                 ) return this.next.matches(matcher, offset);
 
                 if (offset == matcher.anchoringRegionEnd) matcher.hitEnd = true;
@@ -954,7 +962,7 @@ class Sequences {
                     return this.next.matches(matcher, offset);
                 }
 
-                char c = matcher.charAt(offset);
+                char c = matcher.subject.charAt(offset);
                 if (!(
                     (c <= 0x0d && c >= 0x0a)
                     || c == 0x85
@@ -967,7 +975,7 @@ class Sequences {
                     return this.next.matches(matcher, offset);
                 }
 
-                if (c == '\r' && matcher.charAt(offset + 1) == '\n') {
+                if (c == '\r' && matcher.subject.charAt(offset + 1) == '\n') {
                     if (offset == matcher.anchoringRegionEnd - 2) {
                         matcher.hitEnd = true;
                         return this.next.matches(matcher, offset);
@@ -1008,7 +1016,7 @@ class Sequences {
 
                 if (
                     offset == matcher.anchoringRegionEnd - 1
-                    && matcher.charAt(offset) == '\n'
+                    && matcher.subject.charAt(offset) == '\n'
                 ) {
                     matcher.hitEnd     = true;
                     matcher.requireEnd = true;
@@ -1081,11 +1089,11 @@ class Sequences {
                     return this.next.matches(matcher, offset);
                 }
 
-                char c = matcher.charAt(offset);
+                char c = matcher.subject.charAt(offset);
                 return (
                     (
                         c == '\n'
-                        && (offset == matcher.anchoringRegionStart || matcher.charAt(offset - 1) != '\r')
+                        && (offset == matcher.anchoringRegionStart || matcher.codePointBefore(offset) != '\r')
                     )
                     || c == '\r'
                     || c == '\u000B'
@@ -1121,7 +1129,7 @@ class Sequences {
                     return this.next.matches(matcher, offset);
                 }
 
-                return matcher.charAt(offset) == '\n' ? this.next.matches(matcher, offset) : -1;
+                return matcher.subject.charAt(offset) == '\n' ? this.next.matches(matcher, offset) : -1;
             }
 
             @Override public Sequence
@@ -1147,11 +1155,11 @@ class Sequences {
 
                 if (offset >= matcher.regionEnd) return -1;
 
-                char c = matcher.charAt(offset);
+                char c = matcher.subject.charAt(offset);
 
                 // Check for linebreak characters in a highly optimized manner.
                 if (c <= 0x0d) {
-                    if (c == this.c1 && offset < matcher.regionEnd - 1 && matcher.charAt(offset + 1) == this.c2) {
+                    if (c == this.c1 && offset < matcher.regionEnd - 1 && matcher.subject.charAt(offset + 1) == this.c2) {
                         return this.next.matches(matcher, offset + 2);
                     }
                     return c >= 0x0a ? this.next.matches(matcher, offset + 1) : -1;
@@ -1182,34 +1190,70 @@ class Sequences {
      * Implements {@code "\b"}, and, negated, {@code "\B"}.
      */
     public static Sequence
-    wordBoundary() {
+    wordBoundary() { return Sequences.wordBoundary(Characters.IS_WORD, "wordBoundary"); }
+
+    /**
+     * Implements {@code "\b"}, and, negated, {@code "\B"}.
+     */
+    public static Sequence
+    unicodeWordBoundary() { return Sequences.wordBoundary(Characters.IS_UNICODE_WORD, "unicodeWordBoundary"); }
+
+    /**
+     * Implements {@code "\b"}, and, negated, {@code "\B"}.
+     */
+    private static Sequence
+    wordBoundary(final Predicate<Integer> isWordCharacter, final String toString) {
 
         return new CompositeSequence() {
 
             @Override public int
             matches(MatcherImpl matcher, int offset) {
 
+                // The "Non-spacing mark" character is sometimes a word character (iff its left neighbor is a word
+                // character), and sometimes it is not (iff its left neighbor is a non-word character).
+
+                boolean result;
                 if (offset >= matcher.transparentRegionEnd) {
+
+                    // At end of transparent region.
                     matcher.hitEnd     = true;
                     matcher.requireEnd = true;
                     if (offset == matcher.transparentRegionStart) return -1; // Zero-length region.
-                    if (!Characters.isWordCharacter(matcher.charAt(offset - 1))) return -1;
+                    result = isWordCharacter.evaluate(matcher.codePointBefore(offset));
                 } else
                 if (offset <= matcher.transparentRegionStart) {
-                    if (!Characters.isWordCharacter(matcher.charAt(offset))) return -1;
+
+                    // At start of transparent region.
+                    result = isWordCharacter.evaluate(matcher.codePointAt(offset));
                 } else
-                if (
-                    Characters.isWordCharacter(matcher.charAt(offset - 1))
-                    == Characters.isWordCharacter(matcher.charAt(offset))
-                ) {
-                    return -1;
+                if (matcher.subject.charAt(offset) == '\u030a') {
+                    result = false;
+                } else
+                {
+
+                    // IN transparent region (not at its start nor at its end).
+                    int cpBefore = matcher.codePointBefore(offset);
+                    int cpAt     = matcher.codePointAt(offset);
+
+                    if (cpBefore == '\u030a') {
+                        for (int i = offset - 1;; i--) {
+                            if (i <= matcher.transparentRegionStart) {
+                                if (!isWordCharacter.evaluate(cpAt)) return -1;
+                                break;
+                            }
+
+                            cpBefore = matcher.codePointBefore(i);
+                            if (cpBefore != '\u030a') break;
+                        }
+                    }
+                    result = isWordCharacter.evaluate(cpBefore) != isWordCharacter.evaluate(cpAt);
                 }
 
-                return this.next.matches(matcher, offset);
+                return result ? this.next.matches(matcher, offset) : -1;
             }
 
             @Override public String
-            toStringWithoutNext() { return "wordBoundary"; }
+            toStringWithoutNext() { return toString; }
         };
     }
 
@@ -1345,11 +1389,11 @@ class Sequences {
                         return -1;
                     }
 
-                    int c = matcher.charAt(offset++);
+                    int c = matcher.subject.charAt(offset++);
 
                     // Special handling for UTF-16 surrogates.
                     if (Character.isHighSurrogate((char) c) && offset < matcher.regionEnd) {
-                        char c2 = matcher.charAt(offset);
+                        char c2 = matcher.subject.charAt(offset);
                         if (Character.isLowSurrogate(c2)) {
                             c = Character.toCodePoint((char) c, c2);
                             offset++;
@@ -1369,11 +1413,11 @@ class Sequences {
                     }
 
                     int offset2 = offset;
-                    int c       = matcher.charAt(offset2++);
+                    int c       = matcher.subject.charAt(offset2++);
 
                     // Special handling for UTF-16 surrogates.
                     if (Character.isHighSurrogate((char) c) && offset2 < matcher.regionEnd) {
-                        char c2 = matcher.charAt(offset2);
+                        char c2 = matcher.subject.charAt(offset2);
                         if (Character.isLowSurrogate(c2)) {
                             c = Character.toCodePoint((char) c, c2);
                             offset2++;
@@ -1393,9 +1437,9 @@ class Sequences {
                     if (i == min) break;
 
                     if (
-                        Character.isLowSurrogate(matcher.charAt(--offset))
+                        Character.isLowSurrogate(matcher.subject.charAt(--offset))
                         && offset > offsetAfterMin
-                        && Character.isHighSurrogate(matcher.charAt(offset - 1))
+                        && Character.isHighSurrogate(matcher.subject.charAt(offset - 1))
                     ) offset--;
                 }
 

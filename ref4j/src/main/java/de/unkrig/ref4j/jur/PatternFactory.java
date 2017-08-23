@@ -31,6 +31,8 @@ import java.io.Serializable;
 import java.util.regex.MatchResult;
 import java.util.regex.PatternSyntaxException;
 
+import de.unkrig.commons.lang.OptionalMethods;
+import de.unkrig.commons.lang.OptionalMethods.MethodWrapper1;
 import de.unkrig.ref4j.Matcher;
 import de.unkrig.ref4j.Pattern;
 
@@ -60,6 +62,18 @@ public class PatternFactory extends de.unkrig.ref4j.PatternFactory implements Se
 
     public static final PatternFactory INSTANCE = new PatternFactory();
 
+    // Methods "Matcher.start(String)", "Matcher.end(String)" and "Matcher.group(String)" are only available since
+    // Java 7.
+
+    static MethodWrapper1<java.util.regex.Matcher, Integer, String, RuntimeException>
+    MATCHER__START = OptionalMethods.get1(java.util.regex.Matcher.class, "start", String.class);
+
+    static MethodWrapper1<java.util.regex.Matcher, Integer, String, RuntimeException>
+    MATCHER__END = OptionalMethods.get1(java.util.regex.Matcher.class, "end", String.class);
+
+    static MethodWrapper1<java.util.regex.Matcher, String, String, RuntimeException>
+    MATCHER__GROUP = OptionalMethods.get1(java.util.regex.Matcher.class, "group", String.class);
+
     @Override public int
     getSupportedFlags() { return PatternFactory.SUPPORTED_FLAGS; }
 
@@ -79,6 +93,7 @@ public class PatternFactory extends de.unkrig.ref4j.PatternFactory implements Se
             matcher(CharSequence subject) {
 
                 final java.util.regex.Matcher m = this.jurPattern.matcher(subject);
+
                 return new Matcher() {
 
                     @Override public Matcher     useTransparentBounds(boolean b)  { m.useTransparentBounds(b); return this; }
@@ -86,8 +101,8 @@ public class PatternFactory extends de.unkrig.ref4j.PatternFactory implements Se
                     @Override public Matcher     useAnchoringBounds(boolean b)    { m.useAnchoringBounds(b); return this; }
                     @Override public MatchResult toMatchResult()                  { return m.toMatchResult(); }
                     @Override public int         start(int group)                 { return m.start(group); }
-                    @Override public int         start(String name)               { throw new UnsupportedOperationException("N/A"); }
                     @Override public int         start()                          { return m.start(); }
+                    @Override public int         start(String name)               { return PatternFactory.MATCHER__START.invoke(m, name); }
                     @Override public Matcher     reset(CharSequence input)        { m.reset(input); return this; }
                     @Override public Matcher     reset()                          { m.reset(); return this; }
                     @Override public boolean     requireEnd()                     { return m.requireEnd(); }
@@ -103,14 +118,15 @@ public class PatternFactory extends de.unkrig.ref4j.PatternFactory implements Se
                     @Override public boolean     hasTransparentBounds()           { return m.hasTransparentBounds(); }
                     @Override public boolean     hasAnchoringBounds()             { return m.hasAnchoringBounds(); }
                     @Override public int         groupCount()                     { return m.groupCount(); }
-                    @Override public String      group(String name)               { throw new UnsupportedOperationException("N/A"); }
                     @Override public String      group(int group)                 { return m.group(group); }
                     @Override public String      group()                          { return m.group(); }
+                    @Override public String      group(String name)               { return PatternFactory.MATCHER__GROUP.invoke(m, name); }
                     @Override public boolean     find(int start)                  { return m.find(start); }
                     @Override public boolean     find()                           { return m.find(); }
-                    @Override public int         end(String name)                 { throw new UnsupportedOperationException("N/A"); }
                     @Override public int         end(int group)                   { return m.end(group); }
                     @Override public int         end()                            { return m.end(); }
+                    @Override public int         end(String name)                 { return PatternFactory.MATCHER__END.invoke(m, name); }
+
 
                     @Override public <T extends Appendable> T
                     appendTail(T appendable) {

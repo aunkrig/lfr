@@ -644,37 +644,55 @@ class PatternTest {
     }
 
     @Test @SuppressWarnings("static-method") public void
-    testQuantifierOptimizations() {
-
+    testQuantifierOptimizations1() {
     	PatternTest.assertSequenceToString("'A' . end", "A");
+    }
 
+    @Test @SuppressWarnings("static-method") public void
+    testQuantifierOptimizations2() {
         PatternTest.assertSequenceToString(
-            "'A' . greedyQuantifier(negate(lineBreakCharacter), min=0, max=infinite) . 'B' . end",
+            "'A' . greedyQuantifier(operand=negate(lineBreakCharacter), min=0) . 'B' . end",
             "A.*B"
         );
+    }
 
+    @Test @SuppressWarnings("static-method") public void
+    testQuantifierOptimizations3() {
         PatternTest.assertSequenceToString(
-            "'A' . greedyQuantifier(negate(lineBreakCharacter), min=0, max=infinite) . naive(\"BC\") . end",
+            "'A' . greedyQuantifier(operand=negate(lineBreakCharacter), min=0) . naive(\"BC\") . end",
             "A.*BC"
         );
+    }
 
+    @Test @SuppressWarnings("static-method") public void
+    testQuantifierOptimizations4() {
         PatternTest.assertSequenceToString(
             "'A' . greedyQuantifierAnyChar(min=0, max=infinite, ls=naive(\"BC\")) . end",
             "A.*BC",
             Pattern.DOTALL
         );
+    }
 
+    @Test @SuppressWarnings("static-method") public void
+    testQuantifierOptimizations5() {
         PatternTest.assertSequenceToString(
             "'A' . reluctantQuantifierSequenceAnyChar(min=0, max=infinite, ls=naive(\"BC\")) . end",
             "A.*?BC",
             Pattern.DOTALL
         );
+    }
 
+    @Test @SuppressWarnings("static-method") public void
+    testQuantifierOptimizations6() {
         PatternTest.assertSequenceToString(
             "'A' . possessiveQuantifierSequenceOfAnyChar(min=0, max=infinite) . naive(\"BC\") . end",
             "A.*+BC",
             Pattern.DOTALL
         );
+    }
+
+    @Test @SuppressWarnings("static-method") public void
+    testQuantifierOptimizations7() {
 
         // Naive string search, because the string literal is only 14 characters long.
         PatternTest.assertSequenceToString(
@@ -682,6 +700,10 @@ class PatternTest {
             "A.*abcdefghijklmno",
             Pattern.DOTALL
         );
+    }
+
+    @Test @SuppressWarnings("static-method") public void
+    testQuantifierOptimizations8() {
 
         // Knuth-Morris-Pratt string search, because the string literal is 15 characters long.
         PatternTest.assertSequenceToString(

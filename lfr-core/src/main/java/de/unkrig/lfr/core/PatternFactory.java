@@ -89,35 +89,49 @@ class PatternFactory extends de.unkrig.ref4j.PatternFactory {
     @Override public Pattern
     compile(String regex, int flags) throws PatternSyntaxException {
 
-        if ((flags & ~Pattern.SUPPORTED_FLAGS) != 0) {
-            throw new IllegalArgumentException("Unsupported flag " + (flags & ~Pattern.SUPPORTED_FLAGS));
+        Pattern result = new Pattern(regex, flags);
+
+        PatternFactory.compile2(result);
+
+        return result;
+    }
+
+    /**
+     * Compiles the given <var>regex</var> and eventually calls {@link Pattern#init(Sequence, int, java.util.Map,
+     * int)}.
+     */
+    static void
+    compile2(Pattern result) throws PatternSyntaxException {
+
+        if ((result.flags & ~Pattern.SUPPORTED_FLAGS) != 0) {
+            throw new IllegalArgumentException("Unsupported flag " + (result.flags & ~Pattern.SUPPORTED_FLAGS));
         }
 
         // With the "LITERAL" flag, use the "literal scanner" instead of the normal regex scanner.
         RegexScanner rs = new RegexScanner(
-            (flags & de.unkrig.ref4j.Pattern.LITERAL) == 0
+            (result.flags & de.unkrig.ref4j.Pattern.LITERAL) == 0
             ? Pattern.REGEX_SCANNER
             : Pattern.LITERAL_SCANNER
         );
 
         // With the "COMMENTS" flag, start in the "_X" default state.
         if (
-            (flags & (de.unkrig.ref4j.Pattern.LITERAL | de.unkrig.ref4j.Pattern.COMMENTS))
+            (result.flags & (de.unkrig.ref4j.Pattern.LITERAL | de.unkrig.ref4j.Pattern.COMMENTS))
             == de.unkrig.ref4j.Pattern.COMMENTS
         ) rs.setCurrentState(ScannerState.DEFAULT_X);
 
-        rs.setInput(regex);
+        rs.setInput(result.pattern);
 
         Sequence sequence;
         try {
-            sequence = PatternFactory.parse(rs, flags);
+            sequence = PatternFactory.parse(rs, result.flags);
         } catch (ParseException pe) {
-            PatternSyntaxException pse = new PatternSyntaxException(pe.getMessage(), regex, rs.getOffset());
+            PatternSyntaxException pse = new PatternSyntaxException(pe.getMessage(), result.pattern, rs.getOffset());
             pse.initCause(pe);
             throw pse;
         }
 
-        return new Pattern(regex, flags, sequence, rs.groupCount, rs.namedGroups, rs.greatestQuantifierNesting);
+        result.init(sequence, rs.groupCount, rs.namedGroups, rs.greatestQuantifierNesting);
     }
 
     /**
