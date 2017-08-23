@@ -12,15 +12,7 @@ Minus:
 
 * <dd><code>Pattern.CANON_EQ</code> (a really obscure, hopefully rarely used feature) is not implemented. You get an <code>IllegalArgumentException</code> when you invoke LFR <code>Pattern.compile()</code> with this flag.
 
-* Unicode scripts (e.g. <code>"\p{IsLatin}"</code>) are <em>not</em> implemented. All other Unicode character classes (blocks, categories and properties) <em>are</em> supported.
-
 * In a few, obscure cases, LFR <code>Matcher.hitEnd()</code> produces different results; to me it seems that the JUR implementation is buggy.
-
-* Because the LFR <code>Matcher</code> is an <em>interface</em> (as opposed to JUR, where it is a class), it cannot reeimplement the static method <code>quoteReplacement()</code>; you'd have to use the JUR method instead.
-
-Neutral:
-
-* JUR compiles invalid back references (e.g. <code>"\9"</code> if there are less than 9 capturing groups) without an error and treats them as "no match" when evaluated, while LFR throws a <code>PatternSyntaxException</code> at compile time.
 
 Plus:
 
@@ -31,6 +23,12 @@ Plus:
 Classes <code>Pattern</code> and <code>Matcher</code> were duplicated from JUR to LFR with identical fields and methods. The JUR <code>MatchResult</code> and <code>PatternSyntaxException</code> were re-used instead of being duplicated.
 
 There are the following differences in the API:
+
+Neutral:
+
+* Because the LFR <code>Pattern</code> is an <em>interface</em> (as opposed to JUR, where it is a class), all its static methods were moved to the <code>PatternFactory</code> class. E.g., instead of "<code>Pattern.compile(...)</code>" you now have to write "<code>PatternFactory.INSTANCE.compile(...)</code>".
+
+* Because the LFR <code>Matcher</code> is an <em>interface</em> (as opposed to JUR, where it is a class), its static method <code>quoteReplacement()</code>; was moved to <code>PatternFactory</code>.
 
 Plus:
 
@@ -63,6 +61,10 @@ Plus:
   * Patterns that contain a possessive quantifier of ANY; e.g. <code>"xxxA++xxx"</code>
 
   ("ANY" means the "." pattern, and the DOTALL flag being active.)
+
+## Facade
+
+If you want to switch between JUR and LFR at *runtime*, you can use "de.unkrig.ref4j", the "regular expressions facade for Java".
 
 ## License
 
