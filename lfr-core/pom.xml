@@ -76,9 +76,7 @@
 				<executions>
 					<execution>
 						<id>attach-sources</id>
-						<goals>
-							<goal>jar</goal>
-						</goals>
+						<goals><goal>jar</goal></goals>
 					</execution>
 				</executions>
 			</plugin>
@@ -104,9 +102,7 @@
 				<executions>
 					<execution>
 						<id>attach-javadocs</id>
-						<goals>
-							<goal>jar</goal>
-						</goals>
+						<goals><goal>jar</goal></goals>
 					</execution>
 				</executions>
 
