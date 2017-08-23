@@ -1,6 +1,6 @@
 # Lightning-fast Regular Expressions
 
-Lightning-fast Regular Expressions ("LFR") is a 99.9%-complete reimplementation of <code>java.util.regex</code> ("JUR") with better <code>match()</code> and <code>find()</code> performance. Yet the design is much cleaner and easier to understand and extend (only 5,400 LOC compared to 7,850 in JRE 8).
+Lightning-fast Regular Expressions ("LFR") is a 99.9%-complete reimplementation of `java.util.regex` ("JUR") with better `match()` and `find()` performance. Yet the design is much cleaner and easier to understand and extend (only 5,400 LOC compared to 7,850 in JRE 8).
 
 ## Differences between LFR and JUR
   
@@ -10,9 +10,9 @@ All features of JUR are available and functionally identical, except for the fol
 
 Minus:
 
-* <code>Pattern.CANON_EQ</code> (a really obscure, hopefully rarely used feature) is not implemented. You get an <code>IllegalArgumentException</code> when you invoke LFR <code>Pattern.compile()</code> with this flag.
+* `Pattern.CANON_EQ` (a really obscure, hopefully rarely used feature) is not implemented. You get an `IllegalArgumentException when you invoke LFR `Pattern.compile() with this flag.
 
-* In a few, obscure cases, LFR <code>Matcher.hitEnd()</code> produces different results; to me it seems that the JUR implementation is buggy.
+* In a few, obscure cases, LFR `Matcher.hitEnd()` produces different results; to me it seems that the JUR implementation is buggy.
 
 Plus:
 
@@ -20,25 +20,25 @@ Plus:
 
 ### API DIFFERENCES
 
-The classes <code>Pattern</code> and <code>Matcher</code> were duplicated from JUR (package <code>java.util.regex</code> to LFR (package <code>de.unkrig.lfr.core</code>) with identical fields and methods.
+The classes `Pattern` and `Matcher` were duplicated from JUR (package `java.util.regex` to LFR (package `de.unkrig.lfr.core`) with identical fields and methods.
 
-The JUR <code>MatchResult</code> and <code>PatternSyntaxException</code> were re-used instead of being duplicated.
+The JUR `MatchResult` and `PatternSyntaxException` were re-used instead of being duplicated.
 
-Because the LFR <code>Pattern</code> is an <em>interface</em> (as opposed to JUR, where it is a class), all its static methods were moved to the <code>PatternFactory</code> class. E.g., instead of "<code>Pattern.compile(...)</code>" you now have to write "<code>PatternFactory.INSTANCE.compile(...)</code>".
+Because the LFR `Pattern` is an <em>interface</em> (as opposed to JUR, where it is a class), all its static methods were moved to the `PatternFactory` class. E.g., instead of "`Pattern.compile(...)`" you now have to write "`PatternFactory.INSTANCE.compile(...)`".
 
-Because the LFR <code>Matcher</code> is an <em>interface</em> (as opposed to JUR, where it is a class), its static method <code>quoteReplacement()</code> was also moved to <code>PatternFactory</code>.
+Because the LFR `Matcher` is an <em>interface</em> (as opposed to JUR, where it is a class), its static method `quoteReplacement()` was also moved to `PatternFactory.
 
 There are the following differences in the API:
 
 Plus:
 
-* The LFR <code>Matcher</code> has additional methods <code>hitStart()</code> and <code>requireStart()</code>, as counterparts for the <code>hit/requireEnd()</code> methods (useful for regexes with lookbehinds).
+* The LFR `Matcher` has additional methods `hitStart()` and `requireStart()`, as counterparts for the `hit/requireEnd()` methods (useful for regexes with lookbehinds).
 
-* The LFR <code>Pattern</code> interface has an additional method <code>matches(CharSequence subject, int offset)</code>, which is particularly fast because it does not expose the <code>Matcher</code> and can thus save some overhead.
+* The LFR `Pattern` interface has an additional method `matches(CharSequence subject, int offset)`, which is particularly fast because it does not expose the `Matcher` and can thus save some overhead.
 
-* The LFR <code>Pattern</code> interface has an additional method <code>sequenceToString()</code> which returns a human-readable form of the compiled regex. For example, <code>compile("A.*abcdefghijklmnop", DOTALL).sequenceToString()</code> returns
+* The LFR `Pattern` interface has an additional method `sequenceToString()` which returns a human-readable form of the compiled regex. For example, `compile("A.*abcdefghijklmnop", DOTALL).sequenceToString()` returns
 
-  &nbsp;&nbsp;&nbsp;<code>'A' . greedyQuantifierAnyChar(min=0, max=infinite, ls=knuthMorrisPratt("abcdefghijklmnop")) . end</code>
+  &nbsp;&nbsp;&nbsp;`'A' . greedyQuantifierAnyChar(min=0, max=infinite, ls=knuthMorrisPratt("abcdefghijklmnop")) . end`
   
   This is useful for testing how a regex compiled, and especially which optimizations have taken place.
 
@@ -52,21 +52,21 @@ Minus:
 
 Plus:
 
-* Regex <em>evaluation</em> (<code>Matcher.matches()</code>, <code>find()</code>, <code>lookingAt()</code>, ...) is roughly 30% faster than with JUR. This was measured with the LFR test case suite; other use cases (other regexes, other subjects, other API calls, ...) may yield different results.
+* Regex <em>evaluation</em> (`Matcher.matches()`, `find()`, `lookingAt()`, ...) is roughly 30% faster than with JUR. This was measured with the LFR test case suite; other use cases (other regexes, other subjects, other API calls, ...) may yield different results.
 
 * LFR drastically improves the evaluation performance for  the following special cases:
 
-  * Patterns that start with 16 or more literal characters (for <code>Matcher.find()</code>)
+  * Patterns that start with 16 or more literal characters (for `Matcher.find()`)
 
-  * Patterns that contain a greedy or reluctant quantifier of ANY, followed by 16 or more literal characters; e.g. <code>"xxx.*ABCDEFGHIJKLMNOPxxx"</code> or <code>"xxx.{4,39}?ABCDEFGHIJKLMNOPxxx"</code>
+  * Patterns that contain a greedy or reluctant quantifier of ANY, followed by 16 or more literal characters; e.g. `"xxx.*ABCDEFGHIJKLMNOPxxx"` or `"xxx.{4,39}?ABCDEFGHIJKLMNOPxxx"`
 
-  * Patterns that contain a possessive quantifier of ANY; e.g. <code>"xxx.++xxx"</code>
+  * Patterns that contain a possessive quantifier of ANY; e.g. `"xxx.++xxx"`
 
   ("ANY" means the "." pattern, and the DOTALL flag being active.)
 
 ## Facade
 
-If you want to switch between JUR and LFR at *runtime*, you can use "<code>de.unkrig.ref4j</code>", the "regular expressions facade for Java".
+If you want to switch between JUR and LFR at *runtime*, you can use "`de.unkrig.ref4j`", the "regular expressions facade for Java".
 
 ## Integration
 
