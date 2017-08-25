@@ -10,7 +10,7 @@ All features of JUR are available and functionally identical, except for the fol
 
 Minus:
 
-* `Pattern.CANON_EQ` (a really obscure, hopefully rarely used feature) is not implemented. You get an `IllegalArgumentException when you invoke LFR `Pattern.compile() with this flag.
+* `Pattern.CANON_EQ` (a really obscure, hopefully rarely used feature) is not implemented. You get an `IllegalArgumentException` when you invoke LFR `Pattern.compile()` with this flag.
 
 * In a few, obscure cases, LFR `Matcher.hitEnd()` produces different results; to me it seems that the JUR implementation is buggy.
 
