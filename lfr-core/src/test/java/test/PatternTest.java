@@ -223,7 +223,7 @@ class PatternTest {
     @Test @SuppressWarnings("static-method") public void
     testMatchFlagsCapturingGroup() {
         OracleEssentials.harnessFull("a((?i)b)c",       " abc abC aBc aBC Abc AbC ABc ABC ");
-        if (!JRE6) OracleEssentials.harnessFull("a(?<xxx>(?i)b)c", " abc abC aBc aBC Abc AbC ABc ABC ");
+        if (!PatternTest.JRE6) OracleEssentials.harnessFull("a(?<xxx>(?i)b)c", " abc abC aBc aBC Abc AbC ABc ABC ");
     }
 
     @Test @SuppressWarnings("static-method") public void
@@ -248,17 +248,17 @@ class PatternTest {
     @Test @SuppressWarnings("static-method") public void
     testPredefinedCharacterClasses() {
         OracleEssentials.harnessFull("\\w",     " abc äöü ");
-        if (!JRE6) OracleEssentials.harnessFull("(?U)\\w", " abc äöü ");
+        if (!PatternTest.JRE6) OracleEssentials.harnessFull("(?U)\\w", " abc äöü ");
         OracleEssentials.harnessFull("\\W",     " abc äöü ");
-        if (!JRE6) OracleEssentials.harnessFull("(?U)\\W", " abc äöü ");
+        if (!PatternTest.JRE6) OracleEssentials.harnessFull("(?U)\\W", " abc äöü ");
     }
 
     @Test @SuppressWarnings("static-method") public void
     testPosixCharacterClasses() {
         OracleEssentials.harnessFull("\\p{Lower}",     " abc äöü ");
-        if (!JRE6) OracleEssentials.harnessFull("(?U)\\p{Lower}", " abc äöü ");
+        if (!PatternTest.JRE6) OracleEssentials.harnessFull("(?U)\\p{Lower}", " abc äöü ");
         OracleEssentials.harnessFull("\\P{Lower}",     " abc äöü ");
-        if (!JRE6) OracleEssentials.harnessFull("(?U)\\P{Lower}", " abc äöü ");
+        if (!PatternTest.JRE6) OracleEssentials.harnessFull("(?U)\\P{Lower}", " abc äöü ");
     }
 
     @Test @SuppressWarnings("static-method") public void
@@ -286,7 +286,7 @@ class PatternTest {
         OracleEssentials.harnessFull("\\P{Sc}",            " a $ ");
 
         // By "UNICODE property":
-        if (!JRE6) {
+        if (!PatternTest.JRE6) {
             OracleEssentials.harnessFull("\\p{IsLowerCASE}",  " abc äöü ");
             OracleEssentials.harnessFull("\\p{IsAlphabetic}", " abc äöü ");
         }
@@ -302,7 +302,7 @@ class PatternTest {
     @Test @SuppressWarnings("static-method") public void
     testNamedCapturingGroups() {
 
-        if (JRE6) return;
+        if (PatternTest.JRE6) return;
 
         OracleEssentials.harnessFull("(?<xxx>a+)", " a aa aaa");
 
@@ -324,18 +324,18 @@ class PatternTest {
     testCapturingGroupsBackreference() {
 
         // "\2" is an invalid backreference, which results in a match failure.
-        FE.compile("(\\d\\d)\\2").matcher(" a aa aaa").replaceAll("x");
+        PatternTest.FE.compile("(\\d\\d)\\2").matcher(" a aa aaa").replaceAll("x");
     }
 
     @Test @SuppressWarnings("static-method") public void
     testNamedCapturingGroupsBackreference() {
 
-        if (JRE6) return;
+        if (PatternTest.JRE6) return;
 
         OracleEssentials.harnessFull("(?<first>\\w)\\k<first>", " a aa aaa");
 
         // Backreference to inexistent named group.
-        FE.assertPatternSyntaxException("(?<first>\\w)\\k<bla>");
+        PatternTest.FE.assertPatternSyntaxException("(?<first>\\w)\\k<bla>");
     }
 
     @Test @SuppressWarnings("static-method") public void
@@ -354,12 +354,14 @@ class PatternTest {
     testPositiveLookbehind() {
         OracleEssentials.harnessFull("(?<=b)a",    " a aba abba a");
         OracleEssentials.harnessFull("(?<=(b))a",  " a aba abba a");
-        OracleEssentials.harnessFull("(?<=\\R )a", " \r\n a ");
-        OracleEssentials.harnessFull("(?<=\\R )a", " \r a ");
-        OracleEssentials.harnessFull("(?<=\\R )a", " \n a ");
+        if (!PatternTest.JRE6) {
+            OracleEssentials.harnessFull("(?<=\\R )a", " \r\n a ");
+            OracleEssentials.harnessFull("(?<=\\R )a", " \r a ");
+            OracleEssentials.harnessFull("(?<=\\R )a", " \n a ");
+        }
 
         OracleEssentials.harnessFull("(?<=^\t*)\t", "\t\t\tpublic static void main()");
-        FE.compile("(?<=^\\s*)    ").matcher("        public static void main()").replaceAll("\t");
+        PatternTest.FE.compile("(?<=^\\s*)    ").matcher("        public static void main()").replaceAll("\t");
     }
 
     @Test @SuppressWarnings("static-method") public void
@@ -401,7 +403,7 @@ class PatternTest {
 
     @Test @SuppressWarnings("static-method") public void
     testUnixLines() {
-        if (!JRE6) {
+        if (!PatternTest.JRE6) {
             OracleEssentials.harnessFull("\\R",  "  \n  \r\n \u2028 ");
             OracleEssentials.harnessFull("\\R",  "  \n  \r\n \u2028 ", Pattern.UNIX_LINES);
         }
@@ -543,14 +545,14 @@ class PatternTest {
         OracleEssentials.harnessFull("(?x)  ( ? :a)", " a b ");
         OracleEssentials.harnessFull("(?x)  ( ?: a)", " a b ");
         OracleEssentials.harnessFull("(?x)  ( ? : a)", " a b ");
-        if (!JRE6) {
+        if (!PatternTest.JRE6) {
             OracleEssentials.harnessFull("(?x)  (?<name>a)", " a b ");
             OracleEssentials.harnessFull("(?x)  ( ?<name>a)", " a b ");
-            FE.assertPatternSyntaxException("(?x)  (? <name>a)");
+            PatternTest.FE.assertPatternSyntaxException("(?x)  (? <name>a)");
             OracleEssentials.harnessFull("(?x)  (?< name>a)", " a b ");
-            FE.assertPatternSyntaxException("(?x)  (? < name>a)");
+            PatternTest.FE.assertPatternSyntaxException("(?x)  (? < name>a)");
             OracleEssentials.harnessFull("(?x)  ( ?< name>a)", " a b ");
-            FE.assertPatternSyntaxException("(?x)  ( ? < name>a)");
+            PatternTest.FE.assertPatternSyntaxException("(?x)  ( ? < name>a)");
         }
     }
 
@@ -558,10 +560,10 @@ class PatternTest {
     testAppendReplacementTail() {
 
         // Verify that "appendReplacement()" without a preceding match throws an Exception.
-        FE.compile("foo").matcher(" Hello foo and foo!").appendReplacement(new StringBuffer(), "bar");
+        PatternTest.FE.compile("foo").matcher(" Hello foo and foo!").appendReplacement(new StringBuffer(), "bar");
 
         // Verify that "appendReplacement()" and "appendTail()" work.
-        Matcher m = FE.compile("foo").matcher(" Hello foo and foo!");
+        Matcher m = PatternTest.FE.compile("foo").matcher(" Hello foo and foo!");
         Assert.assertTrue(m.find());
         StringBuffer sb = new StringBuffer("==");
         m.appendReplacement(sb, "bar");

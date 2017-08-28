@@ -273,6 +273,9 @@ class MatcherImpl implements Matcher {
 
         int[] gs = this.groups;
 
+        // Ironically, JUR throws an IndexOutOfBoundsException, not an ArrayIndexOutOfBoundsException...
+        if (2 * groupNumber >= gs.length) throw new IndexOutOfBoundsException();
+
         int start = gs[2 * groupNumber];
         int end   = gs[2 * groupNumber + 1];
 

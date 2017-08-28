@@ -974,7 +974,8 @@ class Sequences {
 
                 if (c == '\r' && matcher.subject.charAt(offset + 1) == '\n') {
                     if (offset == matcher.anchoringRegionEnd - 2) {
-                        matcher.hitEnd = true;
+                        matcher.hitEnd     = true;
+                        matcher.requireEnd = true;
                         return this.next.matches(matcher, offset);
                     }
                 }

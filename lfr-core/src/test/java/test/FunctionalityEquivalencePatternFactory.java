@@ -30,6 +30,7 @@ import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
+import java.util.regex.MatchResult;
 import java.util.regex.PatternSyntaxException;
 
 import org.junit.Assert;
@@ -73,6 +74,15 @@ class FunctionalityEquivalencePatternFactory extends PatternFactory {
             @Override public String pattern() { return regex; }
             @Override public int    flags()   { return flags; }
 
+
+            @Override public String
+            toString() {
+                String referenceToString = referencePattern.toString();
+                String subjectToString   = subjectPattern.toString();
+                Assert.assertEquals(referenceToString, subjectToString);
+                return referenceToString;
+            }
+
             @Override public Matcher
             matcher(final CharSequence subject) {
 
@@ -87,7 +97,17 @@ class FunctionalityEquivalencePatternFactory extends PatternFactory {
                     new InvocationHandler() {
 
                         @Override @NotNullByDefault(false) public Object
-                        invoke(Object proxy, final Method method, final Object[] arguments) throws Throwable {
+                        invoke(Object proxy, final Method method, Object[] arguments) throws Throwable {
+
+                            if (arguments == null) arguments = new Object[0];
+
+                            // KLUDGE: DUPLICATE the Appendable argument here, so that the method does not append
+                            // its result TWICE.
+                            Object arg0 = (
+                                arguments.length >= 1 && arguments[0] instanceof Appendable
+                                ? new StringBuilder(arguments[0].toString())
+                                : null
+                            );
 
                             Object    referenceResult    = null;
                             Throwable referenceException = null;
@@ -99,11 +119,7 @@ class FunctionalityEquivalencePatternFactory extends PatternFactory {
                                 referenceException = re;
                             }
 
-                            // KLUDGE: DUPLICATE the Appendable argument here, so that the method does not append
-                            // its result TWICE.
-                            if (arguments != null && arguments.length >= 1 && arguments[0] instanceof Appendable) {
-                                arguments[0] = new StringBuilder(arguments[0].toString());
-                            }
+                            if (arg0 != null) arguments[0] = arg0;
 
                             Object    subjectResult    = null;
                             Throwable subjectException = null;
@@ -115,18 +131,35 @@ class FunctionalityEquivalencePatternFactory extends PatternFactory {
                                 subjectException = re;
                             }
 
-                            Assert.assertEquals(
-                                referenceException == null ? null : referenceException.getClass(),
-                                subjectException   == null ? null : subjectException.getClass()
-                            );
+                            Throwable t = referenceException != null ? referenceException : subjectException;
+                            if (t != null) {
+                                Assert.assertEquals(
+                                    method.toString(),
+                                    referenceException == null ? null : referenceException.getClass(),
+                                    subjectException   == null ? null : subjectException.getClass()
+                                );
+                                throw t;
+                            }
 
                             if (referenceResult instanceof Matcher && subjectResult instanceof Matcher) return proxy;
 
                             if (referenceResult instanceof Pattern && subjectResult instanceof Pattern) return pattern;
 
-                            Assert.assertEquals(method.toString(), referenceResult, subjectResult);
+                            if (referenceResult instanceof MatchResult && subjectResult instanceof MatchResult) {
+                                FunctionalityEquivalencePatternFactory.this.assertEquals(
+                                    (MatchResult) referenceResult,
+                                    (MatchResult) subjectResult
+                                );
+                                return referenceResult;
+                            }
 
-                            assertEqualState(method.getName() + "()");
+                            if (referenceResult instanceof CharSequence && subjectResult instanceof CharSequence) {
+                                Assert.assertEquals(method.toString(), referenceResult.toString(), subjectResult.toString());
+                            } else {
+                                Assert.assertEquals(method.toString(), referenceResult, subjectResult);
+                            }
+
+                            this.assertEqualState(method.getName() + "()");
 
                             return referenceResult;
                         }
@@ -248,5 +281,26 @@ class FunctionalityEquivalencePatternFactory extends PatternFactory {
         }
 
         Assert.assertEquals(referenceThrows, subjectThrows);
+    }
+
+    private static void
+    assertEquals(MatchResult expected, MatchResult actual) {
+        int groupCount = expected.groupCount();
+        Assert.assertEquals(groupCount, actual.groupCount());
+
+        Assert.assertEquals(expected.start(), actual.start());
+        for (int i = 0; i <= groupCount; i++) {
+            Assert.assertEquals(expected.start(i), actual.start(i));
+        }
+
+        Assert.assertEquals(expected.end(), actual.end());
+        for (int i = 0; i < groupCount; i++) {
+            Assert.assertEquals(expected.end(i), actual.end(i));
+        }
+
+        Assert.assertEquals(expected.group(), actual.group());
+        for (int i = 0; i < groupCount; i++) {
+            Assert.assertEquals(expected.group(i), actual.group(i));
+        }
     }
 }
