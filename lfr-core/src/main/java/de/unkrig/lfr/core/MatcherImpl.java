@@ -137,8 +137,17 @@ class MatcherImpl implements Matcher {
     boolean requireEnd;
 
     /**
-     * The index <em>behind</em> the preceding match, or -1 if no matching was done, or -2 if the preceding match had
-     * failed.
+     * Carries state information between invocations of {@link #find()} and {@link #find(int)}.
+     * <dl>
+     *   <dt>-1:</dt>
+     *   <dd>None of {@link #find()} and {@link #find(int)} have been called yet</dd>
+     *
+     *   <dt>-2:</dt>
+     *   <dd>The preceding invocation had returned {@code false}
+     *
+     *   <dt>Positive values:</dt>
+     *   <dd>The index <em>behind</em> the preceding successful match</dd>
+     * </dl>
      */
     int endOfPreviousMatch = -1;
 
@@ -259,7 +268,8 @@ class MatcherImpl implements Matcher {
     @Nullable @Override public String
     group(int groupNumber) {
 
-        if (this.endOfPreviousMatch < 0) throw new IllegalStateException("No match available");
+        if (this.endOfPreviousMatch == -1) throw new IllegalStateException("No match available");
+        if (this.endOfPreviousMatch == -2) return null;
 
         int[] gs = this.groups;
 
@@ -309,12 +319,12 @@ class MatcherImpl implements Matcher {
         int newOffset = this.pattern.sequence.matches(this, this.regionStart);
 
         if (newOffset == -1) {
-            this.endOfPreviousMatch = -2;
+            this.endOfPreviousMatch = -1;
             return false;
         }
 
-        this.groups[0]          = this.regionStart;
-        this.groups[1]          = newOffset;
+        this.groups[0] = this.regionStart;
+        this.groups[1] = newOffset;
         this.endOfPreviousMatch = newOffset;
 
         return true;
@@ -333,14 +343,13 @@ class MatcherImpl implements Matcher {
         int newOffset = this.pattern.sequence.matches(this, this.regionStart);
 
         if (newOffset == -1) {
-            this.endOfPreviousMatch = -2;
+            this.endOfPreviousMatch = -1;
             return false;
         }
 
         this.groups[0]          = this.regionStart;
         this.groups[1]          = newOffset;
         this.endOfPreviousMatch = newOffset;
-
         return true;
     }
 
@@ -381,7 +390,7 @@ class MatcherImpl implements Matcher {
             return true;
         }
 
-        this.endOfPreviousMatch = -2;
+        this.endOfPreviousMatch = -1;
         return false;
     }
 
@@ -731,7 +740,8 @@ class MatcherImpl implements Matcher {
             .append(this.regionEnd)
             .append(" subject=")
             .append(this.subject)
-            .append("]")
+            .append(" endOfPreviousMatch=")
+            .append(this.endOfPreviousMatch)
         );
 
         if (this.endOfPreviousMatch >= 0) {

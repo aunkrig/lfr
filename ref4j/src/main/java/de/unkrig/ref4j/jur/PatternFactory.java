@@ -181,9 +181,6 @@ public class PatternFactory extends de.unkrig.ref4j.PatternFactory implements Se
             split(CharSequence input, int limit) { return this.jurPattern.split(input, limit); }
 
             @Override public String
-            quote(String s) { return java.util.regex.Pattern.quote(s); }
-
-            @Override public String
             toString() { return this.jurPattern.toString(); }
         }
 

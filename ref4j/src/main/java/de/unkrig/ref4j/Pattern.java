@@ -89,10 +89,4 @@ interface Pattern {
      */
     public abstract String[]
     split(CharSequence input, int limit);
-
-    /**
-     * @see java.util.regex.Pattern#quote(String)
-     */
-    public abstract String
-    quote(String s);
 }

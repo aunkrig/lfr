@@ -26,36 +26,34 @@
 
 package test;
 
-import java.util.Arrays;
-import java.util.Locale;
-
-import org.junit.Assert;
-
+import de.unkrig.commons.lang.ExceptionUtil;
 import de.unkrig.commons.nullanalysis.Nullable;
 import de.unkrig.ref4j.Matcher;
 import de.unkrig.ref4j.Pattern;
 import de.unkrig.ref4j.PatternFactory;
-import test.Sampler.CallTree;
 
 public final
 class OracleEssentials {
 
     private OracleEssentials() {}
 
-    private static final boolean ALSO_COMPARE_PERFORMANCE = false;
-    private static final boolean ALSO_DO_PROFILING        = false;
-    private static final int     CHUNK_COUNT              = 100;
-    private static final int     CHUNK_SIZE               = 1000;
+    /**
+     * The {@code java.util.regex} pattern factory.
+     */
+    public static final PatternFactory
+    JUR = de.unkrig.ref4j.jur.PatternFactory.INSTANCE;
 
-    private static final Locale LOCALE = Locale.US;
+    /**
+     * The {@code LFR} pattern factory.
+     */
+    public static final de.unkrig.lfr.core.PatternFactory
+    LFR = de.unkrig.lfr.core.PatternFactory.INSTANCE;
 
-    private static long   totalNs1, totalNs2;
-    private static double gainSum;
-    private static double gainProduct;
-    private static int    totalCount = -1;
-
-    public static final PatternFactory                    JUR = de.unkrig.ref4j.jur.PatternFactory.INSTANCE;
-    public static final de.unkrig.lfr.core.PatternFactory LFR = de.unkrig.lfr.core.PatternFactory.INSTANCE;
+    /**
+     * The pattern factory that verfies the functional equality of JUR and LFR.
+     */
+    public static final FunctionalityEquivalencePatternFactory
+    FE  = new FunctionalityEquivalencePatternFactory(JUR, LFR);
 
     /**
      * Shorthand for "{@link #harnessFull(String, String, int, Integer, int, Boolean, Boolean) harness(regex, subject,
@@ -113,152 +111,29 @@ class OracleEssentials {
         @Nullable Boolean anchoringBounds
     ) {
 
-        RegexTest rt = new RegexTest(regex);
-        rt.setFlags(flags);
-        rt.setRegion(regionStart, regionEnd);
-        rt.setTransparentBounds(transparentBounds);
-        rt.setAnchoringBounds(anchoringBounds);
+        Pattern pattern = FE.compile(regex, flags);
 
-        // Test "Matcher.lookingAt()".
-        rt.assertMatchers(subject, RegexTest.ASSERT_LOOKING_AT);
+        Matcher m = pattern.matcher(subject);
 
-        // Test "Matcher.matches()".
-        rt.assertMatchers(subject, RegexTest.ASSERT_MATCHES);
+        if (regionStart       != null) m.region(regionStart, regionEnd);
+        if (transparentBounds != null) m.useTransparentBounds(transparentBounds);
+        if (anchoringBounds   != null) m.useAnchoringBounds(anchoringBounds);
 
-        // Test "Matcher.find()".
-        rt.assertMatchers(subject, RegexTest.ASSERT_FIND);
+        m.lookingAt();
 
-        if (OracleEssentials.ALSO_COMPARE_PERFORMANCE) {
+        m.matches();
 
-            final Pattern pattern1 = OracleEssentials.JUR.compile(regex, flags);
-            final Pattern pattern2 = OracleEssentials.LFR.compile(regex, flags);
+        // "matches()", if unsuccessful, leaves the matcher in a very strange state: The next invocation of "find()"
+        // (a few lines below), will will NOT start at the beginning of the region, but where "lookingAt()" left off!?
+        // The simple workaround is to reset the matcher here.
+        m.reset();
 
-            Runnable r1 = new Runnable() {
-
-                @Override public void
-                run() {
-
-                    Matcher m = pattern1.matcher(subject);
-
-                    while (m.find()) {
-                        m.group();
-                        m.start();
-                        m.end();
-                    }
-                }
-            };
-
-            Runnable r2 = new Runnable() {
-
-                @Override public void
-                run() {
-
-                    Matcher m = pattern2.matcher(subject);
-
-                    while (m.find()) {
-                        m.group();
-                        m.start();
-                        m.end();
-                    }
-                }
-            };
-
-            long ns1 = OracleEssentials.measure(r1);
-            long ns2 = OracleEssentials.measure(r2);
-
-            final double gain = (double) ns1 / ns2;
-
-            OracleEssentials.totalNs1    += ns1;
-            OracleEssentials.totalNs2    += ns2;
-            OracleEssentials.gainSum     += gain;
-            OracleEssentials.gainProduct *= gain;
-            OracleEssentials.totalCount++;
-
-            double cs = OracleEssentials.CHUNK_SIZE;
-
-            System.out.printf(
-                OracleEssentials.LOCALE,
-                "%-20s %-24s %,8.1f %,8.1f %4.0f%%%n",
-                OracleEssentials.asJavaLiteral(regex),
-                OracleEssentials.asJavaLiteral(subject),
-                ns1 / cs,
-                ns2 / cs,
-                100 * gain
-            );
+        int matchNumber = 1;
+        try {
+            while (m.find()) matchNumber++;
+        } catch (AssertionError ae) {
+            throw ExceptionUtil.wrap("Match #" + matchNumber, ae);
         }
-
-        if (OracleEssentials.ALSO_DO_PROFILING) {
-
-            final Pattern pattern2 = OracleEssentials.LFR.compile(regex, flags);
-
-            Runnable r2 = new Runnable() {
-
-                @Override public void
-                run() {
-
-                    Matcher m = pattern2.matcher(subject);
-
-                    while (m.find()) {
-                        m.group();
-                        m.start();
-                        m.end();
-                    }
-                }
-            };
-
-            long end = System.nanoTime() + 1000000000;
-            Sampler.startSampling(OracleEssentials.class.getName(), "harness");
-
-            do {
-                for (int i = 0; i < 10000; i++) r2.run();
-            } while (System.nanoTime() < end);
-
-            CallTree t;
-            try {
-                t = Sampler.stopSampling();
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-                return;
-            }
-            Sampler.printCallTree(t);
-        }
-    }
-
-    public static long
-    measure(Runnable r) {
-
-        for (;;) {
-
-            long[] realNs = new long[OracleEssentials.CHUNK_COUNT];
-            for (int j = 0; j < OracleEssentials.CHUNK_COUNT; j++) {
-
-                long startRealTime = System.nanoTime();
-                {
-                    for (int i = 0; i < OracleEssentials.CHUNK_SIZE; i++) {
-                        r.run();
-                    }
-                }
-                long endRealTime = System.nanoTime();
-
-                realNs[j] = endRealTime - startRealTime;
-            }
-
-            Arrays.sort(realNs);
-
-//            for (long x : realNs) {
-//                System.out.printf("%8d %s%n", x, StringUtil.repeat((int) (10 * Math.log10(x)), '#'));
-//            }
-
-            double divergence = 100 * ((double) realNs[10] / realNs[0] - 1);
-//            System.out.printf("Divergence: %6.1f%%%n", divergence);
-//            return realNs[0];
-            if (divergence <= 1) return realNs[0];
-        }
-//        long result = Long.MAX_VALUE;
-//        for (long x : realNs) {
-//            if (x < result) result = x;
-//        }
-//        return result;
     }
 
     private static String
@@ -271,7 +146,7 @@ class OracleEssentials {
             if ((idx = "\r\n\b\t\\".indexOf(c)) != -1) {
                 sb.append('\\').append("rnbt\\".charAt(idx));
             } else
-            if (c > 255) {
+            if (c < 32 || c > 255) {
                 sb.append(String.format("\\u%04x", (int) c));
             } else
             {
@@ -280,48 +155,5 @@ class OracleEssentials {
         }
 
         return sb.append('"').toString();
-    }
-
-    public static void
-    beginStatistics() {
-
-        if (!OracleEssentials.ALSO_COMPARE_PERFORMANCE) return;
-
-        Assert.assertEquals(-1, OracleEssentials.totalCount);
-        System.out.println("Regex                Subject                   jur[ns] dulc[ns]  Performance gain");
-        System.out.println("---------------------------------------------------------------------------------");
-        OracleEssentials.totalNs1    = 0;
-        OracleEssentials.totalNs2    = 0;
-        OracleEssentials.gainSum     = 0;
-        OracleEssentials.gainProduct = 1;
-        OracleEssentials.totalCount  = 0;
-    }
-
-    public static void
-    endStatistics() {
-
-        if (!OracleEssentials.ALSO_COMPARE_PERFORMANCE) return;
-
-        Assert.assertNotEquals(-1, OracleEssentials.totalCount);
-        System.out.println("---------------------------------------------------------------------------------");
-        System.out.printf(
-            OracleEssentials.LOCALE,
-            "                                              %,8.1f %,8.1f%n",
-            OracleEssentials.totalNs1 / (double) OracleEssentials.CHUNK_SIZE,
-            OracleEssentials.totalNs2 / (double) OracleEssentials.CHUNK_SIZE
-        );
-        System.out.printf(
-            OracleEssentials.LOCALE,
-            "Average gain:           %6.0f%%%n",
-            100 * OracleEssentials.gainSum / OracleEssentials.totalCount
-        );
-        System.out.printf(
-            OracleEssentials.LOCALE,
-            "Geometric average gain: %6.0f%%%n",
-            100 * Math.pow(OracleEssentials.gainProduct, 1. / OracleEssentials.totalCount)
-        );
-        System.out.println();
-
-        OracleEssentials.totalCount = -1;
     }
 }

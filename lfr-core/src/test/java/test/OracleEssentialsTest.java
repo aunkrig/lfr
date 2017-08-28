@@ -28,9 +28,7 @@
 
 package test;
 
-import org.junit.AfterClass;
 import org.junit.Assert;
-import org.junit.BeforeClass;
 import org.junit.Test;
 
 import de.unkrig.ref4j.Pattern;
@@ -42,16 +40,6 @@ import de.unkrig.ref4j.Pattern;
  */
 public
 class OracleEssentialsTest {
-
-    @BeforeClass public static void
-    setupBeforeClass() {
-        OracleEssentials.beginStatistics();
-    }
-
-    @AfterClass public static void
-    shutdownBeforeClass() {
-        OracleEssentials.endStatistics();
-    }
 
     @Test @SuppressWarnings("static-method") public void
     testStringLiterals() {
@@ -219,6 +207,7 @@ class OracleEssentialsTest {
      */
     @Test @SuppressWarnings("static-method") public void
     testEmbeddedFlagExpressions() {
+        OracleEssentials.harnessFull("foo",     "FOOfooFoOfoO");
         OracleEssentials.harnessFull("foo",     "FOOfooFoOfoO", Pattern.CASE_INSENSITIVE);
         OracleEssentials.harnessFull("(?i)foo", "FOOfooFoOfoO");
         OracleEssentials.harnessFull("foo",     "FOOfooFoOfoO");

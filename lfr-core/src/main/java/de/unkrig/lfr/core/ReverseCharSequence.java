@@ -128,13 +128,16 @@ class ReverseCharSequence implements CharSequence {
             @Override public CharSequence
             subSequence(int start, int end) { return ReverseCharSequence.subSequence(subject, start, end); }
 
-            @Override
-            public String toString() {
-                // TODO Auto-generated method stub
-                return super.toString();
+            @Override public String
+            toString() {
+                StringBuilder sb = new StringBuilder(this.len);
+                for (int i = 0; i < this.len;) {
+                    int cp = Character.codePointAt(this, i);
+                    sb.appendCodePoint(cp);
+                    i += Character.charCount(cp);
+                }
+                return sb.toString();
             }
-
-
         };
     }
 

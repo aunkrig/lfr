@@ -689,12 +689,6 @@ class Pattern implements de.unkrig.ref4j.Pattern, Serializable {
     }
 
     /**
-     * @see java.util.regex.Pattern#quote(String)
-     */
-    @Override public String
-    quote(String s) { return java.util.regex.Pattern.quote(s); }
-
-    /**
      * @return Whether the suffix starting at position <var>offset</var> matches this pattern
      * @see    java.util.regex.Pattern#matches(String, CharSequence)
      */
