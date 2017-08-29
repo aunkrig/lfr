@@ -52,8 +52,9 @@ class OracleEssentials {
     /**
      * The pattern factory that verfies the functional equality of JUR and LFR.
      */
-    public static final FunctionalityEquivalencePatternFactory
-    FE  = new FunctionalityEquivalencePatternFactory(JUR, LFR);
+    public static final PatternFactory
+//    PF  = new FunctionalityEquivalencePatternFactory(JUR, LFR);
+    PF  = new PerformanceMeasurementPatternFactory(JUR, LFR);
 
     /**
      * Shorthand for "{@link #harnessFull(String, String, int, Integer, int, Boolean, Boolean) harness(regex, subject,
@@ -111,7 +112,7 @@ class OracleEssentials {
         @Nullable Boolean anchoringBounds
     ) {
 
-        Pattern pattern = FE.compile(regex, flags);
+        Pattern pattern = PF.compile(regex, flags);
 
         Matcher m = pattern.matcher(subject);
 

@@ -260,33 +260,6 @@ class FunctionalityEquivalencePatternFactory extends PatternFactory {
     @Override public boolean
     matches(String regex, CharSequence input) { return this.compile(regex).matcher(input).matches(); }
 
-    public void
-    assertPatternSyntaxException(String regex) {
-        this.assertPatternSyntaxException(regex, 0);
-    }
-
-    public void
-    assertPatternSyntaxException(String regex, int flags) {
-
-        boolean referenceThrows;
-        try {
-            this.reference.compile(regex, flags);
-            referenceThrows = false;
-        } catch (PatternSyntaxException pse) {
-            referenceThrows = true;
-        }
-
-        boolean subjectThrows;
-        try {
-            this.subject.compile(regex, flags);
-            subjectThrows = false;
-        } catch (PatternSyntaxException pse) {
-            subjectThrows = true;
-        }
-
-        Assert.assertEquals(referenceThrows, subjectThrows);
-    }
-
     private static void
     assertEquals(MatchResult expected, MatchResult actual) {
         int groupCount = expected.groupCount();
