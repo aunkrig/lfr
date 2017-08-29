@@ -44,16 +44,16 @@ Plus:
   
   This is useful for testing how a regex compiled, and especially which optimizations have taken place.
 
-* LFR can be used with JRE 1.6+, and makes some later features available for earlier JREs.
- * JUR features that appeared in JRE 1.7:
-  * `\x{h...h}` (code point escapes)
-  * UNICODE scripts like `\p{IsLatin}`
-  * UNICODE binary properties like `\p{IsAlphabetic}`
-  * Named groups (e.g. `(?<name>X)`) and named group backreferences (e.g. `\k<name>`) (available since JRE 1.7)
-  * The `UNICODE_CHARACTER_CLASS` compilation flag, and its in-line equivalent `(?U)`
- * JUR features that appeared in JRE 1.8:
-  * Some predefined character classes: `\h`, `\v`, and their upper-case counterparts
-  * The linebreak matcher `\R`
+* LFR only requires JRE 1.6+, but makes some later features available for earlier JREs.
+  * JUR features that appeared in JRE 1.7:
+    * `\x{h...h}` (code point escapes)
+    * UNICODE scripts like `\p{IsLatin}`
+    * UNICODE binary properties like `\p{IsAlphabetic}`
+    * Named groups (e.g. `(?<name>X)`) and named group backreferences (e.g. `\k<name>`)
+    * The `UNICODE_CHARACTER_CLASS` compilation flag, and its in-line equivalent `(?U)`
+  * JUR features that appeared in JRE 1.8:
+    * Additional predefined character classes: `\h`, `\v`, and their upper-case counterparts
+    * The linebreak matcher `\R`
 
 ## Performance
 
