@@ -81,7 +81,7 @@ If you want to switch between JUR and LFR (and other, not yet written RE impleme
 
 ## Integration
 
-All versions of LFR are available on [MAVEN CENTRAL](http://search.maven.org); download the latest JAR file from there, or add it as a dependency in MAVEN.
+All versions of LFR are available on [MAVEN CENTRAL](http://search.maven.org/#search%7Cga%7C1%7Cg%3A%22de.unkrig.lfr%22); download the latest JAR file from there, or add it as a MAVEN dependency.
 
 ## License
 
