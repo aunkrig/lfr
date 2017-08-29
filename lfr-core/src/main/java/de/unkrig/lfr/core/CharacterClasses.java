@@ -55,7 +55,6 @@ class CharacterClasses {
         @Override public boolean   matches(int c)                           { return false;  }
         @Override public boolean   find(MatcherImpl matcherImpl, int start) { return false;  }
         @Override public Sequence  concat(Sequence that)                    { return this;   }
-        @Override public Sequence  reverse()                                { return this;   }
         @Override public String    toString()                               { return "fail"; }
         @Override protected String toStringWithoutNext()                    { return "???";  }
     };

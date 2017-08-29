@@ -42,18 +42,18 @@ class MatcherImpl implements Matcher {
     // CONFIGURATION
 
     /**
-     * @see #END_OF_SUBJECT
+     * @see #END_OF_REGION
      * @see #ANY
      */
     enum End {
 
         /**
-         * The match is successful if the pattern matches the entire rest of the sucject.
+         * The match is successful if the pattern matches the entire rest of the region.
          */
-        END_OF_SUBJECT,
+        END_OF_REGION,
 
         /**
-         * The match is successful if the pattern matches the next characters of the sucject.
+         * The match is successful if the pattern matches the next characters of the subject.
          */
         ANY,
     }
@@ -154,7 +154,7 @@ class MatcherImpl implements Matcher {
     private int lastAppendPosition;
 
     /**
-     * Whether the current matching must end at {@link End#END_OF_SUBJECT} or {@link End#ANY}where.
+     * Whether the current matching must end at {@link End#END_OF_REGION} or {@link End#ANY}where.
      */
     @Nullable MatcherImpl.End end;
 
@@ -318,7 +318,7 @@ class MatcherImpl implements Matcher {
         this.hitEnd       = false;
         this.requireEnd   = false;
 
-        this.end = MatcherImpl.End.END_OF_SUBJECT;
+        this.end = MatcherImpl.End.END_OF_REGION;
         int newOffset = this.pattern.sequence.matches(this, this.regionStart);
 
         if (newOffset == -1) {
@@ -326,8 +326,8 @@ class MatcherImpl implements Matcher {
             return false;
         }
 
-        this.groups[0] = this.regionStart;
-        this.groups[1] = newOffset;
+        this.groups[0]          = this.regionStart;
+        this.groups[1]          = newOffset;
         this.endOfPreviousMatch = newOffset;
 
         return true;
@@ -756,83 +756,4 @@ class MatcherImpl implements Matcher {
 
     int
     sequenceEndMatches(int offset) { return this.end == MatcherImpl.End.ANY || offset == this.regionEnd ? offset : -1; }
-
-    /**
-     * Reverses this matcher, i.e. the subject and all capturing groups are reversed.
-     * <p>
-     *   Example: If the subject is {@code "abc"} and the capturing groups are $1=0-1 and $2=0-2, then afterwards
-     *   the subject is {@code "cba"}, anf the capturing groups are $1=2-3 and $2=1-3.
-     * </p>
-     * <p>
-     *   Matcher reversing is used by "lookbehind", where a sequence is in <em>reverse</em> direction.
-     * </p>
-     */
-    void
-    reverse() {
-
-        // Reverse the subject.
-        this.subject = ReverseCharSequence.reverse(this.subject);
-
-        int l = this.subject.length();
-
-        // Reverse the "region".
-        {
-            int tmp = this.regionStart;
-            this.regionStart = l - this.regionEnd;
-            this.regionEnd   = l - tmp;
-        }
-
-        // Reverse the "transparent region".
-        {
-            int tmp = this.transparentRegionStart;
-            this.transparentRegionStart = l - this.transparentRegionEnd;
-            this.transparentRegionEnd   = l - tmp;
-        }
-
-        // Reverse the "anchoring region".
-        {
-            int tmp = this.anchoringRegionStart;
-            this.anchoringRegionStart = l - this.anchoringRegionEnd;
-            this.anchoringRegionEnd   = l - tmp;
-        }
-
-        // Reverse "hitStart" and "hitEnd".
-        {
-            boolean tmp = this.hitStart;
-            this.hitStart = this.hitEnd;
-            this.hitEnd   = tmp;
-        }
-
-        // Reverse "requireStart" and "requireEnd".
-        {
-            boolean tmp = this.requireStart;
-            this.requireStart = this.requireEnd;
-            this.requireEnd   = tmp;
-        }
-
-        // Reverse the groups.
-        {
-            int[] gs  = this.groups;
-            if (gs.length > 2) {
-                int gsl = gs.length;
-                int i   = 2;
-                do {
-
-                    int tmp = gs[i];
-                    if (tmp == -1) {
-                        i += 2;
-                        continue;
-                    }
-
-                    gs[i] = l - gs[i + 1];
-                    i++;
-                    gs[i] = l - tmp;
-                    i++;
-                } while (i < gsl);
-            }
-        }
-
-        // Reverse the "endOfPreviousMatch".
-        if (this.endOfPreviousMatch >= 0) this.endOfPreviousMatch = l - this.endOfPreviousMatch;
-    }
 }

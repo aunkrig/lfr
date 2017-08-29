@@ -92,7 +92,7 @@ class PatternTest {
         String regex = infix;
 
         Assert.assertEquals(
-            "naive(\"ABCDEFGHIJKLMNO\") . end",
+            "naive(\"ABCDEFGHIJKLMNO\")",
             OracleEssentials.LFR.compile(regex).sequenceToString()
         );
 
@@ -110,7 +110,7 @@ class PatternTest {
         String regex = infix;
 
         Assert.assertEquals(
-            "knuthMorrisPratt(\"ABCDEFGHIJKLMNOP\") . end",
+            "knuthMorrisPratt(\"ABCDEFGHIJKLMNOP\")",
             OracleEssentials.LFR.compile(regex).sequenceToString()
         );
 
@@ -351,17 +351,38 @@ class PatternTest {
     }
 
     @Test @SuppressWarnings("static-method") public void
-    testPositiveLookbehind() {
+    testPositiveLookbehind1() {
         OracleEssentials.harnessFull("(?<=b)a",    " a aba abba a");
-        OracleEssentials.harnessFull("(?<=(b))a",  " a aba abba a");
-        if (!PatternTest.JRE6) {
-            OracleEssentials.harnessFull("(?<=\\R )a", " \r\n a ");
-            OracleEssentials.harnessFull("(?<=\\R )a", " \r a ");
-            OracleEssentials.harnessFull("(?<=\\R )a", " \n a ");
-        }
+    }
 
+    @Test @SuppressWarnings("static-method") public void
+    testPositiveLookbehind2() {
+        OracleEssentials.harnessFull("(?<=(b))a",  " a aba abba a");
+    }
+
+    @Test @SuppressWarnings("static-method") public void
+    testPositiveLookbehind3() {
+        if (!PatternTest.JRE6) OracleEssentials.harnessFull("(?<=\\R )a", " \r\n a ");
+    }
+
+    @Test @SuppressWarnings("static-method") public void
+    testPositiveLookbehind4() {
+        if (!PatternTest.JRE6) OracleEssentials.harnessFull("(?<=\\R )a", " \r a ");
+    }
+
+    @Test @SuppressWarnings("static-method") public void
+    testPositiveLookbehind5() {
+        if (!PatternTest.JRE6) OracleEssentials.harnessFull("(?<=\\R )a", " \n a ");
+    }
+
+    @Test @SuppressWarnings("static-method") public void
+    testPositiveLookbehind6() {
         OracleEssentials.harnessFull("(?<=^\t*)\t", "\t\t\tpublic static void main()");
-        PatternTest.FE.compile("(?<=^\\s*)    ").matcher("        public static void main()").replaceAll("\t");
+    }
+
+    @Test @SuppressWarnings("static-method") public void
+    testPositiveLookbehind7() {
+        FE.compile("(?<=^\\s*)    ").matcher("        public static void main()").replaceAll("\t");
     }
 
     @Test @SuppressWarnings("static-method") public void
@@ -451,7 +472,7 @@ class PatternTest {
         String regex = ".*" + infix;
 
         PatternTest.assertSequenceToString(
-            "greedyQuantifier(operand=negate(lineBreakCharacter), min=0) . knuthMorrisPratt(\"ABCDEFGHIJKLMNOP\") . end", // SUPPRESS CHECKSTYLE LineLength
+            "greedyQuantifier(operand=negate(lineBreakCharacter), min=0) . knuthMorrisPratt(\"ABCDEFGHIJKLMNOP\")",
             regex
         );
 
@@ -470,7 +491,7 @@ class PatternTest {
         Producer<String> rsp = PatternTest.randomSubjectProducer(infix);
 
         Assert.assertEquals(
-            "knuthMorrisPratt(\"ABCDEFGHIJKLMNOP\") . end",
+            "knuthMorrisPratt(\"ABCDEFGHIJKLMNOP\")",
             OracleEssentials.LFR.compile(infix).sequenceToString()
         );
 
@@ -506,10 +527,22 @@ class PatternTest {
     }
 
     @Test @SuppressWarnings("static-method") public void
-    testAtomicGroups() {
+    testAtomicGroups1() {
         OracleEssentials.harnessFull("^a(bc|b)c$",   "abc");
+    }
+
+    @Test @SuppressWarnings("static-method") public void
+    testAtomicGroups2() {
         OracleEssentials.harnessFull("^a(bc|b)c$",   "abcc");
+    }
+
+    @Test @SuppressWarnings("static-method") public void
+    testAtomicGroups3() {
         OracleEssentials.harnessFull("^a(?>bc|b)c$", "abc");
+    }
+
+    @Test @SuppressWarnings("static-method") public void
+    testAtomicGroups4() {
         OracleEssentials.harnessFull("^a(?>bc|b)c$", "abcc");
     }
 
@@ -557,10 +590,19 @@ class PatternTest {
     }
 
     @Test @SuppressWarnings("static-method") public void
-    testAppendReplacementTail() {
+    testAppendReplacementTail1() {
 
         // Verify that "appendReplacement()" without a preceding match throws an Exception.
-        PatternTest.FE.compile("foo").matcher(" Hello foo and foo!").appendReplacement(new StringBuffer(), "bar");
+        try {
+            PatternTest.FE.compile("foo").matcher(" Hello foo and foo!").appendReplacement(new StringBuffer(), "bar");
+            Assert.fail();
+        } catch (IllegalStateException ise) {
+            ;
+        }
+    }
+
+    @Test @SuppressWarnings("static-method") public void
+    testAppendReplacementTail2() {
 
         // Verify that "appendReplacement()" and "appendTail()" work.
         Matcher m = PatternTest.FE.compile("foo").matcher(" Hello foo and foo!");
@@ -572,24 +614,24 @@ class PatternTest {
 
     @Test @SuppressWarnings("static-method") public void
     testCharacterClassOptimizations() {
-        PatternTest.assertSequenceToString("'A' . end",                                            "[A]");
-        PatternTest.assertSequenceToString("oneOfTwo('A', 'B') . end",                             "[AB]");
-        PatternTest.assertSequenceToString("oneOfTwo('A', 'K') . end",                             "[AK]");
-        PatternTest.assertSequenceToString("bitSet('A', 'C', 'E', 'G', 'I', 'K') . end",           "[ACEGIK]");
-        PatternTest.assertSequenceToString("range('A' - 'E') . end",                               "[A-E]");
-        PatternTest.assertSequenceToString("bitSet('D', 'E', 'F', 'G', 'H', 'I', 'J', 'K') . end", "[A-K&&D-Z]");
-        PatternTest.assertSequenceToString(PatternTest.jurpc("set\\('.'(?:, '.'){63}\\) . end"),   "[A-Za-z0-9_\u0400]"); // SUPPRESS CHECKSTYLE LineLength
+        PatternTest.assertSequenceToString("'A'",                                            "[A]");
+        PatternTest.assertSequenceToString("oneOfTwo('A', 'B')",                             "[AB]");
+        PatternTest.assertSequenceToString("oneOfTwo('A', 'K')",                             "[AK]");
+        PatternTest.assertSequenceToString("bitSet('A', 'C', 'E', 'G', 'I', 'K')",           "[ACEGIK]");
+        PatternTest.assertSequenceToString("range('A' - 'E')",                               "[A-E]");
+        PatternTest.assertSequenceToString("bitSet('D', 'E', 'F', 'G', 'H', 'I', 'J', 'K')", "[A-K&&D-Z]");
+        PatternTest.assertSequenceToString(PatternTest.jurpc("set\\('.'(?:, '.'){63}\\)"),   "[A-Za-z0-9_\u0400]");
     }
 
     @Test @SuppressWarnings("static-method") public void
     testQuantifierOptimizations1() {
-        PatternTest.assertSequenceToString("'A' . end", "A");
+        PatternTest.assertSequenceToString("'A'", "A");
     }
 
     @Test @SuppressWarnings("static-method") public void
     testQuantifierOptimizations2() {
         PatternTest.assertSequenceToString(
-            "'A' . greedyQuantifier(operand=negate(lineBreakCharacter), min=0) . 'B' . end",
+            "'A' . greedyQuantifier(operand=negate(lineBreakCharacter), min=0) . 'B'",
             "A.*B"
         );
     }
@@ -597,7 +639,7 @@ class PatternTest {
     @Test @SuppressWarnings("static-method") public void
     testQuantifierOptimizations3() {
         PatternTest.assertSequenceToString(
-            "'A' . greedyQuantifier(operand=negate(lineBreakCharacter), min=0) . naive(\"BC\") . end",
+            "'A' . greedyQuantifier(operand=negate(lineBreakCharacter), min=0) . naive(\"BC\")",
             "A.*BC"
         );
     }
@@ -605,7 +647,7 @@ class PatternTest {
     @Test @SuppressWarnings("static-method") public void
     testQuantifierOptimizations4() {
         PatternTest.assertSequenceToString(
-            "'A' . greedyQuantifierAnyChar(min=0, max=infinite, ls=naive(\"BC\")) . end",
+            "'A' . greedyQuantifierAnyChar(min=0, max=infinite, ls=naive(\"BC\"))",
             "A.*BC",
             Pattern.DOTALL
         );
@@ -614,7 +656,7 @@ class PatternTest {
     @Test @SuppressWarnings("static-method") public void
     testQuantifierOptimizations5() {
         PatternTest.assertSequenceToString(
-            "'A' . reluctantQuantifierSequenceAnyChar(min=0, max=infinite, ls=naive(\"BC\")) . end",
+            "'A' . reluctantQuantifierSequenceAnyChar(min=0, max=infinite, ls=naive(\"BC\"))",
             "A.*?BC",
             Pattern.DOTALL
         );
@@ -623,7 +665,7 @@ class PatternTest {
     @Test @SuppressWarnings("static-method") public void
     testQuantifierOptimizations6() {
         PatternTest.assertSequenceToString(
-            "'A' . possessiveQuantifierSequenceOfAnyChar(min=0, max=infinite) . naive(\"BC\") . end",
+            "'A' . possessiveQuantifierSequenceOfAnyChar(min=0, max=infinite) . naive(\"BC\")",
             "A.*+BC",
             Pattern.DOTALL
         );
@@ -634,7 +676,7 @@ class PatternTest {
 
         // Naive string search, because the string literal is only 14 characters long.
         PatternTest.assertSequenceToString(
-            "'A' . greedyQuantifierAnyChar(min=0, max=infinite, ls=naive(\"abcdefghijklmno\")) . end",
+            "'A' . greedyQuantifierAnyChar(min=0, max=infinite, ls=naive(\"abcdefghijklmno\"))",
             "A.*abcdefghijklmno",
             Pattern.DOTALL
         );
@@ -645,7 +687,7 @@ class PatternTest {
 
         // Knuth-Morris-Pratt string search, because the string literal is 15 characters long.
         PatternTest.assertSequenceToString(
-            "'A' . greedyQuantifierAnyChar(min=0, max=infinite, ls=knuthMorrisPratt(\"abcdefghijklmnop\")) . end",
+            "'A' . greedyQuantifierAnyChar(min=0, max=infinite, ls=knuthMorrisPratt(\"abcdefghijklmnop\"))",
             "A.*abcdefghijklmnop",
             Pattern.DOTALL
         );

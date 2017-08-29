@@ -43,19 +43,18 @@ class Sequences {
     private Sequences() {}
 
     /**
-     * Matches the empty string, and is the last element of any {@link CompositeSequence} chain.
+     * Matches depending on the <var>offset</var>, and the value of {@code matcher.end}.
      */
     public static final Sequence
     TERMINAL = new AbstractSequence() {
 
         @Override public int
-        matches(MatcherImpl matcher, int offset) { return offset; }
+        matches(MatcherImpl matcher, int offset) {
+            return matcher.end == MatcherImpl.End.ANY || offset >= matcher.regionEnd ? offset : -1;
+        }
 
         @Override public Sequence
         concat(Sequence that) { return that; }
-
-        @Override public Sequence
-        reverse() { return this; }
 
         @Override public String
         toString() { return "terminal"; }
@@ -118,9 +117,6 @@ class Sequences {
                     }
                 }
 
-                @Override public Sequence
-                reverse() { return Sequences.TERMINAL; }
-
                 @Override protected String
                 toStringWithoutNext() { return "???cs"; }
             };
@@ -161,13 +157,6 @@ class Sequences {
 
                     cs.concat(that);
                     return this;
-                }
-
-                @Override public Sequence
-                reverse() {
-                    return cs.next.reverse().concat(
-                        Sequences.quantifier(operand2[0].reverse(), min, max, counterIndex, greedy)
-                    );
                 }
 
                 @Override public String
@@ -242,9 +231,6 @@ class Sequences {
                 }
             }
 
-            @Override public Sequence
-            reverse() { return Sequences.TERMINAL; }
-
             @Override protected String
             toStringWithoutNext() { return "???cs"; }
         };
@@ -285,13 +271,6 @@ class Sequences {
 
                 cs.concat(that);
                 return this;
-            }
-
-            @Override public Sequence
-            reverse() {
-                return cs.next.reverse().concat(
-                    Sequences.quantifier(operand2[0].reverse(), min, max, counterIndex, greedy)
-                );
             }
 
             @Override public String
@@ -378,22 +357,30 @@ class Sequences {
             @Override public int
             matches(MatcherImpl matcher, int offset) {
 
-                // The operand MUST match (min) times;
-                for (int i = 0; i < min; i++) {
-                    offset = operand.matches(matcher, offset);
-                    if (offset == -1) return -1;
-                }
+                MatcherImpl.End savedEnd = matcher.end;
+                try {
 
-                // Now try to match the operand (max-min) more times.
-                int limit = max - min;
+                    matcher.end = MatcherImpl.End.ANY;
 
-                for (int i = 0; i < limit; i++) {
+                    // The operand MUST match (min) times;
+                    for (int i = 0; i < min; i++) {
+                        offset = operand.matches(matcher, offset);
+                        if (offset == -1) return -1;
+                    }
 
-                    int offset2 = operand.matches(matcher, offset);
+                    // Now try to match the operand (max-min) more times.
+                    int limit = max - min;
 
-                    if (offset2 == -1) return this.next.matches(matcher, offset);
+                    for (int i = 0; i < limit; i++) {
 
-                    offset = offset2;
+                        int offset2 = operand.matches(matcher, offset);
+
+                        if (offset2 == -1) break;
+
+                        offset = offset2;
+                    }
+                } finally {
+                    matcher.end = savedEnd;
                 }
 
                 return this.next.matches(matcher, offset);
@@ -519,14 +506,6 @@ class Sequences {
         }
 
         @Override public Sequence
-        reverse() {
-
-            this.set(new StringBuilder(this.s).reverse().toString());
-
-            return super.reverse();
-        }
-
-        @Override public Sequence
         concat(Sequence that) {
             that = (this.next = this.next.concat(that));
 
@@ -582,24 +561,28 @@ class Sequences {
 
                     final int[] savedGroups = matcher.groups;
                     {
-                        int result = alternatives[i].matches(matcher, offset);
+
+                        int result;
+
+                        final MatcherImpl.End savedEnd = matcher.end;
+                        try {
+                            matcher.end = MatcherImpl.End.ANY;
+                            result      = alternatives[i].matches(matcher, offset);
+                        } finally {
+                            matcher.end = savedEnd;
+                        }
+
                         if (result != -1) {
                             result = this.next.matches(matcher, result);
                             if (result != -1) return result;
                         }
                     }
+
+                    // Alternative did not match; restore original capturing groups.
                     matcher.groups = savedGroups;
                 }
 
                 return -1;
-            }
-
-            @Override public Sequence
-            reverse() {
-
-                for (int i = 0; i < alternatives.length; i++) alternatives[i] = alternatives[i].reverse();
-
-                return this;
             }
 
             @Override public String
@@ -628,8 +611,20 @@ class Sequences {
             matches(MatcherImpl matcher, int offset) {
 
                 for (Sequence a : alternatives) {
-                    int result = a.matches(matcher, offset);
-                    if (result != -1) return this.next.matches(matcher, result);
+                    MatcherImpl.End savedEnd = matcher.end;
+                    try {
+                        matcher.end = MatcherImpl.End.ANY;
+                        int[] savedGroups = matcher.groups;
+                        {
+                            int result = a.matches(matcher, offset);
+                            if (result != -1) return this.next.matches(matcher, result);
+                        }
+
+                        // Alternative did not match; restore original capturing groups.
+                        matcher.groups = savedGroups;
+                    } finally {
+                        matcher.end = savedEnd;
+                    }
                 }
 
                 return -1;
@@ -670,9 +665,6 @@ class Sequences {
                 return result;
             }
 
-            @Override public Sequence
-            reverse() { return this.next.reverse().concat(Sequences.capturingGroupEnd(groupNumber)); }
-
             @Override public String
             toStringWithoutNext() { return "capturingGroupStart(" + groupNumber + ")"; }
         };
@@ -693,9 +685,6 @@ class Sequences {
 
                 return this.next.matches(matcher, offset);
             }
-
-            @Override public Sequence
-            reverse() { return Sequences.capturingGroupStart(groupNumber).concat(this.next.reverse()); }
 
             @Override public String
             toStringWithoutNext() { return "capturingGroupEnd(" + groupNumber + ")"; }
@@ -861,13 +850,6 @@ class Sequences {
                 return false;
             }
 
-            @Override public Sequence
-            reverse() {
-                Sequence result = this.next.reverse();
-                result.concat(Sequences.endOfInput());
-                return result;
-            }
-
             @Override public String
             toStringWithoutNext() { return "beginningOfInput"; }
         };
@@ -905,9 +887,6 @@ class Sequences {
                 return -1;
             }
 
-            @Override public Sequence
-            reverse() { return this.next.reverse().concat(Sequences.endOfLine()); }
-
             @Override public String
             toStringWithoutNext() { return "beginningOfLine"; }
         };
@@ -933,9 +912,6 @@ class Sequences {
 
                 return -1;
             }
-
-            @Override public Sequence
-            reverse() { return this.next.reverse().concat(Sequences.endOfUnixLine()); }
 
             @Override public String
             toStringWithoutNext() { return "beginningOfUnixLine"; }
@@ -983,13 +959,6 @@ class Sequences {
                 return -1;
             }
 
-            @Override public Sequence
-            reverse() {
-                Sequence result = this.next.reverse();
-                result.concat(Sequences.beginningOfInput());
-                return result;
-            }
-
             @Override public String
             toStringWithoutNext() { return "endOfInputButFinalTerminator"; }
         };
@@ -1024,13 +993,6 @@ class Sequences {
                 return -1;
             }
 
-            @Override public Sequence
-            reverse() {
-                Sequence result = this.next.reverse();
-                result.concat(Sequences.beginningOfInput());
-                return result;
-            }
-
             @Override public String
             toStringWithoutNext() { return "endOfInputButFinalUnixTerminator"; }
         };
@@ -1053,13 +1015,6 @@ class Sequences {
                 matcher.requireEnd = true;
 
                 return this.next.matches(matcher, offset);
-            }
-
-            @Override public Sequence
-            reverse() {
-                Sequence result = this.next.reverse();
-                result.concat(Sequences.beginningOfInput());
-                return result;
             }
 
             @Override public String
@@ -1099,9 +1054,6 @@ class Sequences {
                 ) ? this.next.matches(matcher, offset) : -1;
             }
 
-            @Override public Sequence
-            reverse() { return this.next.reverse().concat(Sequences.beginningOfLine()); }
-
             @Override public String
             toStringWithoutNext() { return "endOfLine"; }
         };
@@ -1126,9 +1078,6 @@ class Sequences {
 
                 return matcher.subject.charAt(offset) == '\n' ? this.next.matches(matcher, offset) : -1;
             }
-
-            @Override public Sequence
-            reverse() { return this.next.reverse().concat(Sequences.beginningOfUnixLine()); }
 
             @Override public String
             toStringWithoutNext() { return "endOfLine"; }
@@ -1170,15 +1119,6 @@ class Sequences {
 
                 return -1;
             }
-
-            @Override public Sequence
-            reverse() {
-                char tmp = this.c1;
-                this.c1 = this.c2;
-                this.c2 = tmp;
-                return super.reverse();
-            }
-
 
             @Override public String
             toStringWithoutNext() { return "linebreak"; }
@@ -1264,8 +1204,6 @@ class Sequences {
 
         return new CompositeSequence() {
 
-            boolean reverse;
-
             @Override public int
             matches(MatcherImpl matcher, int offset) {
 
@@ -1277,12 +1215,6 @@ class Sequences {
                 if (offset != matcher.endOfPreviousMatch) return -1;
 
                 return this.next.matches(matcher, offset);
-            }
-
-            @Override public Sequence
-            reverse() {
-                this.reverse = !this.reverse;
-                return super.reverse();
             }
 
             @Override public String
@@ -1334,30 +1266,24 @@ class Sequences {
             @Override public int
             matches(MatcherImpl matcher, int offset) {
 
-                final int l1 = matcher.subject.length();
-
                 boolean lookbehindMatches;
 
                 final MatcherImpl.End savedEnd          = matcher.end;
-                final boolean         savedHitStart     = matcher.hitStart;
+                final boolean         savedHitEnd       = matcher.hitEnd;
                 final boolean         savedRequireStart = matcher.requireStart;
                 final int             savedRegionStart  = matcher.regionStart;
-                {
-                    matcher.reverse();
-                    {
-                        matcher.end        = MatcherImpl.End.ANY;
-                        matcher.hitEnd     = false;
-                        matcher.regionEnd  = matcher.transparentRegionEnd;
-                        lookbehindMatches  = op.matches(matcher, l1 - offset) != -1;
-                        matcher.requireEnd = matcher.hitEnd;
-                    }
-                    matcher.reverse();
+                final int             savedRegionEnd    = matcher.regionEnd;
+                try {
+                    matcher.end        = MatcherImpl.End.END_OF_REGION;
+                    matcher.regionEnd  = offset;
+                    lookbehindMatches  = op.find(matcher, matcher.transparentRegionStart);
+                } finally {
+                    matcher.end          = savedEnd;
+                    matcher.hitEnd       = savedHitEnd;
+                    matcher.requireStart = savedRequireStart;
+                    matcher.regionStart  = savedRegionStart;
+                    matcher.regionEnd    = savedRegionEnd;
                 }
-
-                matcher.end          = savedEnd;
-                matcher.hitStart     = savedHitStart;
-                matcher.requireStart = savedRequireStart;
-                matcher.regionStart  = savedRegionStart;
 
                 return lookbehindMatches ? this.next.matches(matcher, offset) : -1;
             }
@@ -1545,11 +1471,6 @@ class Sequences {
                 matcher.end = savedEnd;
 
                 return operandMatches ? -1 : this.next.matches(matcher, offset);
-            }
-
-            @Override public Sequence
-            reverse() {
-                return this.next.reverse().concat(Sequences.negate(op.reverse()));
             }
 
             @Override public String

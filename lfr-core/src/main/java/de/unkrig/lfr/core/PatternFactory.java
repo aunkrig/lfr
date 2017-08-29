@@ -497,13 +497,13 @@ class PatternFactory extends de.unkrig.ref4j.PatternFactory {
                 }
 
                 if (this.peekRead(TokenType.POSITIVE_LOOKBEHIND) != null) {
-                    final Sequence op = this.parseAlternatives().reverse();
+                    final Sequence op = this.parseAlternatives();
                     this.read(TokenType.END_GROUP);
                     return Sequences.positiveLookbehind(op);
                 }
 
                 if (this.peekRead(TokenType.NEGATIVE_LOOKBEHIND) != null) {
-                    final Sequence op = this.parseAlternatives().reverse();
+                    final Sequence op = this.parseAlternatives();
                     this.read(TokenType.END_GROUP);
                     return Sequences.negate(Sequences.positiveLookbehind(op));
                 }

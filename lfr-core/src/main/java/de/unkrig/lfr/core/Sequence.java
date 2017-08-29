@@ -76,18 +76,6 @@ interface Sequence {
     concat(Sequence that);
 
     /**
-     * Returns a sequence that, when matching the reverse subject, produces the reverse order of reverse matches.
-     * Reversion of sequences is extremely useful when implementing look-behinds.
-     * <p>
-     *   This method may leave {@code this} object in an undefined state; only the <em>returned</em> object can be
-     *   used afterwards. This agreement makes it possible for implementations to either modify {@code this} object,
-     *   or create and return a new one, whichever is more efficient.
-     * </p>
-     */
-    Sequence
-    reverse();
-
-    /**
      * Returns an unambiguous string form of {@code this} sequence; practical for verifying a compiled sequence e.g.
      * for correctness, efficiency, etc. The syntax resembles Java.
      */

@@ -146,7 +146,7 @@ class FunctionalityEquivalencePatternFactory extends PatternFactory {
                             if (referenceResult instanceof Pattern && subjectResult instanceof Pattern) return pattern;
 
                             if (referenceResult instanceof MatchResult && subjectResult instanceof MatchResult) {
-                                FunctionalityEquivalencePatternFactory.this.assertEquals(
+                                FunctionalityEquivalencePatternFactory.assertEquals(
                                     (MatchResult) referenceResult,
                                     (MatchResult) subjectResult
                                 );
@@ -154,7 +154,11 @@ class FunctionalityEquivalencePatternFactory extends PatternFactory {
                             }
 
                             if (referenceResult instanceof CharSequence && subjectResult instanceof CharSequence) {
-                                Assert.assertEquals(method.toString(), referenceResult.toString(), subjectResult.toString());
+                                Assert.assertEquals(
+                                    method.toString(),
+                                    referenceResult.toString(),
+                                    subjectResult.toString()
+                                );
                             } else {
                                 Assert.assertEquals(method.toString(), referenceResult, subjectResult);
                             }

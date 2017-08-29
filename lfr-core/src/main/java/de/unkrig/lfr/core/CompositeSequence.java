@@ -48,14 +48,6 @@ class CompositeSequence extends AbstractSequence {
         return this;
     }
 
-    @Override public Sequence
-    reverse() {
-
-        Sequence result = this.next.reverse();
-        this.next = Sequences.TERMINAL;
-        return result.concat(this);
-    }
-
     /**
      * @return A human-readable form of {@code this} sequence, but without the {@link #next} sequence
      */

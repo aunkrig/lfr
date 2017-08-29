@@ -162,11 +162,27 @@ class OracleEssentialsTest {
     }
 
     @Test @SuppressWarnings("static-method") public void
-    testDifferencesAmongGreedyReluctantAndPossessiveQuantifiers() {
+    testDifferencesAmongGreedyReluctantAndPossessiveQuantifiers1() {
         OracleEssentials.harnessFull(".*foo",  "xfooxxxxxxfoo");
+    }
+
+    @Test @SuppressWarnings("static-method") public void
+    testDifferencesAmongGreedyReluctantAndPossessiveQuantifiers2() {
         OracleEssentials.harnessFull(".*?foo", "xfooxxxxxxfoo");
+    }
+
+    @Test @SuppressWarnings("static-method") public void
+    testDifferencesAmongGreedyReluctantAndPossessiveQuantifiers3() {
         OracleEssentials.harnessFull(".*+foo", "xfooxxxxxxfoo");
+    }
+
+    @Test @SuppressWarnings("static-method") public void
+    testDifferencesAmongGreedyReluctantAndPossessiveQuantifiers4() {
         OracleEssentials.harnessFull("x*+foo", "xfooxxxxxxfoo");
+    }
+
+    @Test @SuppressWarnings("static-method") public void
+    testDifferencesAmongGreedyReluctantAndPossessiveQuantifiers5() {
         OracleEssentials.harnessFull("x*+foo", "xfooxxxxxxfooo");
     }
 

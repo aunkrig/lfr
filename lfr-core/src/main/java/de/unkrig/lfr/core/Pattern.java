@@ -324,24 +324,6 @@ class Pattern implements de.unkrig.ref4j.Pattern, Serializable {
         Map<String, Integer> namedGroups,
         int                  quantifierNesting
     ) {
-
-        sequence = sequence.concat(new AbstractSequence() {
-
-            @Override public int
-            matches(MatcherImpl matcher, int offset) {
-                return matcher.end == MatcherImpl.End.ANY || offset >= matcher.regionEnd ? offset : -1;
-            }
-
-            @Override public Sequence
-            concat(Sequence that) { throw new UnsupportedOperationException(); }
-
-            @Override public Sequence
-            reverse() { return this; }
-
-            @Override public String
-            toString() { return "end"; }
-        });
-
         this.sequence          = sequence;
         this.groupCount        = groupCount;
         this.namedGroups       = namedGroups;
@@ -697,7 +679,7 @@ class Pattern implements de.unkrig.ref4j.Pattern, Serializable {
 
         MatcherImpl mi = new MatcherImpl(this, subject);
 
-        mi.end = MatcherImpl.End.END_OF_SUBJECT;
+        mi.end = MatcherImpl.End.END_OF_REGION;
 
         return this.sequence.matches(mi, offset) != -1;
     }
