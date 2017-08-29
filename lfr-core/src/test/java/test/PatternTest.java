@@ -41,7 +41,10 @@ import de.unkrig.ref4j.Matcher;
 import de.unkrig.ref4j.Pattern;
 import de.unkrig.ref4j.PatternFactory;
 
-public
+/**
+ * Tests the {@link Pattern} class (and its relative {@link Matcher}).
+ */
+@SuppressWarnings("static-method") public
 class PatternTest {
 
     /**
@@ -65,7 +68,7 @@ class PatternTest {
 
     private static final boolean JRE6 = System.getProperty("java.specification.version").equals("1.6");
 
-    @SuppressWarnings("static-method") @Test public void
+    @Test public void
     testMatches() {
         PatternTest.PF.compile("abc", 0).matcher("abc").matches();
         PatternTest.PF.compile("abc", 0).matcher("abcxx").matches();
@@ -77,7 +80,7 @@ class PatternTest {
         PatternTest.PF.compile("a.*c", 0).matcher("axxx").matches();
     }
 
-    @SuppressWarnings("static-method") @Test public void
+    @Test public void
     testLiteralOctals() {
         PatternTest.PF.compile("\\00xx", 0).matcher("\0xx").matches();
         PatternTest.PF.compile("\\01xx", 0).matcher("\01xx").matches();
@@ -86,7 +89,7 @@ class PatternTest {
         PatternTest.PF.compile("\\0111xx", 0).matcher("\0111xx").matches();
     }
 
-    @SuppressWarnings("static-method") @Test public void
+    @Test public void
     testShortStringLiterals() {
 
         String infix = "ABCDEFGHIJKLMNO";
@@ -104,7 +107,7 @@ class PatternTest {
         }
     }
 
-    @SuppressWarnings("static-method") @Test public void
+    @Test public void
     testLongStringLiterals() {
 
         String infix = "ABCDEFGHIJKLMNOP";
@@ -145,7 +148,7 @@ class PatternTest {
         };
     }
 
-    @SuppressWarnings("static-method") @Test public void
+    @Test public void
     testFind() {
         OracleEssentials.harnessFull("abc",   "abc");
         OracleEssentials.harnessFull("abc",   "xxabcxx");
@@ -156,14 +159,14 @@ class PatternTest {
         OracleEssentials.harnessFull("a.*+b", "xxaxxbxxbxxbxx");
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testLookingAt() {
         PF.compile("abc").matcher("abcdef").lookingAt();
         PF.compile("aBc").matcher("abcdef").lookingAt();
         PF.compile("a.c").matcher("abcdef").lookingAt();
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testCaseInsensitive() {
         OracleEssentials.harnessFull("(?i)A", "xxxAxxx");
         OracleEssentials.harnessFull("(?i)A", "xxxaxxx");
@@ -172,7 +175,7 @@ class PatternTest {
         Assert.assertFalse(OracleEssentials.LFR.matches("(?i)Ä", "ä"));
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testUnicodeCaseInsensitive() {
         OracleEssentials.harnessFull("(?ui)A", "xxxAxxx");
         OracleEssentials.harnessFull("(?ui)A", "xxxaxxx");
@@ -181,14 +184,14 @@ class PatternTest {
         Assert.assertTrue(OracleEssentials.LFR.matches("(?ui)Ä", "ä"));
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testDotall() {
         OracleEssentials.harnessFull(".",     " \r  ");
         OracleEssentials.harnessFull(".",     " \r  ", Pattern.DOTALL);
         OracleEssentials.harnessFull("(?s).", " \r  ");
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testLiteralRegex() {
         OracleEssentials.harnessFull("$\\*", "$\\*xxx$\\*xxx", Pattern.LITERAL);
         OracleEssentials.harnessFull("a\\", "a\\xxxA\\xxx",    Pattern.LITERAL | Pattern.CASE_INSENSITIVE); // SUPPRESS CHECKSTYLE LineLength
@@ -196,7 +199,7 @@ class PatternTest {
         OracleEssentials.harnessFull(".\\Q.\\E.", " _._ ");
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testBoundaries() {
         OracleEssentials.harnessFull("^.", "___\r___\r\n___\u2028___");
         OracleEssentials.harnessFull(".$", "___\r___\r\n___\u2028___");
@@ -217,29 +220,29 @@ class PatternTest {
         OracleEssentials.harnessFull(".", "abc\r\nd", Pattern.MULTILINE);
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testMatchFlagsGroup() {
         OracleEssentials.harnessFull("a(?i)b", " ab Ab aB AB ");
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testMatchFlagsCapturingGroup() {
         OracleEssentials.harnessFull("a((?i)b)c",       " abc abC aBc aBC Abc AbC ABc ABC ");
         if (!PatternTest.JRE6) OracleEssentials.harnessFull("a(?<xxx>(?i)b)c", " abc abC aBc aBC Abc AbC ABc ABC ");
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testMatchFlagsNonCapturingGroup() {
         OracleEssentials.harnessFull("a(?i:b)c", " abc abC aBc aBC Abc AbC ABc ABC ");
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testAlternatives() {
         OracleEssentials.harnessFull("a|b",        " a b c ");
         OracleEssentials.harnessFull("a(?:b|bb)c", " ac abc abbc abbbc ");
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testIndependentGroup() {
         OracleEssentials.harnessFull("(?>a|b)",    " a b c ");
         OracleEssentials.harnessFull("a(?>b|bb)c", " ac abc abbc abbbc ");
@@ -247,7 +250,7 @@ class PatternTest {
 
     // ======================================== CHARACTER CLASSES ========================================
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testPredefinedCharacterClasses() {
         OracleEssentials.harnessFull("\\w",     " abc äöü ");
         if (!PatternTest.JRE6) OracleEssentials.harnessFull("(?U)\\w", " abc äöü ");
@@ -255,7 +258,7 @@ class PatternTest {
         if (!PatternTest.JRE6) OracleEssentials.harnessFull("(?U)\\W", " abc äöü ");
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testPosixCharacterClasses() {
         OracleEssentials.harnessFull("\\p{Lower}",     " abc äöü ");
         if (!PatternTest.JRE6) OracleEssentials.harnessFull("(?U)\\p{Lower}", " abc äöü ");
@@ -263,87 +266,87 @@ class PatternTest {
         if (!PatternTest.JRE6) OracleEssentials.harnessFull("(?U)\\P{Lower}", " abc äöü ");
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testJavaCharacterClasses1() {
         OracleEssentials.harnessFull("\\p{javaLowerCase}", " a B c ä Ä ");
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testJavaCharacterClasses2() {
         OracleEssentials.harnessFull("\\P{javaLowerCase}", " a B c ä Ä ");
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testUnicodeCharacterClasses1() {
 
         // By "UNICODE script" - NYI:
         OracleEssentials.harnessFull("\\p{IsLatin}",       " a B c ä Ä ");
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testUnicodeCharacterClasses2() {
 
         // By "UNICODE block":
         OracleEssentials.harnessFull("\\p{InGreek}",       " \u03b1 ");
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testUnicodeCharacterClasses3() {
         OracleEssentials.harnessFull("\\p{InBasicLatin}",  " a B c ä Ä ");
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testUnicodeCharacterClasses4() {
         OracleEssentials.harnessFull("\\P{InBasicLatin}",  " a B c ä Ä ");
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testUnicodeCharacterClasses5() {
 
         // By "UNICODE category":
         OracleEssentials.harnessFull("\\p{Lu}",            " a B c ä Ä ");
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testUnicodeCharacterClasses6() {
         OracleEssentials.harnessFull("\\P{Lu}",            " a B c ä Ä ");
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testUnicodeCharacterClasses7() {
         OracleEssentials.harnessFull("\\p{Sc}",            " a $ ");
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testUnicodeCharacterClasses8() {
         OracleEssentials.harnessFull("\\P{Sc}",            " a $ ");
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testUnicodeCharacterClasses9() {
 
         // By "UNICODE property":
         if (!PatternTest.JRE6) OracleEssentials.harnessFull("\\p{IsLowerCASE}",  " abc äöü ");
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testUnicodeCharacterClasses10() {
         if (!PatternTest.JRE6) OracleEssentials.harnessFull("\\p{IsAlphabetic}", " abc äöü ");
     }
 
     // ======================================== END OF CHARACTER CLASSES ========================================
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testCapturingGroups() {
         OracleEssentials.harnessFull("((a+)(b+))", " abbb aabb aaab ");
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testNamedCapturingGroups1() {
         if (!PatternTest.JRE6) OracleEssentials.harnessFull("(?<xxx>a+)", " a aa aaa");
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testNamedCapturingGroups2() {
 
         if (PatternTest.JRE6) return;
@@ -362,232 +365,232 @@ class PatternTest {
         Assert.assertFalse(matcher.find());
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testCapturingGroupsBackreference() {
 
         // "\2" is an invalid backreference, which results in a match failure.
         PatternTest.PF.compile("(\\d\\d)\\2").matcher(" a aa aaa").replaceAll("x");
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testNamedCapturingGroupsBackreference1() {
 
         if (!PatternTest.JRE6) OracleEssentials.harnessFull("(?<first>\\w)\\k<first>", " a aa aaa");
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testNamedCapturingGroupsBackreference2() {
 
         // Backreference to inexistent named group.
         if (!PatternTest.JRE6) assertPatternSyntaxException("(?<first>\\w)\\k<bla>");
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testPositiveLookahead1() {
         OracleEssentials.harnessFull("a(?=b)",   " a aba abba a");
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testPositiveLookahead2() {
         OracleEssentials.harnessFull("a(?=(b))", " a aba abba a");
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testNegativeLookahead1() {
         OracleEssentials.harnessFull("a(?!b)",   " a aba abba a");
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testNegativeLookahead2() {
         OracleEssentials.harnessFull("a(?!(b))", " a aba abba a");
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testPositiveLookbehind1() {
         OracleEssentials.harnessFull("(?<=b)a",    " a aba abba a");
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testPositiveLookbehind2() {
         OracleEssentials.harnessFull("(?<=(b))a",  " a aba abba a");
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testPositiveLookbehind3() {
         if (!PatternTest.JRE6) OracleEssentials.harnessFull("(?<=\\R )a", " \r\n a ");
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testPositiveLookbehind4() {
         if (!PatternTest.JRE6) OracleEssentials.harnessFull("(?<=\\R )a", " \r a ");
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testPositiveLookbehind5() {
         if (!PatternTest.JRE6) OracleEssentials.harnessFull("(?<=\\R )a", " \n a ");
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testPositiveLookbehind6() {
         OracleEssentials.harnessFull("(?<=^\t*)\t", "\t\t\tpublic static void main()");
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testPositiveLookbehind7() {
         PF.compile("(?<=^\\s*)    ").matcher("        public static void main()").replaceAll("\t");
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testNegativeLookbehind1() {
         OracleEssentials.harnessFull("(?<!b)a",   " a aba abba a");
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testNegativeLookbehind2() {
         OracleEssentials.harnessFull("(?<!(b))a", " a aba abba a");
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testRegion1() {
         OracleEssentials.harnessFull("a", "__a__ a aba abba __a__", 0, 5, 17);
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testRegion2() {
         OracleEssentials.harnessFull("^", "__a__ a aba abba __a__", 0, 5, 17);
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testRegion3() {
         OracleEssentials.harnessFull("^", "__a__ a aba abba __a__", 0, 5, 17, false, false);
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testRegion4() {
         OracleEssentials.harnessFull("^", "__a__ a aba abba __a__", 0, 5, 17, false, true);
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testRegion5() {
         OracleEssentials.harnessFull("^", "__a__ a aba abba __a__", 0, 5, 17, true,  false);
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testRegion6() {
         OracleEssentials.harnessFull("^", "__a__ a aba abba __a__", 0, 5, 17, true,  true);
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testTransparentBounds1() {
 
         // The for the nineth, failed, match, jur returns "false" for "hitEnd()"!?
 //        harness("\\b",     "__a__ a aba abba __a__", 0, 5, 17, true);
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testTransparentBounds2() {
 
         // Lookahead.
         OracleEssentials.harnessFull(" (?=_)",  "__a__ a aba abba __a__", 0, 5, 17, true);
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testTransparentBounds3() {
         OracleEssentials.harnessFull(" (?!_)",  "__a__ a aba abba __a__", 0, 5, 17, true);
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testTransparentBounds4() {
 
         // Lookbehind.
         OracleEssentials.harnessFull("(?<=_) ", "__a__ a aba abba __a__", 0, 5, 17, true);
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testTransparentBounds5() {
         OracleEssentials.harnessFull("(?<!_) ", "__a__ a aba abba __a__", 0, 5, 17, true);
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testAnchoringBounds1() {
         OracleEssentials.harnessFull("^",  "__a__ a aba abba __a__", 0, 5, 17, null, false);
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testAnchoringBounds2() {
         OracleEssentials.harnessFull("$",  "__a__ a aba abba __a__", 0, 5, 17, null, false);
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testUnixLines1() {
         if (!PatternTest.JRE6) OracleEssentials.harnessFull("\\R",  "  \n  \r\n \u2028 ");
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testUnixLines2() {
         if (!PatternTest.JRE6) OracleEssentials.harnessFull("\\R",  "  \n  \r\n \u2028 ", Pattern.UNIX_LINES);
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testUnixLines3() {
         OracleEssentials.harnessFull("^",    "  \n  \r\n \u2028 ");
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testUnixLines4() {
         OracleEssentials.harnessFull("^",    "  \n  \r\n \u2028 ", Pattern.UNIX_LINES);
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testQuantifiers1() {
         OracleEssentials.harnessFull("a?",  " aaa ");
 //        OracleEssentials.harnessFull("a??", " aaa "); // JRE says !hitEnd after the 7th, failed, match!?
         OracleEssentials.harnessFull("a?+", " aaa ");
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testQuantifiers2() {
         OracleEssentials.harnessFull("a*",  " aaa ");
 //        OracleEssentials.harnessFull("a*?", " aaa "); // JRE says !hitEnd after the 7th, failed, match!?
         OracleEssentials.harnessFull("a*+", " aaa ");
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testQuantifiers3() {
         OracleEssentials.harnessFull("a+",  " aaa ");
         OracleEssentials.harnessFull("a+?", " aaa ");
         OracleEssentials.harnessFull("a++", " aaa ");
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testQuantifiers4() {
 //        OracleEssentials.harnessFull("a{0}",  " aaa "); // JRE says !hitEnd after the 7th, failed, match!?
 //        OracleEssentials.harnessFull("a{0}?", " aaa "); // JRE says !hitEnd after the 7th, failed, match!?
 //        OracleEssentials.harnessFull("a{0}+", " aaa "); // JRE says !hitEnd after the 7th, failed, match!?
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testQuantifiers5() {
         OracleEssentials.harnessFull("a{1}",  " aaa ");
         OracleEssentials.harnessFull("a{1}?", " aaa ");
         OracleEssentials.harnessFull("a{1}+", " aaa ");
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testQuantifiers6() {
         OracleEssentials.harnessFull("a{2}",  " aaa ");
         OracleEssentials.harnessFull("a{2}?", " aaa ");
         OracleEssentials.harnessFull("a{2}+", " aaa ");
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testQuantifiers7() {
         OracleEssentials.harnessFull("a{0,}",  " aaa ");
 //        OracleEssentials.harnessFull("a{0,}?", " aaa "); // JRE says !hitEnd after the 7th, failed, match!?
         OracleEssentials.harnessFull("a{0,}+", " aaa ");
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testGreedyQuantifierFollowedByLongLiteralString() {
 
         String infix = "ABCDEFGHIJKLMNOP";
@@ -606,7 +609,7 @@ class PatternTest {
         }
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testReluctantQuantifierFollowedByLongLiteralString() {
 
         final String infix = "ABCDEFGHIJKLMNOP";
@@ -632,37 +635,43 @@ class PatternTest {
     static char   clefLowSurrogate  = PatternTest.lowSurrogateOf(clef);
     static String clefUnicode       = "" + clefHighSurrogate + clefLowSurrogate;
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testSurrogates1() {
         OracleEssentials.harnessFull(PatternTest.clefUnicode,       PatternTest.clefUnicode);
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testSurrogates2() {
         OracleEssentials.harnessFull(PatternTest.clefUnicode + "?", "");
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testSurrogates3() {
         OracleEssentials.harnessFull(PatternTest.clefUnicode + "?", "" + PatternTest.clefHighSurrogate);
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testSurrogates4() {
         OracleEssentials.harnessFull(PatternTest.clefUnicode + "?", "" + PatternTest.clefLowSurrogate);
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testSurrogates5() {
-        OracleEssentials.harnessFull(PatternTest.clefUnicode + "?", "" + PatternTest.clefHighSurrogate + PatternTest.clefLowSurrogate);
+        OracleEssentials.harnessFull(
+            PatternTest.clefUnicode + "?",
+            clefUnicode
+        );
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testSurrogates6() {
-        OracleEssentials.harnessFull(PatternTest.clefUnicode + "?", "" + PatternTest.clefLowSurrogate + PatternTest.clefHighSurrogate);
+        OracleEssentials.harnessFull(
+            PatternTest.clefUnicode + "?",
+            "" + PatternTest.clefLowSurrogate + PatternTest.clefHighSurrogate // <= high/low surrogates reversed!
+        );
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testPreviousMatchBoundary() {
 
         // From: http://stackoverflow.com/questions/2708833
@@ -672,22 +681,22 @@ class PatternTest {
         );
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testAtomicGroups1() {
         OracleEssentials.harnessFull("^a(bc|b)c$",   "abc");
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testAtomicGroups2() {
         OracleEssentials.harnessFull("^a(bc|b)c$",   "abcc");
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testAtomicGroups3() {
         OracleEssentials.harnessFull("^a(?>bc|b)c$", "abc");
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testAtomicGroups4() {
         OracleEssentials.harnessFull("^a(?>bc|b)c$", "abcc");
     }
@@ -695,147 +704,147 @@ class PatternTest {
     /**
      * @see <a href="http://stackoverflow.com/questions/17618812">Clarification about requireEnd Matcher's method</a>
      */
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testRequireEnd1() {
         OracleEssentials.harnessFull("cat$", "I have a cat");
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testRequireEnd2() {
         OracleEssentials.harnessFull("cat$", "I have a catflap");
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testRequireEnd3() {
         OracleEssentials.harnessFull("cat",  "I have a cat");
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testRequireEnd4() {
         OracleEssentials.harnessFull("cat",  "I have a catflap");
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testRequireEnd5() {
         OracleEssentials.harnessFull("\\d+\\b|[><]=?", "1234");
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testRequireEnd6() {
         OracleEssentials.harnessFull("\\d+\\b|[><]=?", ">=");
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testRequireEnd7() {
         OracleEssentials.harnessFull("\\d+\\b|[><]=?", "<");
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testComments1() {
         OracleEssentials.harnessFull(" a# comment \nb ",    " ab a# comment \nb", Pattern.COMMENTS);
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testComments2() {
         OracleEssentials.harnessFull("(?x)  a  ",           " a ");
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testComments3() {
         OracleEssentials.harnessFull("(?x)  a  (?-x) b",    " ab ");
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testComments4() {
         OracleEssentials.harnessFull("(?x)  a  (?-x) b",    " a b ");
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testComments5() {
         OracleEssentials.harnessFull("(?x)  a#\n  (?-x) b", " ab ");
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testComments6() {
         OracleEssentials.harnessFull("(?x)  a#\n  (?-x) b", " a b ");
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testComments7() {
         OracleEssentials.harnessFull("(?x)  (a)", " a b ");
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testComments8() {
         OracleEssentials.harnessFull("(?x)  (?:a)", " a b ");
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testComments9() {
         OracleEssentials.harnessFull("(?x)  ( ?:a)", " a b ");
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testComments10() {
         OracleEssentials.harnessFull("(?x)  (?: a)", " a b ");
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testComments11() {
         OracleEssentials.harnessFull("(?x)  (? : a)", " a b ");
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testComments12() {
         OracleEssentials.harnessFull("(?x)  ( ? :a)", " a b ");
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testComments13() {
         OracleEssentials.harnessFull("(?x)  ( ?: a)", " a b ");
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testComments14() {
         OracleEssentials.harnessFull("(?x)  ( ? : a)", " a b ");
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testComments15() {
         if (!PatternTest.JRE6) OracleEssentials.harnessFull("(?x)  (?<name>a)", " a b ");
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testComments16() {
         if (!PatternTest.JRE6) OracleEssentials.harnessFull("(?x)  ( ?<name>a)", " a b ");
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testComments17() {
         if (!PatternTest.JRE6) assertPatternSyntaxException("(?x)  (? <name>a)");
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testComments18() {
         if (!PatternTest.JRE6) OracleEssentials.harnessFull("(?x)  (?< name>a)", " a b ");
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testComments19() {
         if (!PatternTest.JRE6) assertPatternSyntaxException("(?x)  (? < name>a)");
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testComments20() {
         if (!PatternTest.JRE6) OracleEssentials.harnessFull("(?x)  ( ?< name>a)", " a b ");
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testComments21() {
         if (!PatternTest.JRE6) assertPatternSyntaxException("(?x)  ( ? < name>a)");
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testAppendReplacementTail1() {
 
         // Verify that "appendReplacement()" without a preceding match throws an Exception.
@@ -847,7 +856,7 @@ class PatternTest {
         }
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testAppendReplacementTail2() {
 
         // Verify that "appendReplacement()" and "appendTail()" work.
@@ -858,47 +867,47 @@ class PatternTest {
         Assert.assertEquals("== Hello bar", sb.toString());
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testCharacterClassOptimizations1() {
         PatternTest.assertSequenceToString("'A'",                                            "[A]");
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testCharacterClassOptimizations2() {
         PatternTest.assertSequenceToString("oneOfTwo('A', 'B')",                             "[AB]");
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testCharacterClassOptimizations3() {
         PatternTest.assertSequenceToString("oneOfTwo('A', 'K')",                             "[AK]");
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testCharacterClassOptimizations4() {
         PatternTest.assertSequenceToString("bitSet('A', 'C', 'E', 'G', 'I', 'K')",           "[ACEGIK]");
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testCharacterClassOptimizations5() {
         PatternTest.assertSequenceToString("range('A' - 'E')",                               "[A-E]");
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testCharacterClassOptimizations6() {
         PatternTest.assertSequenceToString("bitSet('D', 'E', 'F', 'G', 'H', 'I', 'J', 'K')", "[A-K&&D-Z]");
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testCharacterClassOptimizations7() {
         PatternTest.assertSequenceToString(PatternTest.jurpc("set\\('.'(?:, '.'){63}\\)"),   "[A-Za-z0-9_\u0400]");
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testQuantifierOptimizations1() {
         PatternTest.assertSequenceToString("'A'", "A");
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testQuantifierOptimizations2() {
         PatternTest.assertSequenceToString(
             "'A' . greedyQuantifier(operand=negate(lineBreakCharacter), min=0) . 'B'",
@@ -906,7 +915,7 @@ class PatternTest {
         );
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testQuantifierOptimizations3() {
         PatternTest.assertSequenceToString(
             "'A' . greedyQuantifier(operand=negate(lineBreakCharacter), min=0) . naive(\"BC\")",
@@ -914,7 +923,7 @@ class PatternTest {
         );
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testQuantifierOptimizations4() {
         PatternTest.assertSequenceToString(
             "'A' . greedyQuantifierAnyChar(min=0, max=infinite, ls=naive(\"BC\"))",
@@ -923,7 +932,7 @@ class PatternTest {
         );
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testQuantifierOptimizations5() {
         PatternTest.assertSequenceToString(
             "'A' . reluctantQuantifierSequenceAnyChar(min=0, max=infinite, ls=naive(\"BC\"))",
@@ -932,7 +941,7 @@ class PatternTest {
         );
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testQuantifierOptimizations6() {
         PatternTest.assertSequenceToString(
             "'A' . possessiveQuantifierSequenceOfAnyChar(min=0, max=infinite) . naive(\"BC\")",
@@ -941,7 +950,7 @@ class PatternTest {
         );
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testQuantifierOptimizations7() {
 
         // Naive string search, because the string literal is only 14 characters long.
@@ -952,7 +961,7 @@ class PatternTest {
         );
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testQuantifierOptimizations8() {
 
         // Knuth-Morris-Pratt string search, because the string literal is 15 characters long.
@@ -963,7 +972,7 @@ class PatternTest {
         );
     }
 
-    @Test @SuppressWarnings("static-method") public void
+    @Test public void
     testCaseInsensitiveMatch() {
         char[] tripleCaseLetters = { 452, 453, 454, 455, 456, 457, 458, 459, 460, 497, 498, 499 };
 
