@@ -1,6 +1,6 @@
 # Lightning-fast Regular Expressions
 
-Lightning-fast Regular Expressions ("LFR") is a 99.9%-complete reimplementation of `java.util.regex` ("JUR") with better `match()` and `find()` performance. Yet the design is much cleaner and easier to understand and extend (only 5,400 LOC compared to 7,850 in JRE 8).
+Lightning-fast Regular Expressions ("LFR") is a 99.9%-complete reimplementation of `java.util.regex` ("JUR") with better `match()` and `find()` performance. Yet the design is much cleaner and easier to understand and extend (only 5,300 LOC compared to 7,850 in JRE 8).
 
 LFR is (successfully) tested against the OpenJDK 8 regex regression test suite.
 
@@ -26,25 +26,34 @@ The classes `Pattern` and `Matcher` were duplicated from JUR (package `java.util
 
 The JUR `MatchResult` and `PatternSyntaxException` were re-used instead of being duplicated.
 
-Because the LFR `Pattern` is an <em>interface</em> (as opposed to JUR, where it is a class), all its static methods were moved to the `PatternFactory` class. E.g., instead of "`Pattern.compile(...)`" you now have to write "`PatternFactory.INSTANCE.compile(...)`".
+All static methods of the `Pattern` class (`compile()`, `matches()` and `quote()`) were moved to the new `PatternFactory` class. E.g., instead of "`Pattern.compile(...)`" you now have to write "`PatternFactory.INSTANCE.compile(...)`".
 
-Because the LFR `Matcher` is an <em>interface</em> (as opposed to JUR, where it is a class), its static method `quoteReplacement()` was also moved to `PatternFactory.
+Analogously, the static method `Matcher.quoteReplacement()` was also moved to the `PatternFactory` class.
 
 There are the following differences in the API:
 
 Plus:
 
-* The LFR `Matcher` has additional methods `hitStart()` and `requireStart()`, as counterparts for the `hit/requireEnd()` methods (useful for regexes with lookbehinds).
+* The LFR `Matcher` interface has additional methods `hitStart()` and `requireStart()`, as counterparts for the `hit/requireEnd()` methods (useful for regexes with lookbehinds).
 
-* The LFR `Pattern` interface has an additional method `matches(CharSequence subject, int offset)`, which is particularly fast because it does not expose the `Matcher` and can thus save some overhead.
+* The LFR `Pattern` class has an additional method `matches(CharSequence subject, int offset)`, which is particularly fast because it does not expose the `Matcher` and can thus save some overhead.
 
-* The LFR `Pattern` interface has an additional method `sequenceToString()` which returns a human-readable form of the compiled regex. For example, `compile("A.*abcdefghijklmnop", DOTALL).sequenceToString()` returns
+* The LFR `Pattern` class has an additional method `sequenceToString()` which returns a human-readable form of the compiled regex. For example, `compile("A.*abcdefghijklmnop", DOTALL).sequenceToString()` returns
 
-  &nbsp;&nbsp;&nbsp;`'A' . greedyQuantifierAnyChar(min=0, max=infinite, ls=knuthMorrisPratt("abcdefghijklmnop")) . end`
+  &nbsp;&nbsp;&nbsp;`'A' . greedyQuantifierAnyChar(min=0, max=infinite, ls=knuthMorrisPratt("abcdefghijklmnop"))`
   
   This is useful for testing how a regex compiled, and especially which optimizations have taken place.
 
-* LFR can be used with JRE 1.6+, and makes some later features (like "named groups", available since JRE 1.7) available in earlier JREs.
+* LFR can be used with JRE 1.6+, and makes some later features available for earlier JREs.
+ * JUR features that appeared in JRE 1.7:
+  * `\x{h...h}` (code point escapes)
+  * UNICODE scripts like `\p{IsLatin}`
+  * UNICODE binary properties like `\p{IsAlphabetic}`
+  * Named groups (e.g. `(?<name>X)`) and named group backreferences (e.g. `\k<name>`) (available since JRE 1.7)
+  * The `UNICODE_CHARACTER_CLASS` compilation flag, and its in-line equivalent `(?U)`
+ * JUR features that appeared in JRE 1.8:
+  * Some predefined character classes: `\h`, `\v`, and their upper-case counterparts
+  * The linebreak matcher `\R`
 
 ## Performance
 
@@ -68,7 +77,7 @@ Plus:
 
 ## Facade
 
-If you want to switch between JUR and LFR at *runtime*, you can use "`de.unkrig.ref4j`", the "regular expressions facade for Java".
+If you want to switch between JUR and LFR (and other, not yet written RE implementations) at *runtime*, you can use "`de.unkrig.ref4j`", the "regular expressions facade for Java".
 
 ## Integration
 
