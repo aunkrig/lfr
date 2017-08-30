@@ -64,30 +64,24 @@ class PatternTest {
      */
     public static final PatternFactory
 //    PF = OracleEssentials.FE;
-    PF = new PerformanceMeasurementPatternFactory(JUR, LFR);// TODO TMP
+    PF = new PerformanceMeasurementPatternFactory(PatternTest.JUR, PatternTest.LFR);// TODO TMP
 
     private static final boolean JRE6 = System.getProperty("java.specification.version").equals("1.6");
 
-    @Test public void
-    testMatches() {
-        PatternTest.PF.compile("abc", 0).matcher("abc").matches();
-        PatternTest.PF.compile("abc", 0).matcher("abcxx").matches();
-        PatternTest.PF.compile("abc", 0).matcher("xxabc").matches();
-        PatternTest.PF.compile("a.c", 0).matcher("aBc").matches();
-        PatternTest.PF.compile("a.c", 0).matcher("aBcxx").matches();
-        PatternTest.PF.compile("a.*c", 0).matcher("axxxc").matches();
-        PatternTest.PF.compile("a.*c", 0).matcher("axxxcxxxc").matches();
-        PatternTest.PF.compile("a.*c", 0).matcher("axxx").matches();
-    }
+    @Test public void testMatches1() { PatternTest.PF.compile("abc", 0).matcher("abc").matches(); }
+    @Test public void testMatches2() { PatternTest.PF.compile("abc", 0).matcher("abcxx").matches(); }
+    @Test public void testMatches3() { PatternTest.PF.compile("abc", 0).matcher("xxabc").matches(); }
+    @Test public void testMatches4() { PatternTest.PF.compile("a.c", 0).matcher("aBc").matches(); }
+    @Test public void testMatches5() { PatternTest.PF.compile("a.c", 0).matcher("aBcxx").matches(); }
+    @Test public void testMatches6() { PatternTest.PF.compile("a.*c", 0).matcher("axxxc").matches(); }
+    @Test public void testMatches7() { PatternTest.PF.compile("a.*c", 0).matcher("axxxcxxxc").matches(); }
+    @Test public void testMatches8() { PatternTest.PF.compile("a.*c", 0).matcher("axxx").matches(); }
 
-    @Test public void
-    testLiteralOctals() {
-        PatternTest.PF.compile("\\00xx", 0).matcher("\0xx").matches();
-        PatternTest.PF.compile("\\01xx", 0).matcher("\01xx").matches();
-        PatternTest.PF.compile("\\011xx", 0).matcher("\011xx").matches();
-        PatternTest.PF.compile("\\0101xx", 0).matcher("Axx").matches();
-        PatternTest.PF.compile("\\0111xx", 0).matcher("\0111xx").matches();
-    }
+    @Test public void testLiteralOctals1() { PatternTest.PF.compile("\\00xx", 0).matcher("\0xx").matches(); }
+    @Test public void testLiteralOctals2() { PatternTest.PF.compile("\\01xx", 0).matcher("\01xx").matches(); }
+    @Test public void testLiteralOctals3() { PatternTest.PF.compile("\\011xx", 0).matcher("\011xx").matches(); }
+    @Test public void testLiteralOctals4() { PatternTest.PF.compile("\\0101xx", 0).matcher("Axx").matches(); }
+    @Test public void testLiteralOctals5() { PatternTest.PF.compile("\\0111xx", 0).matcher("\0111xx").matches(); }
 
     @Test public void
     testShortStringLiterals() {
@@ -148,77 +142,55 @@ class PatternTest {
         };
     }
 
-    @Test public void
-    testFind() {
-        OracleEssentials.harnessFull("abc",   "abc");
-        OracleEssentials.harnessFull("abc",   "xxabcxx");
-        OracleEssentials.harnessFull("abc",   "xxaBcxx");
-        OracleEssentials.harnessFull("a.c",   "xxabcxx");
-        OracleEssentials.harnessFull("a.*b",  "xxaxxbxxbxxbxx");
-        OracleEssentials.harnessFull("a.*?b", "xxaxxbxxbxxbxx");
-        OracleEssentials.harnessFull("a.*+b", "xxaxxbxxbxxbxx");
-    }
+    @Test public void testFind1() { OracleEssentials.harnessFull("abc",   "abc"); }
+    @Test public void testFind2() { OracleEssentials.harnessFull("abc",   "xxabcxx"); }
+    @Test public void testFind3() { OracleEssentials.harnessFull("abc",   "xxaBcxx"); }
+    @Test public void testFind4() { OracleEssentials.harnessFull("a.c",   "xxabcxx"); }
+    @Test public void testFind5() { OracleEssentials.harnessFull("a.*b",  "xxaxxbxxbxxbxx"); }
+    @Test public void testFind6() { OracleEssentials.harnessFull("a.*?b", "xxaxxbxxbxxbxx"); }
+    @Test public void testFind7() { OracleEssentials.harnessFull("a.*+b", "xxaxxbxxbxxbxx"); }
 
-    @Test public void
-    testLookingAt() {
-        PF.compile("abc").matcher("abcdef").lookingAt();
-        PF.compile("aBc").matcher("abcdef").lookingAt();
-        PF.compile("a.c").matcher("abcdef").lookingAt();
-    }
+    @Test public void testLookingAt1() { PatternTest.PF.compile("abc").matcher("abcdef").lookingAt(); }
+    @Test public void testLookingAt2() { PatternTest.PF.compile("aBc").matcher("abcdef").lookingAt(); }
+    @Test public void testLookingAt3() { PatternTest.PF.compile("a.c").matcher("abcdef").lookingAt(); }
 
-    @Test public void
-    testCaseInsensitive() {
-        OracleEssentials.harnessFull("(?i)A", "xxxAxxx");
-        OracleEssentials.harnessFull("(?i)A", "xxxaxxx");
-        OracleEssentials.harnessFull("(?i)Ä", "xxxäxxx");
-        Assert.assertTrue(OracleEssentials.LFR.matches("(?i)Ä", "Ä"));
-        Assert.assertFalse(OracleEssentials.LFR.matches("(?i)Ä", "ä"));
-    }
+    @Test public void testCaseInsensitive1() { OracleEssentials.harnessFull("(?i)A", "xxxAxxx"); }
+    @Test public void testCaseInsensitive2() { OracleEssentials.harnessFull("(?i)A", "xxxaxxx"); }
+    @Test public void testCaseInsensitive3() { OracleEssentials.harnessFull("(?i)Ä", "xxxäxxx"); }
+    @Test public void testCaseInsensitive4() { Assert.assertTrue(OracleEssentials.LFR.matches("(?i)Ä", "Ä")); }
+    @Test public void testCaseInsensitive5() { Assert.assertFalse(OracleEssentials.LFR.matches("(?i)Ä", "ä")); }
 
-    @Test public void
-    testUnicodeCaseInsensitive() {
-        OracleEssentials.harnessFull("(?ui)A", "xxxAxxx");
-        OracleEssentials.harnessFull("(?ui)A", "xxxaxxx");
-        OracleEssentials.harnessFull("(?ui)Ä", "xxxäxxx");
-        Assert.assertTrue(OracleEssentials.LFR.matches("(?ui)Ä", "Ä"));
-        Assert.assertTrue(OracleEssentials.LFR.matches("(?ui)Ä", "ä"));
-    }
+    @Test public void testUnicodeCaseInsensitive1() { OracleEssentials.harnessFull("(?ui)A", "xxxAxxx"); }
+    @Test public void testUnicodeCaseInsensitive2() { OracleEssentials.harnessFull("(?ui)A", "xxxaxxx"); }
+    @Test public void testUnicodeCaseInsensitive3() { OracleEssentials.harnessFull("(?ui)Ä", "xxxäxxx"); }
+    @Test public void testUnicodeCaseInsensitive4() { Assert.assertTrue(OracleEssentials.LFR.matches("(?ui)Ä", "Ä")); }
+    @Test public void testUnicodeCaseInsensitive5() { Assert.assertTrue(OracleEssentials.LFR.matches("(?ui)Ä", "ä")); }
 
-    @Test public void
-    testDotall() {
-        OracleEssentials.harnessFull(".",     " \r  ");
-        OracleEssentials.harnessFull(".",     " \r  ", Pattern.DOTALL);
-        OracleEssentials.harnessFull("(?s).", " \r  ");
-    }
+    @Test public void testDotall1() { OracleEssentials.harnessFull(".",     " \r  "); }
+    @Test public void testDotall2() { OracleEssentials.harnessFull(".",     " \r  ", Pattern.DOTALL); }
+    @Test public void testDotall3() { OracleEssentials.harnessFull("(?s).", " \r  "); }
 
-    @Test public void
-    testLiteralRegex() {
-        OracleEssentials.harnessFull("$\\*", "$\\*xxx$\\*xxx", Pattern.LITERAL);
-        OracleEssentials.harnessFull("a\\", "a\\xxxA\\xxx",    Pattern.LITERAL | Pattern.CASE_INSENSITIVE); // SUPPRESS CHECKSTYLE LineLength
-        OracleEssentials.harnessFull(".\\Q.\\E.", " ___ ");
-        OracleEssentials.harnessFull(".\\Q.\\E.", " _._ ");
-    }
+    @Test public void testLiteralRegex1() { OracleEssentials.harnessFull("$\\*", "$\\*xxx$\\*xxx", Pattern.LITERAL); }
+    @Test public void testLiteralRegex2() { OracleEssentials.harnessFull("a\\", "a\\xxxA\\xxx",    Pattern.LITERAL | Pattern.CASE_INSENSITIVE); } // SUPPRESS CHECKSTYLE LineLength
+    @Test public void testLiteralRegex3() { OracleEssentials.harnessFull(".\\Q.\\E.", " ___ "); }
+    @Test public void testLiteralRegex4() { OracleEssentials.harnessFull(".\\Q.\\E.", " _._ "); }
 
-    @Test public void
-    testBoundaries() {
-        OracleEssentials.harnessFull("^.", "___\r___\r\n___\u2028___");
-        OracleEssentials.harnessFull(".$", "___\r___\r\n___\u2028___");
-        OracleEssentials.harnessFull("^.", "___\r___\r\n___\u2028___", Pattern.MULTILINE);
-        OracleEssentials.harnessFull(".$", "___\r___\r\n___\u2028___", Pattern.MULTILINE);
-        OracleEssentials.harnessFull("\\b",  " a b c");
-        OracleEssentials.harnessFull("\\B",  " a b c");
-        OracleEssentials.harnessFull("\\A",  "bla\rbla");
-        OracleEssentials.harnessFull("\\Ga", "aaabbb");
-        OracleEssentials.harnessFull(".\\Z", "abc");
-        OracleEssentials.harnessFull(".\\Z", "abc\n");
-        OracleEssentials.harnessFull(".\\Z", "abc\r\nd");
-        OracleEssentials.harnessFull(".\\z", "abc\n");
-//        OracleEssentials.harnessFull(".\\z", "abc\r\nd"); JRE says !requireEnd !?
-
-        OracleEssentials.harnessFull(".", "abc",      Pattern.MULTILINE);
-        OracleEssentials.harnessFull(".", "abc\n",    Pattern.MULTILINE);
-        OracleEssentials.harnessFull(".", "abc\r\nd", Pattern.MULTILINE);
-    }
+    @Test public void testBoundaries1()  { OracleEssentials.harnessFull("^.", "___\r___\r\n___\u2028___"); }
+    @Test public void testBoundaries2()  { OracleEssentials.harnessFull(".$", "___\r___\r\n___\u2028___"); }
+    @Test public void testBoundaries3()  { OracleEssentials.harnessFull("^.", "___\r___\r\n___\u2028___", Pattern.MULTILINE); } // SUPPRESS CHECKSTYLE LineLength:2
+    @Test public void testBoundaries4()  { OracleEssentials.harnessFull(".$", "___\r___\r\n___\u2028___", Pattern.MULTILINE); }
+    @Test public void testBoundaries5()  { OracleEssentials.harnessFull("\\b",  " a b c"); }
+    @Test public void testBoundaries6()  { OracleEssentials.harnessFull("\\B",  " a b c"); }
+    @Test public void testBoundaries7()  { OracleEssentials.harnessFull("\\A",  "bla\rbla"); }
+    @Test public void testBoundaries8()  { OracleEssentials.harnessFull("\\Ga", "aaabbb"); }
+    @Test public void testBoundaries9()  { OracleEssentials.harnessFull(".\\Z", "abc"); }
+    @Test public void testBoundaries10() { OracleEssentials.harnessFull(".\\Z", "abc\n"); }
+    @Test public void testBoundaries11() { OracleEssentials.harnessFull(".\\Z", "abc\r\nd"); }
+    @Test public void testBoundaries12() { OracleEssentials.harnessFull(".\\z", "abc\n"); }
+    //@Test public void testBoundaries13() { OracleEssentials.harnessFull(".\\z", "abc\r\nd"); } JRE says !requireEnd !?
+    @Test public void testBoundaries14() { OracleEssentials.harnessFull(".", "abc",      Pattern.MULTILINE); }
+    @Test public void testBoundaries15() { OracleEssentials.harnessFull(".", "abc\n",    Pattern.MULTILINE); }
+    @Test public void testBoundaries16() { OracleEssentials.harnessFull(".", "abc\r\nd", Pattern.MULTILINE); }
 
     @Test public void
     testMatchFlagsGroup() {
@@ -250,21 +222,15 @@ class PatternTest {
 
     // ======================================== CHARACTER CLASSES ========================================
 
-    @Test public void
-    testPredefinedCharacterClasses() {
-        OracleEssentials.harnessFull("\\w",     " abc äöü ");
-        if (!PatternTest.JRE6) OracleEssentials.harnessFull("(?U)\\w", " abc äöü ");
-        OracleEssentials.harnessFull("\\W",     " abc äöü ");
-        if (!PatternTest.JRE6) OracleEssentials.harnessFull("(?U)\\W", " abc äöü ");
-    }
+    @Test public void testPredefinedCharacterClasses1() {                        OracleEssentials.harnessFull("\\w",     " abc äöü "); } // SUPPRESS CHECKSTYLE LineLength:3
+    @Test public void testPredefinedCharacterClasses2() { if (!PatternTest.JRE6) OracleEssentials.harnessFull("(?U)\\w", " abc äöü "); }
+    @Test public void testPredefinedCharacterClasses3() {                        OracleEssentials.harnessFull("\\W",     " abc äöü "); }
+    @Test public void testPredefinedCharacterClasses4() { if (!PatternTest.JRE6) OracleEssentials.harnessFull("(?U)\\W", " abc äöü "); }
 
-    @Test public void
-    testPosixCharacterClasses() {
-        OracleEssentials.harnessFull("\\p{Lower}",     " abc äöü ");
-        if (!PatternTest.JRE6) OracleEssentials.harnessFull("(?U)\\p{Lower}", " abc äöü ");
-        OracleEssentials.harnessFull("\\P{Lower}",     " abc äöü ");
-        if (!PatternTest.JRE6) OracleEssentials.harnessFull("(?U)\\P{Lower}", " abc äöü ");
-    }
+    @Test public void testPosixCharacterClasses1() {                        OracleEssentials.harnessFull("\\p{Lower}",     " abc äöü "); } // SUPPRESS CHECKSTYLE LineLength:3
+    @Test public void testPosixCharacterClasses2() { if (!PatternTest.JRE6) OracleEssentials.harnessFull("(?U)\\p{Lower}", " abc äöü "); }
+    @Test public void testPosixCharacterClasses3() {                        OracleEssentials.harnessFull("\\P{Lower}",     " abc äöü "); }
+    @Test public void testPosixCharacterClasses4() { if (!PatternTest.JRE6) OracleEssentials.harnessFull("(?U)\\P{Lower}", " abc äöü "); }
 
     @Test public void
     testJavaCharacterClasses1() {
@@ -382,7 +348,7 @@ class PatternTest {
     testNamedCapturingGroupsBackreference2() {
 
         // Backreference to inexistent named group.
-        if (!PatternTest.JRE6) assertPatternSyntaxException("(?<first>\\w)\\k<bla>");
+        if (!PatternTest.JRE6) PatternTest.assertPatternSyntaxException("(?<first>\\w)\\k<bla>");
     }
 
     @Test public void
@@ -437,7 +403,7 @@ class PatternTest {
 
     @Test public void
     testPositiveLookbehind7() {
-        PF.compile("(?<=^\\s*)    ").matcher("        public static void main()").replaceAll("\t");
+        PatternTest.PF.compile("(?<=^\\s*)    ").matcher("        public static void main()").replaceAll("\t");
     }
 
     @Test public void
@@ -631,9 +597,9 @@ class PatternTest {
     }
 
     static int    clef              = 0x1d120;
-    static char   clefHighSurrogate = PatternTest.highSurrogateOf(clef);
-    static char   clefLowSurrogate  = PatternTest.lowSurrogateOf(clef);
-    static String clefUnicode       = "" + clefHighSurrogate + clefLowSurrogate;
+    static char   clefHighSurrogate = PatternTest.highSurrogateOf(PatternTest.clef);
+    static char   clefLowSurrogate  = PatternTest.lowSurrogateOf(PatternTest.clef);
+    static String clefUnicode       = "" + PatternTest.clefHighSurrogate + PatternTest.clefLowSurrogate;
 
     @Test public void
     testSurrogates1() {
@@ -659,7 +625,7 @@ class PatternTest {
     testSurrogates5() {
         OracleEssentials.harnessFull(
             PatternTest.clefUnicode + "?",
-            clefUnicode
+            PatternTest.clefUnicode
         );
     }
 
@@ -821,7 +787,7 @@ class PatternTest {
 
     @Test public void
     testComments17() {
-        if (!PatternTest.JRE6) assertPatternSyntaxException("(?x)  (? <name>a)");
+        if (!PatternTest.JRE6) PatternTest.assertPatternSyntaxException("(?x)  (? <name>a)");
     }
 
     @Test public void
@@ -831,7 +797,7 @@ class PatternTest {
 
     @Test public void
     testComments19() {
-        if (!PatternTest.JRE6) assertPatternSyntaxException("(?x)  (? < name>a)");
+        if (!PatternTest.JRE6) PatternTest.assertPatternSyntaxException("(?x)  (? < name>a)");
     }
 
     @Test public void
@@ -841,7 +807,7 @@ class PatternTest {
 
     @Test public void
     testComments21() {
-        if (!PatternTest.JRE6) assertPatternSyntaxException("(?x)  ( ? < name>a)");
+        if (!PatternTest.JRE6) PatternTest.assertPatternSyntaxException("(?x)  ( ? < name>a)");
     }
 
     @Test public void
@@ -1008,14 +974,14 @@ class PatternTest {
 
     public static void
     assertPatternSyntaxException(String regex) {
-        assertPatternSyntaxException(regex, 0);
+        PatternTest.assertPatternSyntaxException(regex, 0);
     }
 
     public static void
     assertPatternSyntaxException(String regex, int flags) {
 
         try {
-            PF.compile(regex, flags);
+            PatternTest.PF.compile(regex, flags);
             Assert.fail();
         } catch (PatternSyntaxException pse) {
             return;
