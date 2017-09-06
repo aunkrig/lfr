@@ -490,7 +490,7 @@ class Sequences {
                 if (offset == -1) break;
 
                 // See if the rest of the pattern matches.
-                int result = LiteralString.this.next.matches(matcher, offset + this.s.length());
+                int result = this.next.matches(matcher, offset + this.s.length());
                 if (result != -1) {
                     matcher.groups[0] = offset;
                     matcher.groups[1] = result;

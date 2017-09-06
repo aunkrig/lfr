@@ -62,7 +62,7 @@ class CharacterClasses {
     private CharacterClasses() {}
 
     /**
-     * Representation of a literal character, like "a" or "\.".
+     * Representation of a non-supplementary literal character, like "a" or "\.".
      */
     public static
     class LiteralCharacter extends CharacterClass {
@@ -70,12 +70,44 @@ class CharacterClasses {
         /**
          * The literal character that this sequence represents.
          */
-        final int c;
+        final char c;
 
-        LiteralCharacter(int c) { this.c = c; }
+        LiteralCharacter(char c) { this.c = c; }
 
         @Override public boolean
         matches(int subject) { return subject == this.c; }
+
+        /**
+         * Optimized version of {@link #find(MatcherImpl, int)}
+         */
+        @Override public boolean
+        find(MatcherImpl matcher, int start) {
+
+            FIND:
+            while (start < matcher.regionEnd) {
+
+                // Find the next occurrence of the literal string.
+                int offset;
+                for (offset = start;; offset++) {
+                    if (offset >= matcher.regionEnd) break FIND;
+                    if (matcher.subject.charAt(offset) == this.c) break;
+                }
+
+                // See if the rest of the pattern matches.
+                int result = this.next.matches(matcher, offset + 1);
+                if (result != -1) {
+                    matcher.groups[0] = offset;
+                    matcher.groups[1] = result;
+                    return true;
+                }
+
+                // Rest of pattern didn't match; continue right behind the character match.
+                start = offset + 1;
+            }
+
+            matcher.hitEnd = true;
+            return false;
+        }
 
         @Override public Sequence
         concat(Sequence that) {
@@ -168,7 +200,20 @@ class CharacterClasses {
      * Checks whether a code point equals the given <var>codePoint</var>
      */
     public static CharacterClass
-    literalCharacter(int codePoint) { return new LiteralCharacter(codePoint); }
+    literalCharacter(final int codePoint) {
+
+        // Optimize for non-supplementary code points.
+        if (!Character.isSupplementaryCodePoint(codePoint)) return new LiteralCharacter((char) codePoint);
+
+        return new CharacterClass() {
+
+            @Override public boolean
+            matches(int c) { return c == codePoint; }
+
+            @Override protected String
+            toStringWithoutNext() { return "\\x{" + Integer.toHexString(codePoint) + "}"; }
+        };
+    }
 
     /**
      * Representation of a two-characters union, e.g. "[oO]".
@@ -296,7 +341,7 @@ class CharacterClasses {
 
         Iterator<Integer> it = chars.iterator();
         switch (chars.size()) {
-        case 1: return new LiteralCharacter(chars.iterator().next());
+        case 1: return literalCharacter(chars.iterator().next());
         case 2: return new OneOfTwoCharacterClass(it.next(), it.next());
         case 3: return new OneOfThreeCharacterClass(it.next(), it.next(), it.next());
         }
