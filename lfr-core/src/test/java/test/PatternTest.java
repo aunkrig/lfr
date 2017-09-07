@@ -900,7 +900,7 @@ class PatternTest {
     @Test public void
     testQuantifierOptimizations5() {
         PatternTest.assertSequenceToString(
-            "'A' . reluctantQuantifierSequenceAnyChar(min=0, max=infinite, ls=naive(\"BC\"))",
+            "'A' . reluctantQuantifierOnAnyChar(min=0, max=infinite, ls=naive(\"BC\"))",
             "A.*?BC",
             Pattern.DOTALL
         );
@@ -909,7 +909,7 @@ class PatternTest {
     @Test public void
     testQuantifierOptimizations6() {
         PatternTest.assertSequenceToString(
-            "'A' . possessiveQuantifierSequenceOfAnyChar(min=0, max=infinite) . naive(\"BC\")",
+            "'A' . possessiveQuantifierOnAnyChar(min=0, max=infinite) . naive(\"BC\")",
             "A.*+BC",
             Pattern.DOTALL
         );
@@ -940,6 +940,54 @@ class PatternTest {
     @Test public void
     testQuantifierOptimizations9() {
         Assert.assertEquals("naive(\"aaa\")", OracleEssentials.LFR.compile("a{3}").sequenceToString());
+    }
+
+    @Test public void
+    testQuantifierOptimizations10() {
+        Assert.assertEquals(
+            "naive(\"aaa\") . greedyQuantifier(operand='a', min=0, max=2)",
+            OracleEssentials.LFR.compile("a{3,5}").sequenceToString()
+        );
+    }
+
+    @Test public void
+    testQuantifierOptimizations11() {
+        Assert.assertEquals(
+            "naive(\"aaa\") . reluctantQuantifier(operand='a', min=0, max=2)",
+            OracleEssentials.LFR.compile("a{3,5}?").sequenceToString()
+        );
+    }
+
+    @Test public void
+    testQuantifierOptimizations12() {
+        Assert.assertEquals(
+            "naive(\"aaa\") . possessiveQuantifier(operand='a', min=0, max=2)",
+            OracleEssentials.LFR.compile("a{3,5}+").sequenceToString()
+        );
+    }
+
+    @Test public void
+    testQuantifierOptimizations13() {
+        Assert.assertEquals(
+            "naive(\"abcabcabc\") . greedyQuantifier(operand=naive(\"abc\"), min=0, max=2)",
+            OracleEssentials.LFR.compile("(?:abc){3,5}").sequenceToString()
+        );
+    }
+
+    @Test public void
+    testQuantifierOptimizations14() {
+        Assert.assertEquals(
+            "naive(\"abcabcabc\") . reluctantQuantifier(operand=naive(\"abc\"), min=0, max=2)",
+            OracleEssentials.LFR.compile("(?:abc){3,5}?").sequenceToString()
+        );
+    }
+
+    @Test public void
+    testQuantifierOptimizations15() {
+        Assert.assertEquals(
+            "naive(\"abcabcabc\") . possessiveQuantifier(operand=naive(\"abc\"), min=0, max=2)",
+            OracleEssentials.LFR.compile("(?:abc){3,5}+").sequenceToString()
+        );
     }
 
     @Test public void
