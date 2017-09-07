@@ -69,7 +69,6 @@ class Sequences {
         if (min > max)              return CharacterClasses.FAIL;
         if (max == 0)               return Sequences.TERMINAL;
         if (min == 1 && max == 1)   return operand;
-        if (min == max && min <= 8) return Sequences.quantifierWithFixedCount(operand, min);
 
         if ((min == 0 || min == 1) && max == Integer.MAX_VALUE) {
 
@@ -291,25 +290,6 @@ class Sequences {
     }
 
     /**
-     * Implements a quantifier with a <em>fixed</em> count, e.g. <code>"a{7}"</code>.
-     * <p>
-     *   (Whether the quantifier ist greedy, reluctant or possessive is irrelevant for a fixed-count.)
-     * </p>
-     */
-    public static Sequence
-    quantifierWithFixedCount(Sequence operand, int n) {
-
-        Sequence result = Sequences.TERMINAL;
-
-        for (int i = n; i > 0; i--) {
-            result = (i == 1 ? operand : (Sequence) operand.clone()).concat(result);
-        }
-
-        return result;
-    }
-
-
-    /**
      * Implements a reluctant quantifier on an "any char" operand, followed by a literal String.
      * <p>
      *   Examples: <code>".*?ABC" ".{3,17}?ABC"</code>
@@ -371,8 +351,6 @@ class Sequences {
      */
     public static Sequence
     possessiveQuantifier(final Sequence operand, final int min, final int max) {
-
-        if (min == max && min <= 8) return Sequences.quantifierWithFixedCount(operand, min);
 
         return new CompositeSequence() {
 
