@@ -87,22 +87,21 @@ class CharacterClasses {
             while (start < matcher.regionEnd) {
 
                 // Find the next occurrence of the literal string.
-                int offset;
-                for (offset = start;; offset++) {
-                    if (offset >= matcher.regionEnd) break FIND;
-                    if (matcher.subject.charAt(offset) == this.c) break;
+                for (;; start++) {
+                    if (start >= matcher.regionEnd) break FIND;
+                    if (matcher.subject.charAt(start) == this.c) break;
                 }
 
                 // See if the rest of the pattern matches.
-                int result = this.next.matches(matcher, offset + 1);
+                int result = this.next.matches(matcher, start + 1);
                 if (result != -1) {
-                    matcher.groups[0] = offset;
+                    matcher.groups[0] = start;
                     matcher.groups[1] = result;
                     return true;
                 }
 
                 // Rest of pattern didn't match; continue right behind the character match.
-                start = offset + 1;
+                start++;
             }
 
             matcher.hitEnd = true;
