@@ -53,6 +53,7 @@ import de.unkrig.commons.text.scanner.ScanException;
 import de.unkrig.lfr.core.Pattern.RegexScanner;
 import de.unkrig.lfr.core.Pattern.ScannerState;
 import de.unkrig.lfr.core.Pattern.TokenType;
+import de.unkrig.lfr.core.Sequences.QuantifierNature;
 
 /**
  * A drop-in replacement for {@link java.util.regex.Pattern}.
@@ -275,9 +276,9 @@ class PatternFactory extends de.unkrig.ref4j.PatternFactory {
 
                     switch (t.type) {
 
-                    case GREEDY_QUANTIFIER:     return Sequences.quantifier(op, min, max, rs.currentQuantifierNesting, true); // SUPPRESS CHECKSTYLE LineLength:3
-                    case RELUCTANT_QUANTIFIER:  return Sequences.quantifier(op, min, max, rs.currentQuantifierNesting, false);
-                    case POSSESSIVE_QUANTIFIER: return Sequences.possessiveQuantifier(op, min, max);
+                    case GREEDY_QUANTIFIER:     return Sequences.quantifier(op, min, max, rs.currentQuantifierNesting, QuantifierNature.GREEDY); // SUPPRESS CHECKSTYLE LineLength:1
+                    case RELUCTANT_QUANTIFIER:  return Sequences.quantifier(op, min, max, rs.currentQuantifierNesting, QuantifierNature.RELUCTANT);
+                    case POSSESSIVE_QUANTIFIER: return Sequences.quantifier(op, min, max, rs.currentQuantifierNesting, QuantifierNature.POSSESSIVE);
 
                     default:
                         throw new AssertionError(t);

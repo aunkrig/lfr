@@ -62,17 +62,18 @@ class CharacterClasses {
     private CharacterClasses() {}
 
     /**
-     * Representation of a non-supplementary literal character, like "a" or "\.".
+     * Representation of a non-supplementary literal character, i.e. that fits into one {@code char}, like {@code "a"}
+     * or {@code "\."}.
      */
     public static
-    class LiteralCharacter extends CharacterClass {
+    class LiteralChar extends CharacterClass {
 
         /**
          * The literal character that this sequence represents.
          */
         final char c;
 
-        LiteralCharacter(char c) { this.c = c; }
+        LiteralChar(char c) { this.c = c; }
 
         @Override public boolean
         matches(int subject) { return subject == this.c; }
@@ -112,8 +113,8 @@ class CharacterClasses {
         concat(Sequence that) {
             that = (this.next = this.next.concat(that));
 
-            if (that instanceof CharacterClasses.LiteralCharacter) {
-                CharacterClasses.LiteralCharacter thatLiteralCharacter = (CharacterClasses.LiteralCharacter) that;
+            if (that instanceof CharacterClasses.LiteralChar) {
+                CharacterClasses.LiteralChar thatLiteralCharacter = (CharacterClasses.LiteralChar) that;
 
                 int lhs = this.c;
                 int rhs = thatLiteralCharacter.c;
@@ -202,7 +203,7 @@ class CharacterClasses {
     literalCharacter(final int codePoint) {
 
         // Optimize for non-supplementary code points.
-        if (!Character.isSupplementaryCodePoint(codePoint)) return new LiteralCharacter((char) codePoint);
+        if (!Character.isSupplementaryCodePoint(codePoint)) return new LiteralChar((char) codePoint);
 
         return new CharacterClass() {
 
@@ -432,19 +433,19 @@ class CharacterClasses {
 
         if (rhs instanceof EmptyCharacterClass) return lhs;
 
-        if (lhs instanceof LiteralCharacter && rhs instanceof LiteralCharacter) {
-            return CharacterClasses.oneOfTwo(((LiteralCharacter) lhs).c, ((LiteralCharacter) rhs).c);
+        if (lhs instanceof LiteralChar && rhs instanceof LiteralChar) {
+            return CharacterClasses.oneOfTwo(((LiteralChar) lhs).c, ((LiteralChar) rhs).c);
         }
 
-        if (lhs instanceof LiteralCharacter && rhs instanceof OneOfTwoCharacterClass) {
-            LiteralCharacter       lc  = (LiteralCharacter)       lhs;
+        if (lhs instanceof LiteralChar && rhs instanceof OneOfTwoCharacterClass) {
+            LiteralChar       lc  = (LiteralChar)       lhs;
             OneOfTwoCharacterClass oot = (OneOfTwoCharacterClass) rhs;
             return CharacterClasses.oneOfThree(lc.c, oot.c1, oot.c2);
         }
 
-        if (lhs instanceof OneOfTwoCharacterClass && rhs instanceof LiteralCharacter) {
+        if (lhs instanceof OneOfTwoCharacterClass && rhs instanceof LiteralChar) {
             OneOfTwoCharacterClass oot = (OneOfTwoCharacterClass) lhs;
-            LiteralCharacter       lc  = (LiteralCharacter)       rhs;
+            LiteralChar       lc  = (LiteralChar)       rhs;
             return CharacterClasses.oneOfThree(oot.c1, oot.c2, lc.c);
         }
 

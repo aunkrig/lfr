@@ -42,6 +42,8 @@ class Sequences {
 
     private Sequences() {}
 
+    enum QuantifierNature { GREEDY, RELUCTANT, POSSESSIVE }
+
     /**
      * Matches depending on the <var>offset</var>, and the value of {@code matcher.end}.
      */
@@ -64,11 +66,55 @@ class Sequences {
      * Implements greedy and reluctant (but <em>not</em> possessive) quantifiers.
      */
     public static Sequence
-    quantifier(Sequence operand, final int min, final int max, final int counterIndex, final boolean greedy) {
+    quantifier(Sequence operand, final int min, final int max, final int counterIndex, QuantifierNature nature) {
 
-        if (min > max)              return CharacterClasses.FAIL;
-        if (max == 0)               return Sequences.TERMINAL;
-        if (min == 1 && max == 1)   return operand;
+        if (min > max)            return CharacterClasses.FAIL;
+        if (max == 0)             return Sequences.TERMINAL;
+        if (min == 1 && max == 1) return operand;
+
+        // Optimize "a{3,5}" into "aaaa{0,2}".
+        if (min >= 2 && operand instanceof CharacterClasses.LiteralChar) {
+            CharacterClasses.LiteralChar lc = (CharacterClasses.LiteralChar) operand;
+            if (lc.next == Sequences.TERMINAL) {
+                return (
+                    new Sequences.LiteralString(StringUtil.repeat(min, lc.c))
+                    .concat(Sequences.quantifier(lc, 0, max - min, counterIndex, nature))
+                );
+            }
+        }
+
+        // Optimize "(?:abc){3,5}" into "abcabcabc(?:abc){0,2}".
+        if (min >= 2 && operand instanceof Sequences.LiteralString) {
+            Sequences.LiteralString ls = (Sequences.LiteralString) operand;
+            if (ls.next == Sequences.TERMINAL) {
+                return (
+                    new Sequences.LiteralString(StringUtil.repeat(min, ls.s))
+                    .concat(Sequences.quantifier(ls, 0, max - min, counterIndex, nature))
+                );
+            }
+        }
+
+        switch (nature) {
+
+        case GREEDY:
+            return Sequences.greedyOrReluctantQuantifier(operand, min, max, counterIndex, true);
+
+        case RELUCTANT:
+            return Sequences.greedyOrReluctantQuantifier(operand, min, max, counterIndex, false);
+
+        case POSSESSIVE:
+            return Sequences.possessiveQuantifier(operand, min, max);
+
+        default:
+            throw new AssertionError(nature);
+        }
+    }
+
+    /**
+     * Implements greedy and reluctant (but <em>not</em> possessive) quantifiers.
+     */
+    private static Sequence
+    greedyOrReluctantQuantifier(Sequence operand, final int min, final int max, final int counterIndex, final boolean greedy) {
 
         if ((min == 0 || min == 1) && max == Integer.MAX_VALUE) {
 
@@ -150,8 +196,8 @@ class Sequences {
 
                         return (
                             greedy
-                            ? Sequences.greedyQuantifierOfAnyChar(min, Integer.MAX_VALUE, ls)
-                            : Sequences.reluctantQuantifierOfAnyChar(min, Integer.MAX_VALUE, ls)
+                            ? Sequences.greedyQuantifierOnAnyChar(min, Integer.MAX_VALUE, ls)
+                            : Sequences.reluctantQuantifierOnAnyChar(min, Integer.MAX_VALUE, ls)
                         ).concat(ls.next);
                     }
 
@@ -264,8 +310,8 @@ class Sequences {
 
                     return (
                         greedy
-                        ? Sequences.greedyQuantifierOfAnyChar(min, max, ls)
-                        : Sequences.reluctantQuantifierOfAnyChar(min, max, ls)
+                        ? Sequences.greedyQuantifierOnAnyChar(min, max, ls)
+                        : Sequences.reluctantQuantifierOnAnyChar(min, max, ls)
                     ).concat(ls.next);
                 }
 
@@ -296,7 +342,7 @@ class Sequences {
      * </p>
      */
     public static CompositeSequence
-    reluctantQuantifierOfAnyChar(final int min, final int max, final LiteralString ls) {
+    reluctantQuantifierOnAnyChar(final int min, final int max, final LiteralString ls) {
 
         return new CompositeSequence() {
 
@@ -334,7 +380,7 @@ class Sequences {
             @Override public String
             toStringWithoutNext() {
                 return (
-                    "reluctantQuantifierSequenceAnyChar(min="
+                    "reluctantQuantifierOnAnyChar(min="
                     + min
                     + ", max="
                     + Sequences.maxToString(max)
@@ -349,7 +395,7 @@ class Sequences {
     /**
      * Implements a "possessive" quantifier for an operand.
      */
-    public static Sequence
+    private static Sequence
     possessiveQuantifier(final Sequence operand, final int min, final int max) {
 
         return new CompositeSequence() {
@@ -414,7 +460,7 @@ class Sequences {
                         @Override public String
                         toStringWithoutNext() {
                             return (
-                                "possessiveQuantifierSequenceOfAnyChar(min="
+                                "possessiveQuantifierOnAnyChar(min="
                                 + min
                                 + ", max="
                                 + Sequences.maxToString(max)
@@ -430,7 +476,7 @@ class Sequences {
             @Override public String
             toStringWithoutNext() {
                 return (
-                    "possessiveQuantifierSequence("
+                    "possessiveQuantifier(operand="
                     + operand
                     + ", min="
                     + min
@@ -509,8 +555,8 @@ class Sequences {
         concat(Sequence that) {
             that = (this.next = this.next.concat(that));
 
-            if (that instanceof CharacterClasses.LiteralCharacter) {
-                CharacterClasses.LiteralCharacter thatLiteralCharacter = (CharacterClasses.LiteralCharacter) that;
+            if (that instanceof CharacterClasses.LiteralChar) {
+                CharacterClasses.LiteralChar thatLiteralCharacter = (CharacterClasses.LiteralChar) that;
 
                 String lhs = this.s;
                 int    rhs = thatLiteralCharacter.c;
@@ -1304,7 +1350,7 @@ class Sequences {
      * character predicate, e.g. a character class.
      */
     public static Sequence
-    greedyQuantifierOfCharacterClass(final CharacterClass operand, final int min, final int max) {
+    greedyQuantifierOnCharacterClass(final CharacterClass operand, final int min, final int max) {
 
         return new CompositeSequence() {
 
@@ -1379,7 +1425,15 @@ class Sequences {
 
             @Override public String
             toStringWithoutNext() {
-                return "greedyQuantifier(" + operand + ", min=" + min + ", max=" + Sequences.maxToString(max) + ")";
+                return (
+                    "greedyQuantifier(operand="
+                    + operand
+                    + ", min="
+                    + min
+                    + ", max="
+                    + Sequences.maxToString(max)
+                    + ")"
+                );
             }
         };
     }
@@ -1391,7 +1445,7 @@ class Sequences {
      * </p>
      */
     public static Sequence
-    greedyQuantifierOfAnyChar(final int min, final int max, final LiteralString ls) {
+    greedyQuantifierOnAnyChar(final int min, final int max, final LiteralString ls) {
 
         return new CompositeSequence() {
 
