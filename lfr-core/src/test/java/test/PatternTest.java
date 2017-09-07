@@ -63,8 +63,7 @@ class PatternTest {
      * The pattern factory that verfies the functional equality of JUR and LFR.
      */
     public static final PatternFactory
-//    PF = OracleEssentials.FE;
-    PF = new PerformanceMeasurementPatternFactory(PatternTest.JUR, PatternTest.LFR);// TODO TMP
+    PF = OracleEssentials.PF;
 
     private static final boolean JRE6 = System.getProperty("java.specification.version").equals("1.6");
 
@@ -569,7 +568,7 @@ class PatternTest {
         );
 
         Producer<String> rsp = PatternTest.randomSubjectProducer(infix);
-        for (int i = 0; i < 1000; i++) {
+        for (int i = 0; i < 10; i++) {
             String subject = AssertionUtil.notNull(rsp.produce());
             PatternTest.PF.compile(regex, Pattern.DOTALL).matcher(subject).matches();
         }
@@ -589,7 +588,7 @@ class PatternTest {
 
         Pattern p = PatternTest.PF.compile(".*?" + infix, Pattern.DOTALL);
 
-        for (int i = 0; i < 1000; i++) {
+        for (int i = 0; i < 10; i++) {
             String  subject = AssertionUtil.notNull(rsp.produce());
             Matcher matcher = p.matcher(subject);
             matcher.matches();
@@ -936,6 +935,11 @@ class PatternTest {
             "A.*abcdefghijklmnop",
             Pattern.DOTALL
         );
+    }
+
+    @Test public void
+    testQuantifierOptimizations9() {
+        Assert.assertEquals("naive(\"aaa\")", OracleEssentials.LFR.compile("a{3}").sequenceToString());
     }
 
     @Test public void

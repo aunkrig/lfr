@@ -26,12 +26,14 @@
 
 package de.unkrig.lfr.core;
 
+import de.unkrig.commons.nullanalysis.NotNullByDefault;
+
 /**
  * A thing that can "match" a {@link CharSequence}.
  *
  * @see #matches(MatcherImpl, int)
  */
-interface Sequence {
+interface Sequence extends Cloneable {
 
     /**
      * Checks whether this sequence matches the subject of the <var>matcher</var>, starting at the
@@ -81,4 +83,7 @@ interface Sequence {
      */
     @Override String
     toString();
+
+    @NotNullByDefault(false) Sequence
+    clone();
 }

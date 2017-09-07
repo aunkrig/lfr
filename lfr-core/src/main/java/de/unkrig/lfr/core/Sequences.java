@@ -66,9 +66,10 @@ class Sequences {
     public static Sequence
     quantifier(Sequence operand, final int min, final int max, final int counterIndex, final boolean greedy) {
 
-        if (min > max)            return CharacterClasses.FAIL;
-        if (max == 0)             return Sequences.TERMINAL;
-        if (min == 1 && max == 1) return operand;
+        if (min > max)              return CharacterClasses.FAIL;
+        if (max == 0)               return Sequences.TERMINAL;
+        if (min == 1 && max == 1)   return operand;
+        if (min == max && min <= 8) return Sequences.quantifierWithFixedCount(operand, min);
 
         if ((min == 0 || min == 1) && max == Integer.MAX_VALUE) {
 
@@ -290,6 +291,25 @@ class Sequences {
     }
 
     /**
+     * Implements a quantifier with a <em>fixed</em> count, e.g. <code>"a{7}"</code>.
+     * <p>
+     *   (Whether the quantifier ist greedy, reluctant or possessive is irrelevant for a fixed-count.)
+     * </p>
+     */
+    public static Sequence
+    quantifierWithFixedCount(Sequence operand, int n) {
+
+        Sequence result = Sequences.TERMINAL;
+
+        for (int i = n; i > 0; i--) {
+            result = (i == 1 ? operand : (Sequence) operand.clone()).concat(result);
+        }
+
+        return result;
+    }
+
+
+    /**
      * Implements a reluctant quantifier on an "any char" operand, followed by a literal String.
      * <p>
      *   Examples: <code>".*?ABC" ".{3,17}?ABC"</code>
@@ -351,6 +371,8 @@ class Sequences {
      */
     public static Sequence
     possessiveQuantifier(final Sequence operand, final int min, final int max) {
+
+        if (min == max && min <= 8) return Sequences.quantifierWithFixedCount(operand, min);
 
         return new CompositeSequence() {
 
@@ -1266,26 +1288,32 @@ class Sequences {
             @Override public int
             matches(MatcherImpl matcher, int offset) {
 
-                boolean lookbehindMatches;
+                // In most cases, it is more efficient to FIRST check whether the rest of the pattern matches, and
+                // only THEN check if the lookbehind matches.
+                int result = this.next.matches(matcher, offset);
+                if (result == -1) return -1;
 
-                final MatcherImpl.End savedEnd          = matcher.end;
-                final boolean         savedHitEnd       = matcher.hitEnd;
-                final boolean         savedRequireStart = matcher.requireStart;
-                final int             savedRegionStart  = matcher.regionStart;
-                final int             savedRegionEnd    = matcher.regionEnd;
-                try {
-                    matcher.end        = MatcherImpl.End.END_OF_REGION;
-                    matcher.regionEnd  = offset;
-                    lookbehindMatches  = op.find(matcher, matcher.transparentRegionStart);
-                } finally {
-                    matcher.end          = savedEnd;
-                    matcher.hitEnd       = savedHitEnd;
-                    matcher.requireStart = savedRequireStart;
-                    matcher.regionStart  = savedRegionStart;
-                    matcher.regionEnd    = savedRegionEnd;
+                boolean lookbehindMatches;
+                {
+                    final MatcherImpl.End savedEnd          = matcher.end;
+                    final boolean         savedHitEnd       = matcher.hitEnd;
+                    final boolean         savedRequireStart = matcher.requireStart;
+                    final int             savedRegionStart  = matcher.regionStart;
+                    final int             savedRegionEnd    = matcher.regionEnd;
+                    try {
+                        matcher.end        = MatcherImpl.End.END_OF_REGION;
+                        matcher.regionEnd  = offset;
+                        lookbehindMatches  = op.find(matcher, matcher.transparentRegionStart);
+                    } finally {
+                        matcher.end          = savedEnd;
+                        matcher.hitEnd       = savedHitEnd;
+                        matcher.requireStart = savedRequireStart;
+                        matcher.regionStart  = savedRegionStart;
+                        matcher.regionEnd    = savedRegionEnd;
+                    }
                 }
 
-                return lookbehindMatches ? this.next.matches(matcher, offset) : -1;
+                return lookbehindMatches ? result : -1;
             }
 
             @Override public String

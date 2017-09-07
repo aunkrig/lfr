@@ -26,6 +26,8 @@
 
 package de.unkrig.lfr.core;
 
+import de.unkrig.commons.nullanalysis.NotNullByDefault;
+
 /**
  * Implements {@link #find(MatcherImpl, int)} through {@link #matches(MatcherImpl, int)}.
  */
@@ -60,4 +62,14 @@ class AbstractSequence implements Sequence {
     }
 
     @Override public abstract String toString();
+
+    @Override @NotNullByDefault(false) public Sequence
+    clone() {
+        try {
+            return (Sequence) super.clone();
+        } catch (CloneNotSupportedException cnse) {
+            throw new AssertionError(cnse);
+        }
+    }
+
 }
