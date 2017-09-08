@@ -143,9 +143,7 @@ class CharacterClasses {
         @Override public int sizeBound()  { return 1;          }
 
         @Override public String
-        toStringWithoutNext() {
-            return new StringBuilder(3).append('\'').appendCodePoint(this.c).append('\'').toString();
-        }
+        toStringWithoutNext() { return "'" + this.c + '\''; }
     }
 
     /**
@@ -438,14 +436,14 @@ class CharacterClasses {
         }
 
         if (lhs instanceof LiteralChar && rhs instanceof OneOfTwoCharacterClass) {
-            LiteralChar       lc  = (LiteralChar)       lhs;
+            LiteralChar            lc  = (LiteralChar)       lhs;
             OneOfTwoCharacterClass oot = (OneOfTwoCharacterClass) rhs;
             return CharacterClasses.oneOfThree(lc.c, oot.c1, oot.c2);
         }
 
         if (lhs instanceof OneOfTwoCharacterClass && rhs instanceof LiteralChar) {
             OneOfTwoCharacterClass oot = (OneOfTwoCharacterClass) lhs;
-            LiteralChar       lc  = (LiteralChar)       rhs;
+            LiteralChar            lc  = (LiteralChar)       rhs;
             return CharacterClasses.oneOfThree(oot.c1, oot.c2, lc.c);
         }
 
