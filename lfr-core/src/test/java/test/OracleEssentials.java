@@ -53,8 +53,8 @@ class OracleEssentials {
      * The pattern factory that verfies the functional equality of JUR and LFR.
      */
     public static final PatternFactory
-//    PF  = new FunctionalityEquivalencePatternFactory(JUR, LFR);
-    PF  = new PerformanceMeasurementPatternFactory(JUR, LFR);
+    PF  = new FunctionalityEquivalencePatternFactory(JUR, LFR);
+//    PF  = new PerformanceMeasurementPatternFactory(JUR, LFR);
 
     /**
      * Shorthand for "{@link #harnessFull(String, String, int, Integer, int, Boolean, Boolean) harness(regex, subject,
@@ -135,26 +135,5 @@ class OracleEssentials {
         } catch (AssertionError ae) {
             throw ExceptionUtil.wrap("Match #" + matchNumber, ae);
         }
-    }
-
-    private static String
-    asJavaLiteral(String s) {
-
-        StringBuilder sb = new StringBuilder().append('"');
-
-        for (char c : s.toCharArray()) {
-            int idx;
-            if ((idx = "\r\n\b\t\\".indexOf(c)) != -1) {
-                sb.append('\\').append("rnbt\\".charAt(idx));
-            } else
-            if (c < 32 || c > 255) {
-                sb.append(String.format("\\u%04x", (int) c));
-            } else
-            {
-                sb.append(c);
-            }
-        }
-
-        return sb.append('"').toString();
     }
 }
