@@ -563,7 +563,7 @@ class PatternTest {
         String regex = ".*" + infix;
 
         PatternTest.assertSequenceToString(
-            "greedyQuantifier(operand=negate(lineBreakCharacter), min=0) . knuthMorrisPratt(\"ABCDEFGHIJKLMNOP\")",
+            "greedyQuantifierOnCharacterClass(operand=negate(lineBreakCharacter), min=0, max=infinite) . knuthMorrisPratt(\"ABCDEFGHIJKLMNOP\")", // SUPPRESS CHECKSTYLE LineLength
             regex
         );
 
@@ -875,7 +875,7 @@ class PatternTest {
     @Test public void
     testQuantifierOptimizations2() {
         PatternTest.assertSequenceToString(
-            "'A' . greedyQuantifier(operand=negate(lineBreakCharacter), min=0) . 'B'",
+            "'A' . greedyQuantifierOnCharacterClass(operand=negate(lineBreakCharacter), min=0, max=infinite) . 'B'",
             "A.*B"
         );
     }
@@ -883,7 +883,7 @@ class PatternTest {
     @Test public void
     testQuantifierOptimizations3() {
         PatternTest.assertSequenceToString(
-            "'A' . greedyQuantifier(operand=negate(lineBreakCharacter), min=0) . naive(\"BC\")",
+            "'A' . greedyQuantifierOnCharacterClass(operand=negate(lineBreakCharacter), min=0, max=infinite) . naive(\"BC\")", // SUPPRESS CHECKSTYLE LineLength
             "A.*BC"
         );
     }
@@ -945,7 +945,7 @@ class PatternTest {
     @Test public void
     testQuantifierOptimizations10() {
         Assert.assertEquals(
-            "naive(\"aaa\") . greedyQuantifier(operand='a', min=0, max=2)",
+            "naive(\"aaa\") . greedyQuantifierOnCharacterClass(operand='a', min=0, max=2)",
             OracleEssentials.LFR.compile("a{3,5}").sequenceToString()
         );
     }
