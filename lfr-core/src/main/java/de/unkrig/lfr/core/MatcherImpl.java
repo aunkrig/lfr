@@ -117,16 +117,6 @@ class MatcherImpl implements Matcher {
     int[] initialCounters;
 
     /**
-     * Whether an attempt was made to peek <em>before</em> the {@link #regionStart}.
-     */
-    boolean hitStart;
-
-    /**
-     * Whether an attempt was made to peek <em>before</em> the {@link #transparentRegionStart}.
-     */
-    boolean requireStart;
-
-    /**
      * Whether an attempt was made to peek at or behind the {@link #regionEnd}.
      */
     boolean hitEnd;
@@ -300,23 +290,19 @@ class MatcherImpl implements Matcher {
         return start == -1 ? null : this.subject.subSequence(start, end).toString();
     }
 
-    @Override public int              start()        { return this.start(0);             }
-    @Override public int              end()          { return this.end(0);               }
-    @Override @Nullable public String group()        { return this.group(0);             }
-    @Override public int              groupCount()   { return this.pattern().groupCount; }
-    @Override public boolean          hitStart()     { return this.hitStart;             }
-    @Override public boolean          requireStart() { return this.requireStart;         }
-    @Override public boolean          hitEnd()       { return this.hitEnd;               }
-    @Override public boolean          requireEnd()   { return this.requireEnd;           }
+    @Override public int              start()      { return this.start(0);             }
+    @Override public int              end()        { return this.end(0);               }
+    @Override @Nullable public String group()      { return this.group(0);             }
+    @Override public int              groupCount() { return this.pattern().groupCount; }
+    @Override public boolean          hitEnd()     { return this.hitEnd;               }
+    @Override public boolean          requireEnd() { return this.requireEnd;           }
 
     @Override public boolean
     matches() {
 
-        this.groups       = this.initialGroups;
-        this.hitStart     = false;
-        this.requireStart = false;
-        this.hitEnd       = false;
-        this.requireEnd   = false;
+        this.groups     = this.initialGroups;
+        this.hitEnd     = false;
+        this.requireEnd = false;
 
         this.end = MatcherImpl.End.END_OF_REGION;
         int newOffset = this.pattern.sequence.matches(this, this.regionStart);
@@ -336,11 +322,9 @@ class MatcherImpl implements Matcher {
     @Override public boolean
     lookingAt() {
 
-        this.groups       = this.initialGroups;
-        this.hitStart     = false;
-        this.requireStart = false;
-        this.hitEnd       = false;
-        this.requireEnd   = false;
+        this.groups     = this.initialGroups;
+        this.hitEnd     = false;
+        this.requireEnd = false;
 
         this.end = MatcherImpl.End.ANY;
         int newOffset = this.pattern.sequence.matches(this, this.regionStart);
@@ -369,10 +353,8 @@ class MatcherImpl implements Matcher {
 
         if (start < 0 || start > this.regionEnd) throw new IndexOutOfBoundsException(Integer.toString(start));
 
-        this.hitStart     = false;
-        this.requireStart = false;
-        this.hitEnd       = false;
-        this.requireEnd   = false;
+        this.hitEnd     = false;
+        this.requireEnd = false;
 
         if (this.endOfPreviousMatch >= 0 && start == this.groups[0]) {
 
@@ -544,8 +526,6 @@ class MatcherImpl implements Matcher {
         this.updateTransparentBounds();
         this.updateAnchoringBounds();
 
-        this.hitStart           = false;
-        this.requireStart       = false;
         this.hitEnd             = false;
         this.requireEnd         = false;
         this.endOfPreviousMatch = -1;

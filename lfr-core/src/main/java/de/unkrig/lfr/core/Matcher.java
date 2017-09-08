@@ -31,26 +31,4 @@ package de.unkrig.lfr.core;
  */
 public
 interface Matcher extends de.unkrig.ref4j.Matcher {
-
-    /**
-     * Returns {@code true} iff the start of the transparent region was hit by the search engine in the last match
-     * operation performed by this matcher; this can only happen if the pattern starts with a boundary matcher or
-     * contains lookbehind constructs.
-     * <p>
-     *   When this method returns {@code true}, then it is possible that more input <em>before</em> the capturing
-     *   region would have changed the result of the last search.
-     * </p>
-     */
-    boolean requireStart();
-
-    /**
-     * Returns {@code true} iff the start of input was hit by the search engine in the last match operation
-     * performed by this matcher; this can only happen if the pattern starts with a boundary matcher or contains
-     * lookbehind constructs.
-     * <p>
-     *   When this method returns {@code true}, then it is possible that more input <em>before</em> the capturing
-     *   region would have changed the result of the last search.
-     * </p>
-     */
-    boolean hitStart();
 }
