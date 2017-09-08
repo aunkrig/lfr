@@ -36,7 +36,6 @@ import java.util.Locale;
 import java.util.regex.PatternSyntaxException;
 
 import de.unkrig.commons.lang.protocol.ConsumerWhichThrows;
-import de.unkrig.commons.lang.protocol.TransformerUtil;
 import de.unkrig.commons.lang.protocol.TransformerWhichThrows;
 import de.unkrig.commons.nullanalysis.NotNullByDefault;
 import de.unkrig.ref4j.Matcher;
@@ -87,7 +86,7 @@ class PerformanceMeasurementPatternFactory extends PatternFactory {
     compile(final String regex, final int flags) throws PatternSyntaxException {
 
         StackTraceElement[] stes = new Throwable().getStackTrace();
-        StackTraceElement   ste = null;
+        StackTraceElement   ste  = null;
         for (int i = 1; i < stes.length; i++) {
             if (stes[i].getMethodName().startsWith("test")) {
                 ste = stes[i];
@@ -101,6 +100,7 @@ class PerformanceMeasurementPatternFactory extends PatternFactory {
         } else {
             System.out.printf(Locale.US, "%s%n", ste.getClassName() + "." + ste.getMethodName() + "():");
         }
+        System.out.printf(Locale.US, "                                  JUR:       LFR:%n");
 
         final Pattern[] patterns = new Pattern[this.delegates.length];
         for (int i = 0; i < this.delegates.length; i++) patterns[i] = this.delegates[i].compile(regex, flags);
@@ -123,11 +123,11 @@ class PerformanceMeasurementPatternFactory extends PatternFactory {
                         @Override @NotNullByDefault(false) public Object
                         invoke(Object proxy, final Method method, final Object[] arguments) throws Throwable {
 
-                            final Invocation newInv = new Invocation(method, arguments);
+                            invocations.add(new Invocation(method, arguments));
 
                             final Object[] result = new Object[1];
 
-                            PerformanceMeasurementPatternFactory.<Pattern, Matcher>probe(
+                            PerformanceMeasurement.probe(
                                 method.getName() + "()",
                                 patterns,                                                            // inputs
                                 new TransformerWhichThrows<Pattern, Matcher, RuntimeException>() {   // prepare
@@ -137,22 +137,22 @@ class PerformanceMeasurementPatternFactory extends PatternFactory {
 
                                         // Create the Matcher object.
                                         Matcher m = p.matcher(subject);
-
-                                        // "Replay" all method invocations on the Matcher.
-                                        for (Invocation inv : invocations) {
-                                            inv.<RuntimeException>invoke(m);
-                                        }
                                         return m;
                                     }
                                 },
                                 new ConsumerWhichThrows<Matcher, RuntimeException>() {               // execute
 
                                     @Override @NotNullByDefault public void
-                                    consume(Matcher m) { result[0] = newInv.<RuntimeException>invoke(m); }
+                                    consume(Matcher m) {
+                                        m.reset(subject);
+
+                                        // "Replay" all method invocations on the Matcher.
+                                        for (Invocation inv : invocations) {
+                                            result[0] = inv.<RuntimeException>invoke(m);
+                                        }
+                                    }
                                 }
                             );
-
-                            invocations.add(newInv);
 
                             return result[0];
                         }
@@ -163,7 +163,7 @@ class PerformanceMeasurementPatternFactory extends PatternFactory {
             @Override public boolean
             matches(final CharSequence subject, final int offset) {
 
-                probe(
+                PerformanceMeasurement.probe(
                     "Pattern.matches()",
                     patterns,
                     new ConsumerWhichThrows<Pattern, RuntimeException>() {
@@ -180,94 +180,6 @@ class PerformanceMeasurementPatternFactory extends PatternFactory {
             @Override public String[]
             split(CharSequence input, int limit) { throw new UnsupportedOperationException(); }
         };
-    }
-
-    /**
-     * Lets <var>execute</var> consume each <var>input</var> (many times), measures the user cpu times, and prints
-     * them to {@code System.out}.
-     */
-    private static <T> void
-    probe(String message, T[] inputs, final ConsumerWhichThrows<T, RuntimeException> execute) {
-        probe(message, inputs, TransformerUtil.<T, T>identity(), execute);
-    }
-
-    /**
-     * Transforms each of the <var>inputs</var> with the <var>prepare</var> transformer, then lets <var>execute</var>
-     * consume each transformed <var>input</var> (many times), measures the user cpu times, and prints them to {@code
-     * System.out}.
-     */
-    private static <T1, T2> void
-    probe(
-        String                                                 message,
-        T1[]                                                   inputs,
-        final TransformerWhichThrows<T1, T2, RuntimeException> prepare,
-        final ConsumerWhichThrows<T2, RuntimeException>        execute
-    ) {
-
-        System.out.printf(Locale.US, "  %-25s ", message);
-
-        double[] durations = new double[inputs.length];
-
-        for (int i = 0; i < inputs.length; i++) {
-
-            T1 input = inputs[i];
-
-            final T2 transformedInput = prepare.transform(input);
-
-            durations[i] = probe(new Runnable() {
-                @Override public void run() { execute.consume(transformedInput); }
-            });
-
-            System.out.printf(Locale.US, "%,7.1f ns ", 1E9 * durations[i]);
-            if (i > 0) {
-                System.out.printf(Locale.US, "%5.0f%% ", 100 * durations[i] / durations[0]);
-            }
-        }
-        System.out.println();
-    }
-
-    /**
-     * @return How many seconds <em>one</em> invocation of the <var>runnable</var> takes
-     */
-    private static double
-    probe(Runnable runnable) {
-
-        // "ThreadMXBean.getCurrentThreadUserTime()" has only 15.6 ms resolution (MS WINDOWS 7); way too coarse for
-        // our purposes.
-//        ThreadMXBean tmxb = ManagementFactory.getThreadMXBean();
-//        long beginning = tmxb.getCurrentThreadUserTime();
-
-        // Calibrate.
-        int reps = 1000;
-        for (;;) {
-            double duration = probe(runnable, reps);
-            if (duration >= 0.020) break;
-            reps *= 3;
-        }
-
-        // Make several measurements, and determine the minimum duration.
-        double min = Double.MAX_VALUE;
-        for (int i = 0; i < 10; i++) {
-            double duration = probe(runnable, reps);
-            if (duration < min) min = duration;
-        }
-
-        return min / reps;
-    }
-
-    /**
-     * @return How many seconds <var>reps</var> invocations (!) of the <var>runnable</var> took
-     */
-    private static double
-    probe(Runnable runnable, int reps) {
-
-        long beginning = System.currentTimeMillis();
-        {
-            for (int i = 0; i < reps; i++) runnable.run();
-        }
-        long end = System.currentTimeMillis();
-
-        return 1E-3 * (end - beginning);
     }
 
     @Override public boolean
