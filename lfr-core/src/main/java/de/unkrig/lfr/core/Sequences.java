@@ -73,7 +73,7 @@ class Sequences {
         if (min == 1 && max == 1) return operand;
 
         // Optimize "a{3,5}" into "aaaa{0,2}".
-        if (min >= 2 && operand instanceof CharacterClasses.LiteralChar) {
+        if (min >= 2 && min <= 1000 && operand instanceof CharacterClasses.LiteralChar) {
             CharacterClasses.LiteralChar lc = (CharacterClasses.LiteralChar) operand;
             if (lc.next == Sequences.TERMINAL) {
                 return (
@@ -86,7 +86,7 @@ class Sequences {
         // Optimize "(?:abc){3,5}" into "abcabcabc(?:abc){0,2}".
         if (min >= 2 && operand instanceof Sequences.LiteralString) {
             Sequences.LiteralString ls = (Sequences.LiteralString) operand;
-            if (ls.next == Sequences.TERMINAL) {
+            if (ls.next == Sequences.TERMINAL && min * ls.s.length() <= 1000) {
                 return (
                     new Sequences.LiteralString(StringUtil.repeat(min, ls.s))
                     .concat(Sequences.quantifier(ls, 0, max - min, counterIndex, nature))
@@ -97,6 +97,12 @@ class Sequences {
         switch (nature) {
 
         case GREEDY:
+            if (operand instanceof CharacterClass) {
+                CharacterClass cc = (CharacterClass) operand;
+                if (cc.next == Sequences.TERMINAL) {
+                    return Sequences.greedyQuantifierOnCharacterClass(cc, min, max);
+                }
+            }
             return Sequences.greedyOrReluctantQuantifier(operand, min, max, counterIndex, true);
 
         case RELUCTANT:
@@ -114,23 +120,29 @@ class Sequences {
      * Implements greedy and reluctant (but <em>not</em> possessive) quantifiers.
      */
     private static Sequence
-    greedyOrReluctantQuantifier(Sequence operand, final int min, final int max, final int counterIndex, final boolean greedy) {
+    greedyOrReluctantQuantifier(
+        Sequence      operand,
+        final int     min,
+        final int     max,
+        final int     counterIndex,
+        final boolean greedy
+    ) {
 
         if ((min == 0 || min == 1) && max == Integer.MAX_VALUE) {
 
             // Optimization for "x*" and "x+": We can save the overhead of counting repetitions.
 
-            //          +----------+
-            //          |  result  |
-            //          +----------+
-            //            |  or  |
-            //            v      v
-            //   +----------+  +--------+   +--------+
-            //   | operand  |=>|   cs   |-->|  next  |
-            //   +----------+  +--------+   +--------+
-            //          ^             |
-            //          |             |
-            //          +-------------+
+            //         +-----------+
+            //         |  result   |
+            //         +-----------+
+            //           |  or   |
+            //           v       v
+            //   +---------+   +--------+   +--------+
+            //   | operand |-->|   cs   |-->|  next  |
+            //   +---------+   +--------+   +--------+
+            //        ^            |
+            //        |            |
+            //        +------------+
 
             final Sequence[] operand2   = { operand };
             final String     opToString = operand.toString();
@@ -196,8 +208,8 @@ class Sequences {
 
                         return (
                             greedy
-                            ? Sequences.greedyQuantifierOnAnyChar(min, Integer.MAX_VALUE, ls)
-                            : Sequences.reluctantQuantifierOnAnyChar(min, Integer.MAX_VALUE, ls)
+                            ? Sequences.greedyQuantifierOnAnyCharAndLiteralString(min, Integer.MAX_VALUE, ls.s)
+                            : Sequences.reluctantQuantifierOnAnyCharAndLiteralString(min, Integer.MAX_VALUE, ls.s)
                         ).concat(ls.next);
                     }
 
@@ -219,17 +231,17 @@ class Sequences {
             };
         }
 
-        //          +----------+
-        //          |  result  |
-        //          +----------+
-        //            |  or  |
-        //            v      v
-        //   +----------+  +--------+   +--------+
-        //   | operand  |=>|   cs   |-->|  next  |
-        //   +----------+  +--------+   +--------+
-        //          ^             |
-        //          |             |
-        //          +-------------+
+        //         +-----------+
+        //         |  result   |
+        //         +-----------+
+        //           |  or   |
+        //           v       v
+        //   +---------+   +--------+   +--------+
+        //   | operand |-->|   cs   |-->|  next  |
+        //   +---------+   +--------+   +--------+
+        //        ^            |
+        //        |            |
+        //        +------------+
 
         final Sequence[] operand2   = { operand };
         final String     opToString = operand.toString();
@@ -310,8 +322,8 @@ class Sequences {
 
                     return (
                         greedy
-                        ? Sequences.greedyQuantifierOnAnyChar(min, max, ls)
-                        : Sequences.reluctantQuantifierOnAnyChar(min, max, ls)
+                        ? Sequences.greedyQuantifierOnAnyCharAndLiteralString(min, max, ls.s)
+                        : Sequences.reluctantQuantifierOnAnyCharAndLiteralString(min, max, ls.s)
                     ).concat(ls.next);
                 }
 
@@ -342,13 +354,12 @@ class Sequences {
      * </p>
      */
     public static CompositeSequence
-    reluctantQuantifierOnAnyChar(final int min, final int max, final LiteralString ls) {
+    reluctantQuantifierOnAnyCharAndLiteralString(final int min, final int max, final String s) {
 
         return new CompositeSequence() {
 
-            final String  s       = ls.get();
-            final int     len     = this.s.length();
-            final IndexOf indexOf = StringUtil.newIndexOf(this.s);
+            final int     len     = s.length();
+            final IndexOf indexOf = StringUtil.newIndexOf(s);
 
             @Override public int
             matches(MatcherImpl matcher, int offset) {
@@ -385,7 +396,7 @@ class Sequences {
                     + ", max="
                     + Sequences.maxToString(max)
                     + ", ls="
-                    + ls
+                    + this.indexOf
                     + ")"
                 );
             }
@@ -1319,21 +1330,19 @@ class Sequences {
 
                 boolean lookbehindMatches;
                 {
-                    final MatcherImpl.End savedEnd          = matcher.end;
-                    final boolean         savedHitEnd       = matcher.hitEnd;
-                    final boolean         savedRequireStart = matcher.requireStart;
-                    final int             savedRegionStart  = matcher.regionStart;
-                    final int             savedRegionEnd    = matcher.regionEnd;
+                    final MatcherImpl.End savedEnd         = matcher.end;
+                    final boolean         savedHitEnd      = matcher.hitEnd;
+                    final int             savedRegionStart = matcher.regionStart;
+                    final int             savedRegionEnd   = matcher.regionEnd;
                     try {
                         matcher.end        = MatcherImpl.End.END_OF_REGION;
                         matcher.regionEnd  = offset;
                         lookbehindMatches  = op.find(matcher, matcher.transparentRegionStart);
                     } finally {
-                        matcher.end          = savedEnd;
-                        matcher.hitEnd       = savedHitEnd;
-                        matcher.requireStart = savedRequireStart;
-                        matcher.regionStart  = savedRegionStart;
-                        matcher.regionEnd    = savedRegionEnd;
+                        matcher.end         = savedEnd;
+                        matcher.hitEnd      = savedHitEnd;
+                        matcher.regionStart = savedRegionStart;
+                        matcher.regionEnd   = savedRegionEnd;
                     }
                 }
 
@@ -1346,8 +1355,8 @@ class Sequences {
     }
 
     /**
-     * Optimized version of {@link #greedyQuantifierSequence(Sequence, int, int)} when the operand is a bare
-     * character predicate, e.g. a character class.
+     * Optimized version of {@link #greedyOrReluctantQuantifier(Sequence, int, int, int, boolean)} when the operand is
+     * a bare character class.
      */
     public static Sequence
     greedyQuantifierOnCharacterClass(final CharacterClass operand, final int min, final int max) {
@@ -1423,10 +1432,26 @@ class Sequences {
                 return -1;
             }
 
+            @Override public Sequence
+            concat(Sequence that) {
+
+                // Optimize the special case ".{min,}literalstring".
+                if (
+                    operand instanceof CharacterClasses.AnyCharacter
+                    && ((CompositeSequence) operand).next == Sequences.TERMINAL
+                    && that instanceof LiteralString
+                ) {
+                    LiteralString ls = (LiteralString) that;
+                    return Sequences.greedyQuantifierOnAnyCharAndLiteralString(min, Integer.MAX_VALUE, ls.s);
+                }
+
+                return super.concat(that);
+            }
+
             @Override public String
             toStringWithoutNext() {
                 return (
-                    "greedyQuantifier(operand="
+                    "greedyQuantifierOnCharacterClass(operand="
                     + operand
                     + ", min="
                     + min
@@ -1445,13 +1470,12 @@ class Sequences {
      * </p>
      */
     public static Sequence
-    greedyQuantifierOnAnyChar(final int min, final int max, final LiteralString ls) {
+    greedyQuantifierOnAnyCharAndLiteralString(final int min, final int max, final String s) {
 
         return new CompositeSequence() {
 
-            final String  s           = ls.s;
-            final IndexOf indexOf     = StringUtil.newIndexOf(this.s);
-            final int     infixLength = this.s.length();
+            final IndexOf indexOf     = StringUtil.newIndexOf(s);
+            final int     infixLength = s.length();
 
             @Override public int
             matches(MatcherImpl matcher, int offset) {
