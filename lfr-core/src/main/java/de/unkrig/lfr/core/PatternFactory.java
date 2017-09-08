@@ -276,7 +276,7 @@ class PatternFactory extends de.unkrig.ref4j.PatternFactory {
 
                     switch (t.type) {
 
-                    case GREEDY_QUANTIFIER:     return Sequences.quantifier(op, min, max, rs.currentQuantifierNesting, QuantifierNature.GREEDY); // SUPPRESS CHECKSTYLE LineLength:1
+                    case GREEDY_QUANTIFIER:     return Sequences.quantifier(op, min, max, rs.currentQuantifierNesting, QuantifierNature.GREEDY); // SUPPRESS CHECKSTYLE LineLength:2
                     case RELUCTANT_QUANTIFIER:  return Sequences.quantifier(op, min, max, rs.currentQuantifierNesting, QuantifierNature.RELUCTANT);
                     case POSSESSIVE_QUANTIFIER: return Sequences.quantifier(op, min, max, rs.currentQuantifierNesting, QuantifierNature.POSSESSIVE);
 
@@ -931,24 +931,5 @@ class PatternFactory extends de.unkrig.ref4j.PatternFactory {
             }
         }
         return subject;
-    }
-
-    /**
-     * @return The code point represented by a {@link TokenType#LITERAL_HEXADECIMAL} token
-     */
-    public static int
-    literalHexadecimal(String s) throws ParseException {
-
-        int cp = Integer.parseInt((
-            s.charAt(2) == '{'
-            ? s.substring(3, s.length() - 1)
-            : s.substring(2)
-        ), 16);
-
-        if (cp < Character.MIN_CODE_POINT || cp > Character.MAX_CODE_POINT) {
-            throw new ParseException("Invalid code point " + cp);
-        }
-
-        return cp;
     }
 }
