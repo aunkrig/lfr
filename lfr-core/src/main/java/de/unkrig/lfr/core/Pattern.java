@@ -127,7 +127,7 @@ class Pattern implements de.unkrig.ref4j.Pattern, Serializable {
     /**
      * The flags configured at compile time.
      *
-     * @see #compile(String, int)
+     * @see PatternFactory#compile(String, int)
      */
     int flags;
 
