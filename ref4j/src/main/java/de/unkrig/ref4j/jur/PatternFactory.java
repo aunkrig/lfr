@@ -39,11 +39,13 @@ import de.unkrig.ref4j.Pattern;
 /**
  * Adapter for the {@code java.util.regex} engine.
  */
-public class PatternFactory extends de.unkrig.ref4j.PatternFactory implements Serializable {
+public final
+class PatternFactory extends de.unkrig.ref4j.PatternFactory implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
-    private static final double JAVA_SPECIFICATION_VERSION = Double.parseDouble(System.getProperty("java.specification.version"));
+    private static final double
+    JAVA_SPECIFICATION_VERSION = Double.parseDouble(System.getProperty("java.specification.version"));
 
     private static final int SUPPORTED_FLAGS = (
         0
@@ -65,14 +67,14 @@ public class PatternFactory extends de.unkrig.ref4j.PatternFactory implements Se
     // Methods "Matcher.start(String)", "Matcher.end(String)" and "Matcher.group(String)" are only available since
     // Java 7.
 
-    static MethodWrapper1<java.util.regex.Matcher, Integer, String, RuntimeException>
-    MATCHER__START = OptionalMethods.get1(java.util.regex.Matcher.class, "start", String.class);
+    static final MethodWrapper1<java.util.regex.Matcher, Integer, String, RuntimeException>
+    MATCHER_START = OptionalMethods.get1(java.util.regex.Matcher.class, "start", String.class);
 
-    static MethodWrapper1<java.util.regex.Matcher, Integer, String, RuntimeException>
-    MATCHER__END = OptionalMethods.get1(java.util.regex.Matcher.class, "end", String.class);
+    static final MethodWrapper1<java.util.regex.Matcher, Integer, String, RuntimeException>
+    MATCHER_END = OptionalMethods.get1(java.util.regex.Matcher.class, "end", String.class);
 
-    static MethodWrapper1<java.util.regex.Matcher, String, String, RuntimeException>
-    MATCHER__GROUP = OptionalMethods.get1(java.util.regex.Matcher.class, "group", String.class);
+    static final MethodWrapper1<java.util.regex.Matcher, String, String, RuntimeException>
+    MATCHER_GROUP = OptionalMethods.get1(java.util.regex.Matcher.class, "group", String.class);
 
     @Override public int
     getSupportedFlags() { return PatternFactory.SUPPORTED_FLAGS; }
@@ -96,13 +98,14 @@ public class PatternFactory extends de.unkrig.ref4j.PatternFactory implements Se
 
                 return new Matcher() {
 
+                    // SUPPRESS CHECKSTYLE LineLength:42
                     @Override public Matcher     useTransparentBounds(boolean b)  { m.useTransparentBounds(b); return this; }
                     @Override public Matcher     usePattern(Pattern newPattern)   { m.usePattern(((JurPattern) newPattern).jurPattern); return this; }
                     @Override public Matcher     useAnchoringBounds(boolean b)    { m.useAnchoringBounds(b); return this; }
                     @Override public MatchResult toMatchResult()                  { return m.toMatchResult(); }
                     @Override public int         start(int group)                 { return m.start(group); }
                     @Override public int         start()                          { return m.start(); }
-                    @Override public int         start(String name)               { return PatternFactory.MATCHER__START.invoke(m, name); }
+                    @Override public int         start(String name)               { return PatternFactory.MATCHER_START.invoke(m, name); }
                     @Override public Matcher     reset(CharSequence input)        { m.reset(input); return this; }
                     @Override public Matcher     reset()                          { m.reset(); return this; }
                     @Override public boolean     requireEnd()                     { return m.requireEnd(); }
@@ -120,13 +123,12 @@ public class PatternFactory extends de.unkrig.ref4j.PatternFactory implements Se
                     @Override public int         groupCount()                     { return m.groupCount(); }
                     @Override public String      group(int group)                 { return m.group(group); }
                     @Override public String      group()                          { return m.group(); }
-                    @Override public String      group(String name)               { return PatternFactory.MATCHER__GROUP.invoke(m, name); }
+                    @Override public String      group(String name)               { return PatternFactory.MATCHER_GROUP.invoke(m, name); }
                     @Override public boolean     find(int start)                  { return m.find(start); }
                     @Override public boolean     find()                           { return m.find(); }
                     @Override public int         end(int group)                   { return m.end(group); }
                     @Override public int         end()                            { return m.end(); }
-                    @Override public int         end(String name)                 { return PatternFactory.MATCHER__END.invoke(m, name); }
-
+                    @Override public int         end(String name)                 { return PatternFactory.MATCHER_END.invoke(m, name); }
 
                     @Override public <T extends Appendable> T
                     appendTail(T appendable) {

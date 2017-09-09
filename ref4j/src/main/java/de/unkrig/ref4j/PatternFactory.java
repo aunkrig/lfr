@@ -29,6 +29,7 @@ package de.unkrig.ref4j;
 import java.util.Iterator;
 import java.util.regex.PatternSyntaxException;
 
+import de.unkrig.commons.nullanalysis.NotNullByDefault;
 import de.unkrig.commons.nullanalysis.Nullable;
 import de.unkrig.commons.util.EnhancedServiceLoader;
 
@@ -41,7 +42,7 @@ import de.unkrig.commons.util.EnhancedServiceLoader;
  * {@code ServiceLoader<PatternFactory> patternFactory = ServiceLoader.load(PatternFactory.class);}
  * </pre>
  */
-public abstract
+@NotNullByDefault public abstract
 class PatternFactory {
 
     /**
@@ -92,28 +93,27 @@ class PatternFactory {
     getSupportedFlags();
 
     /**
-     * Compiles the given <var>regex<var> into a {@link Pattern} with the given flags.
-     *
-     * @param flags The or'ed compilation flag constants declared by {@link Pattern}
-     * @see         java.util.regex.Pattern#compile(String)
-     * @see         Pattern#CANON_EQ
-     * @see         Pattern#CASE_INSENSITIVE
-     * @see         Pattern#COMMENTS
-     * @see         Pattern#DOTALL
-     * @see         Pattern#LITERAL
-     * @see         Pattern#MULTILINE
-     * @see         Pattern#UNICODE_CASE
-     * @see         Pattern#UNICODE_CHARACTER_CLASS
-     * @see         Pattern#UNIX_LINES
+     * Compiles the given <var>regex<var> into a {@link Pattern}.
      */
     public Pattern
     compile(String regex) throws PatternSyntaxException { return this.compile(regex, 0); }
 
     /**
-     * Compiles the given <var>regex<var> into a {@link Pattern}.
+     * Compiles the given <var>regex</var> into a {@link Pattern} with the given flags.
      *
+     * @param flags                     The or'ed compilation flag constants declared by {@link Pattern}
      * @throws IllegalArgumentException A flag was given that is not set in {@link #getSupportedFlags()}
      * @see                             java.util.regex.Pattern#compile(String, int)
+     * @see                             java.util.regex.Pattern#compile(String)
+     * @see                             Pattern#CANON_EQ
+     * @see                             Pattern#CASE_INSENSITIVE
+     * @see                             Pattern#COMMENTS
+     * @see                             Pattern#DOTALL
+     * @see                             Pattern#LITERAL
+     * @see                             Pattern#MULTILINE
+     * @see                             Pattern#UNICODE_CASE
+     * @see                             Pattern#UNICODE_CHARACTER_CLASS
+     * @see                             Pattern#UNIX_LINES
      */
     public abstract Pattern
     compile(String regex, int flags) throws PatternSyntaxException;

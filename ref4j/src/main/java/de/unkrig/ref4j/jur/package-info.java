@@ -25,6 +25,6 @@
  */
 
 @NotNullByDefault
-package de.unkrig.ref4j;
+package de.unkrig.ref4j.jur;
 
 import de.unkrig.commons.nullanalysis.NotNullByDefault;

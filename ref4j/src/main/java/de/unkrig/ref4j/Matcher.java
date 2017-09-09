@@ -28,12 +28,13 @@ package de.unkrig.ref4j;
 
 import java.io.IOException;
 
+import de.unkrig.commons.nullanalysis.NotNullByDefault;
 import de.unkrig.commons.nullanalysis.Nullable;
 
 /**
  * A wrapper for {@link java.util.regex.Matcher}.
  */
-public
+@NotNullByDefault public
 interface Matcher extends java.util.regex.MatchResult {
 
     /**

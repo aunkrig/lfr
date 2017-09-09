@@ -32,8 +32,8 @@ import org.junit.Test;
 
 import de.unkrig.ref4j.PatternFactory;
 
-public class
-Ref4JTests {
+public
+class Ref4JTests {
 
     @Test public void
     testFactory() throws IOException {
