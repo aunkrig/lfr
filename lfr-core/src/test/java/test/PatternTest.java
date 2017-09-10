@@ -826,10 +826,14 @@ class PatternTest {
 
         // Verify that "appendReplacement()" and "appendTail()" work.
         Matcher m = PatternTest.PF.compile("foo").matcher(" Hello foo and foo!");
+
         Assert.assertTrue(m.find());
         StringBuffer sb = new StringBuffer("==");
         m.appendReplacement(sb, "bar");
         Assert.assertEquals("== Hello bar", sb.toString());
+
+        m.appendTail(sb);
+        Assert.assertEquals("== Hello bar and foo!", sb.toString());
     }
 
     @Test public void
