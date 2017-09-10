@@ -109,12 +109,7 @@ class MatcherImpl implements Matcher {
     /**
      * The counters for the currently executing iterations.
      */
-    int[] counters;
-
-    /**
-     * The template to store in {@link #counters} when the matching begins.
-     */
-    int[] initialCounters;
+    final int[] counters;
 
     /**
      * Whether an attempt was made to peek at or behind the {@link #regionEnd}.
@@ -156,8 +151,7 @@ class MatcherImpl implements Matcher {
         this.groups = (this.initialGroups = new int[2 + 2 * pattern.groupCount]);
         Arrays.fill(this.groups, -1);
 
-        this.counters = (this.initialCounters = new int[pattern.quantifierNesting]);
-        Arrays.fill(this.counters, -1);
+        this.counters = new int[pattern.quantifierNesting];
     }
 
     @Override public MatchResult

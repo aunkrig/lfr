@@ -154,22 +154,14 @@ class Sequences {
 
                     if (greedy) {
 
-                        int[] savedCounters = matcher.counters;
-                        {
-                            int result = operand2[0].matches(matcher, offset);
-                            if (result != -1) return result;
-                        }
-                        matcher.counters = savedCounters;
+                        int result = operand2[0].matches(matcher, offset);
+                        if (result != -1) return result;
 
                         return this.next.matches(matcher, offset);
                     } else {
 
-                        int[] savedCounters = matcher.counters;
-                        {
-                            int result = this.next.matches(matcher, offset);
-                            if (result != -1) return result;
-                        }
-                        matcher.counters = savedCounters;
+                        int result = this.next.matches(matcher, offset);
+                        if (result != -1) return result;
 
                         return operand2[0].matches(matcher, offset);
                     }
@@ -187,10 +179,10 @@ class Sequences {
                 matches(MatcherImpl matcher, int offset) {
 
                     if (min == 0) {
-                        (matcher.counters = matcher.counters.clone())[counterIndex] = 0;
+                        matcher.counters[counterIndex] = 0;
                         return cs.matches(matcher, offset);
                     } else {
-                        (matcher.counters = matcher.counters.clone())[counterIndex] = 1;
+                        matcher.counters[counterIndex] = 1;
                         return operand2[0].matches(matcher, offset);
                     }
                 }
@@ -256,16 +248,12 @@ class Sequences {
 
                     if (ic == max) return this.next.matches(matcher, offset);
 
-                    (matcher.counters = matcher.counters.clone())[counterIndex] = ic + 1;
+                    matcher.counters[counterIndex] = ic + 1;
 
                     if (ic < min) return operand2[0].matches(matcher, offset);
 
-                    int[] savedCounters = matcher.counters;
-                    {
-                        int result = operand2[0].matches(matcher, offset);
-                        if (result != -1) return result;
-                    }
-                    matcher.counters = savedCounters;
+                    int result = operand2[0].matches(matcher, offset);
+                    if (result != -1) return result;
 
                     return this.next.matches(matcher, offset);
                 } else {
@@ -273,17 +261,13 @@ class Sequences {
 
                     if (ic >= min) {
 
-                        int[] savedCounters = matcher.counters;
-                        {
-                            int result = this.next.matches(matcher, offset);
-                            if (result != -1) return result;
-                        }
-                        matcher.counters = savedCounters;
+                        int result = this.next.matches(matcher, offset);
+                        if (result != -1) return result;
                     }
 
                     if (++ic > max) return -1;
 
-                    (matcher.counters = matcher.counters.clone())[counterIndex] = ic;
+                    matcher.counters[counterIndex] = ic;
 
                     return operand2[0].matches(matcher, offset);
                 }
@@ -301,10 +285,10 @@ class Sequences {
             matches(MatcherImpl matcher, int offset) {
 
                 if (min == 0) {
-                    (matcher.counters = matcher.counters.clone())[counterIndex] = 0;
+                    matcher.counters[counterIndex] = 0;
                     return cs.matches(matcher, offset);
                 } else {
-                    (matcher.counters = matcher.counters.clone())[counterIndex] = 1;
+                    matcher.counters[counterIndex] = 1;
                     return operand2[0].matches(matcher, offset);
                 }
             }
