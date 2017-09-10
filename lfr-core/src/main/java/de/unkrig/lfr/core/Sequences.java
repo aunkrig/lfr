@@ -805,7 +805,7 @@ class Sequences {
                 // If the referenced group didn't match, then neither does this back reference.
                 if (start == -1) return -1;
 
-                offset = matcher.peekRead(offset, matcher.subject.subSequence(start, end));
+                offset = matcher.peekRead(offset, matcher.subject, start, end);
                 if (offset == -1) return -1;
 
                 return this.next.matches(matcher, offset);
