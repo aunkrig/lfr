@@ -244,8 +244,8 @@ class PatternTest {
     @Test public void
     testUnicodeCharacterClasses1() {
 
-        // By "UNICODE script" - NYI:
-        OracleEssentials.harnessFull("\\p{IsLatin}",       " a B c ä Ä ");
+        // By "UNICODE script":
+        if (!PatternTest.JRE6) OracleEssentials.harnessFull("\\p{IsLatin}",       " a B c ä Ä ");
     }
 
     @Test public void
