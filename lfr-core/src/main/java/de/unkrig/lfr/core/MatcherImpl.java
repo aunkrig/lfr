@@ -574,15 +574,23 @@ class MatcherImpl implements Matcher {
 
     /**
      * If the subject infix ranging from the <var>offset</var> to the region end starts with the <var>cs</var>,
-     * then the offset is advanced and {@code true} is returned.
+     * then the offset is advanced and returned.
      *
      * @return The offset after the match, or -1 if <var>cs</var> does not match
      */
     int
-    peekRead(int offset, CharSequence cs) {
+    peekRead(int offset, CharSequence cs) { return this.peekRead(offset, cs, 0, cs.length()); }
 
-        int csLength = cs.length();
-        for (int i = 0; i < csLength; i++) {
+    /**
+     * If the subject infix ranging from the <var>offset</var> to the region end starts with {@code
+     * cs.subSequences(start, end)}, then the offset is advanced and returned.
+     *
+     * @return The offset after the match, or -1 if <var>cs</var> does not match
+     */
+    int
+    peekRead(int offset, CharSequence cs, int start, int end) {
+
+        for (int i = start; i < end; i++) {
 
             if (offset >= this.regionEnd) {
 
