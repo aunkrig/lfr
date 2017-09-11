@@ -52,11 +52,11 @@ class CharacterClasses {
     public static final CharacterClass
     FAIL = new CharacterClass() {
 
-        @Override public boolean   matches(int c)                           { return false;  }
-        @Override public boolean   find(MatcherImpl matcherImpl, int start) { return false;  }
-        @Override public Sequence  concat(Sequence that)                    { return this;   }
-        @Override public String    toString()                               { return "fail"; }
-        @Override protected String toStringWithoutNext()                    { return "???";  }
+        @Override public boolean   matches(int c)                { return false;  }
+        @Override public boolean   find(MatcherImpl matcherImpl) { return false;  }
+        @Override public Sequence  concat(Sequence that)         { return this;   }
+        @Override public String    toString()                    { return "fail"; }
+        @Override protected String toStringWithoutNext()         { return "???";  }
     };
 
     private CharacterClasses() {}
@@ -79,30 +79,32 @@ class CharacterClasses {
         matches(int subject) { return subject == this.c; }
 
         /**
-         * Optimized version of {@link #find(MatcherImpl, int)}
+         * Optimized version of {@link #find(MatcherImpl)}
          */
         @Override public boolean
-        find(MatcherImpl matcher, int start) {
+        find(MatcherImpl matcher) {
+
+            int o = matcher.offset;
 
             FIND:
-            while (start < matcher.regionEnd) {
+            while (o < matcher.regionEnd) {
 
-                // Find the next occurrence of the literal string.
-                for (;; start++) {
-                    if (start >= matcher.regionEnd) break FIND;
-                    if (matcher.subject.charAt(start) == this.c) break;
+                // Find the next occurrence of the literal char.
+                for (;; o++) {
+                    if (o >= matcher.regionEnd) break FIND;
+                    if (matcher.subject.charAt(o) == this.c) break;
                 }
 
                 // See if the rest of the pattern matches.
-                int result = this.next.matches(matcher, start + 1);
-                if (result != -1) {
-                    matcher.groups[0] = start;
-                    matcher.groups[1] = result;
+                matcher.offset = o + 1;
+                if (this.next.matches(matcher)) {
+                    matcher.groups[0] = o;
+                    matcher.groups[1] = matcher.offset;
                     return true;
                 }
 
                 // Rest of pattern didn't match; continue right behind the character match.
-                start++;
+                o++;
             }
 
             matcher.hitEnd = true;

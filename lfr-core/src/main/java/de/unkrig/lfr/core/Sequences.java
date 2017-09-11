@@ -42,7 +42,7 @@ class Sequences {
 
     private Sequences() {}
 
-    enum QuantifierNature { GREEDY, RELUCTANT, POSSESSIVE }
+    enum QuantifierNature { GREEDY, RELUCTANT, POSSESSIVE } // SUPPRESS CHECKSTYLE JavadocVariable
 
     /**
      * Matches depending on the <var>offset</var>, and the value of {@code matcher.end}.
@@ -50,9 +50,9 @@ class Sequences {
     public static final Sequence
     TERMINAL = new AbstractSequence() {
 
-        @Override public int
-        matches(MatcherImpl matcher, int offset) {
-            return matcher.end == MatcherImpl.End.ANY || offset >= matcher.regionEnd ? offset : -1;
+        @Override public boolean
+        matches(MatcherImpl matcher) {
+            return matcher.end == MatcherImpl.End.ANY || matcher.offset >= matcher.regionEnd;
         }
 
         @Override public Sequence
@@ -149,21 +149,27 @@ class Sequences {
 
             final CompositeSequence cs = new CompositeSequence() {
 
-                @Override public int
-                matches(MatcherImpl matcher, int offset) {
+                @Override public boolean
+                matches(MatcherImpl matcher) {
 
                     if (greedy) {
 
-                        int result = operand2[0].matches(matcher, offset);
-                        if (result != -1) return result;
+                        int savedOffset = matcher.offset;
 
-                        return this.next.matches(matcher, offset);
+                        if (operand2[0].matches(matcher)) return true;
+
+                        matcher.offset = savedOffset;
+
+                        return this.next.matches(matcher);
                     } else {
 
-                        int result = this.next.matches(matcher, offset);
-                        if (result != -1) return result;
+                        int savedOffset = matcher.offset;
 
-                        return operand2[0].matches(matcher, offset);
+                        if (this.next.matches(matcher)) return true;
+
+                        matcher.offset = savedOffset;
+
+                        return operand2[0].matches(matcher);
                     }
                 }
 
@@ -175,15 +181,15 @@ class Sequences {
 
             return new AbstractSequence() {
 
-                @Override public int
-                matches(MatcherImpl matcher, int offset) {
+                @Override public boolean
+                matches(MatcherImpl matcher) {
 
                     if (min == 0) {
                         matcher.counters[counterIndex] = 0;
-                        return cs.matches(matcher, offset);
+                        return cs.matches(matcher);
                     } else {
                         matcher.counters[counterIndex] = 1;
-                        return operand2[0].matches(matcher, offset);
+                        return operand2[0].matches(matcher);
                     }
                 }
 
@@ -240,36 +246,39 @@ class Sequences {
 
         final CompositeSequence cs = new CompositeSequence() {
 
-            @Override public int
-            matches(MatcherImpl matcher, int offset) {
+            @Override public boolean
+            matches(MatcherImpl matcher) {
 
                 if (greedy) {
                     int ic = matcher.counters[counterIndex];
 
-                    if (ic == max) return this.next.matches(matcher, offset);
+                    if (ic == max) return this.next.matches(matcher);
 
                     matcher.counters[counterIndex] = ic + 1;
 
-                    if (ic < min) return operand2[0].matches(matcher, offset);
+                    if (ic < min) return operand2[0].matches(matcher);
 
-                    int result = operand2[0].matches(matcher, offset);
-                    if (result != -1) return result;
+                    int savedOffset = matcher.offset;
 
-                    return this.next.matches(matcher, offset);
+                    if (operand2[0].matches(matcher)) return true;
+
+                    matcher.offset = savedOffset;
+
+                    return this.next.matches(matcher);
                 } else {
                     int ic = matcher.counters[counterIndex];
 
                     if (ic >= min) {
-
-                        int result = this.next.matches(matcher, offset);
-                        if (result != -1) return result;
+                        int savedOffset = matcher.offset;
+                        if (this.next.matches(matcher)) return true;
+                        matcher.offset = savedOffset;
                     }
 
-                    if (++ic > max) return -1;
+                    if (++ic > max) return false;
 
                     matcher.counters[counterIndex] = ic;
 
-                    return operand2[0].matches(matcher, offset);
+                    return operand2[0].matches(matcher);
                 }
             }
 
@@ -281,15 +290,15 @@ class Sequences {
 
         return new AbstractSequence() {
 
-            @Override public int
-            matches(MatcherImpl matcher, int offset) {
+            @Override public boolean
+            matches(MatcherImpl matcher) {
 
                 if (min == 0) {
                     matcher.counters[counterIndex] = 0;
-                    return cs.matches(matcher, offset);
+                    return cs.matches(matcher);
                 } else {
                     matcher.counters[counterIndex] = 1;
-                    return operand2[0].matches(matcher, offset);
+                    return operand2[0].matches(matcher);
                 }
             }
 
@@ -345,31 +354,32 @@ class Sequences {
             final int     len     = s.length();
             final IndexOf indexOf = StringUtil.newIndexOf(s);
 
-            @Override public int
-            matches(MatcherImpl matcher, int offset) {
+            @Override public boolean
+            matches(MatcherImpl matcher) {
 
+                int o     = matcher.offset;
                 int limit = matcher.regionEnd;
 
-                if (limit - offset > max) limit = offset + max; // Beware of overflow!
+                if (limit - o > max) limit = o + max; // Beware of overflow!
 
-                offset += min;
+                o += min;
 
-                while (offset <= limit) {
+                while (o <= limit) {
 
                     // Find next match of the infix withing the subject string.
-                    offset = this.indexOf.indexOf(matcher.subject, offset, limit);
-                    if (offset == -1) break;
+                    o = this.indexOf.indexOf(matcher.subject, o, limit);
+                    if (o == -1) break;
 
                     // See if the successor matches the rest of the subject.
-                    int result = this.next.matches(matcher, offset + this.len);
-                    if (result != -1) return result;
+                    matcher.offset = o + this.len;
+                    if (this.next.matches(matcher)) return true;
 
                     // Successor didn't match, continue with next character position.
-                    offset++;
+                    o++;
                 }
 
                 matcher.hitEnd = true;
-                return -1;
+                return false;
             }
 
             @Override public String
@@ -395,8 +405,8 @@ class Sequences {
 
         return new CompositeSequence() {
 
-            @Override public int
-            matches(MatcherImpl matcher, int offset) {
+            @Override public boolean
+            matches(MatcherImpl matcher) {
 
                 MatcherImpl.End savedEnd = matcher.end;
                 try {
@@ -405,26 +415,24 @@ class Sequences {
 
                     // The operand MUST match (min) times;
                     for (int i = 0; i < min; i++) {
-                        offset = operand.matches(matcher, offset);
-                        if (offset == -1) return -1;
+                        if (!operand.matches(matcher)) return false;
                     }
 
                     // Now try to match the operand (max-min) more times.
                     int limit = max - min;
 
                     for (int i = 0; i < limit; i++) {
-
-                        int offset2 = operand.matches(matcher, offset);
-
-                        if (offset2 == -1) break;
-
-                        offset = offset2;
+                        int o = matcher.offset;
+                        if (!operand.matches(matcher)) {
+                            matcher.offset = o;
+                            break;
+                        }
                     }
                 } finally {
                     matcher.end = savedEnd;
                 }
 
-                return this.next.matches(matcher, offset);
+                return this.next.matches(matcher);
             }
 
             @Override public Sequence
@@ -440,16 +448,20 @@ class Sequences {
                     // Replace the possessive quantifier element.
                     return new CompositeSequence() {
 
-                        @Override public int
-                        matches(MatcherImpl matcher, int offset) {
+                        @Override public boolean
+                        matches(MatcherImpl matcher) {
 
-                            if (max > matcher.regionEnd - offset) {
-                                offset = matcher.regionEnd;
+                            int o = matcher.offset;
+
+                            if (max > matcher.regionEnd - o) {
+                                o = matcher.regionEnd;
                             } else {
-                                offset += max;
+                                o += max;
                             }
 
-                            return this.next.matches(matcher, offset);
+                            matcher.offset = o;
+
+                            return this.next.matches(matcher);
                         }
 
                         @Override public String
@@ -514,32 +526,32 @@ class Sequences {
             this.indexOf = StringUtil.newIndexOf(this.s);
         }
 
-        @Override public int
-        matches(MatcherImpl matcher, int offset) {
-            offset = matcher.peekRead(offset, this.s);
-            if (offset == -1) return -1;
-            return this.next.matches(matcher, offset);
+        @Override public boolean
+        matches(MatcherImpl matcher) {
+            return matcher.peekRead(this.s) && this.next.matches(matcher);
         }
 
         @Override public boolean
-        find(MatcherImpl matcher, int start) {
+        find(MatcherImpl matcher) {
 
-            while (start < matcher.regionEnd) {
+            int o = matcher.offset;
+
+            while (o < matcher.regionEnd) {
 
                 // Find the next occurrence of the literal string.
-                int offset = this.indexOf.indexOf(matcher.subject, start, matcher.regionEnd - this.s.length());
-                if (offset == -1) break;
+                o = this.indexOf.indexOf(matcher.subject, o, matcher.regionEnd - this.s.length());
+                if (o == -1) break;
 
                 // See if the rest of the pattern matches.
-                int result = this.next.matches(matcher, offset + this.s.length());
-                if (result != -1) {
-                    matcher.groups[0] = offset;
-                    matcher.groups[1] = result;
+                matcher.offset = o + this.s.length();
+                if (this.next.matches(matcher)) {
+                    matcher.groups[0] = o;
+                    matcher.groups[1] = matcher.offset;
                     return true;
                 }
 
                 // Rest of pattern didn't match; continue at the second character of the literal string match.
-                start = offset + 1;
+                o++;
             }
 
             matcher.hitEnd = true;
@@ -595,35 +607,26 @@ class Sequences {
 
         return new CompositeSequence() {
 
-            @Override public int
-            matches(MatcherImpl matcher, int offset) {
+            @Override public boolean
+            matches(MatcherImpl matcher) {
+
+                final int             savedOffset = matcher.offset;
+                final int[]           savedGroups = matcher.groups;
+                final MatcherImpl.End savedEnd    = matcher.end;
+
+                matcher.end = MatcherImpl.End.ANY;
 
                 for (int i = 0; i < alternatives.length; i++) {
 
-                    final int[] savedGroups = matcher.groups;
-                    {
+                    if (alternatives[i].matches(matcher) && this.next.matches(matcher)) return true;
 
-                        int result;
-
-                        final MatcherImpl.End savedEnd = matcher.end;
-                        try {
-                            matcher.end = MatcherImpl.End.ANY;
-                            result      = alternatives[i].matches(matcher, offset);
-                        } finally {
-                            matcher.end = savedEnd;
-                        }
-
-                        if (result != -1) {
-                            result = this.next.matches(matcher, result);
-                            if (result != -1) return result;
-                        }
-                    }
-
-                    // Alternative did not match; restore original capturing groups.
+                    matcher.offset = savedOffset;
                     matcher.groups = savedGroups;
                 }
 
-                return -1;
+                matcher.end = savedEnd;
+
+                return false;
             }
 
             @Override public String
@@ -648,27 +651,26 @@ class Sequences {
 
         return new CompositeSequence() {
 
-            @Override public int
-            matches(MatcherImpl matcher, int offset) {
+            @Override public boolean
+            matches(MatcherImpl matcher) {
+
+                final int             savedOffset = matcher.offset;
+                final MatcherImpl.End savedEnd    = matcher.end;
+                final int[]           savedGroups = matcher.groups;
+
+                matcher.end = MatcherImpl.End.ANY;
 
                 for (Sequence a : alternatives) {
-                    MatcherImpl.End savedEnd = matcher.end;
-                    try {
-                        matcher.end = MatcherImpl.End.ANY;
-                        int[] savedGroups = matcher.groups;
-                        {
-                            int result = a.matches(matcher, offset);
-                            if (result != -1) return this.next.matches(matcher, result);
-                        }
+                    if (a.matches(matcher)) return this.next.matches(matcher);
 
-                        // Alternative did not match; restore original capturing groups.
-                        matcher.groups = savedGroups;
-                    } finally {
-                        matcher.end = savedEnd;
-                    }
+                    // Alternative did not match; restore original capturing groups.
+                    matcher.groups = savedGroups;
+                    matcher.offset = savedOffset;
                 }
 
-                return -1;
+                matcher.end = savedEnd;
+
+                return false;
             }
 
             @Override public String
@@ -684,26 +686,24 @@ class Sequences {
 
         return new CompositeSequence() {
 
-            @Override public int
-            matches(MatcherImpl matcher, int offset) {
+            @Override public boolean
+            matches(MatcherImpl matcher) {
 
                 int[] newGroups = Arrays.copyOf(matcher.groups, matcher.groups.length);
-                newGroups[2 * groupNumber] = offset;
+                newGroups[2 * groupNumber] = matcher.offset;
 
                 final int[] savedGroups = matcher.groups;
                 matcher.groups = newGroups;
 
-                int result = this.next.matches(matcher, offset);
-
-                if (result == -1) {
+                if (!this.next.matches(matcher)) {
                     matcher.groups = savedGroups;
-                    return -1;
+                    return false;
                 }
 
                 // Verify that the successor chain contained an "end" for the same capturing group.
                 assert matcher.groups[2 * groupNumber + 1] != -1;
 
-                return result;
+                return true;
             }
 
             @Override public String
@@ -719,12 +719,12 @@ class Sequences {
 
         return new CompositeSequence() {
 
-            @Override public int
-            matches(MatcherImpl matcher, int offset) {
+            @Override public boolean
+            matches(MatcherImpl matcher) {
 
-                matcher.groups[2 * groupNumber + 1] = offset;
+                matcher.groups[2 * groupNumber + 1] = matcher.offset;
 
-                return this.next.matches(matcher, offset);
+                return this.next.matches(matcher);
             }
 
             @Override public String
@@ -745,13 +745,12 @@ class Sequences {
 
         return new CompositeSequence() {
 
-            @Override public int
-            matches(MatcherImpl matcher, int offset) {
+            @Override public boolean
+            matches(MatcherImpl matcher) {
 
-                int start = offset;
-                int end   = subsequence.matches(matcher, start);
-
-                if (end == -1) return -1;
+                int start = matcher.offset;
+                if (!subsequence.matches(matcher)) return false;
+                int end   = matcher.offset;
 
                 // Copy "this.groups" and store group start and end.
                 int[] gs = (matcher.groups = Arrays.copyOf(matcher.groups, matcher.groups.length));
@@ -761,7 +760,7 @@ class Sequences {
                 gs[2 * groupNumber + 1] = end;
 
                 // Match the rest of the sequence.
-                return this.next.matches(matcher, end);
+                return this.next.matches(matcher);
             }
 
             @Override public String
@@ -779,20 +778,17 @@ class Sequences {
 
         return new CompositeSequence() {
 
-            @Override public int
-            matches(MatcherImpl matcher, int offset) {
+            @Override public boolean
+            matches(MatcherImpl matcher) {
 
                 int[] gs    = matcher.groups;
                 int   start = gs[2 * groupNumber];
                 int   end   = gs[2 * groupNumber + 1];
 
                 // If the referenced group didn't match, then neither does this back reference.
-                if (start == -1) return -1;
+                if (start == -1) return false;
 
-                offset = matcher.peekRead(offset, matcher.subject, start, end);
-                if (offset == -1) return -1;
-
-                return this.next.matches(matcher, offset);
+                return matcher.peekRead(matcher.subject, start, end) && this.next.matches(matcher);
             }
 
             @Override public String
@@ -810,20 +806,20 @@ class Sequences {
 
         return new CompositeSequence() {
 
-            @Override public int
-            matches(MatcherImpl matcher, int offset) {
+            @Override public boolean
+            matches(MatcherImpl matcher) {
 
                 int[] gs    = matcher.groups;
                 int   start = gs[2 * groupNumber];
                 int   end   = gs[2 * groupNumber + 1];
 
                 // If the referenced group didn't match, then neither does this back reference.
-                if (start == -1) return -1;
+                if (start == -1) return false;
 
-                offset = matcher.caseInsensitivePeekRead(offset, matcher.subject.subSequence(start, end));
-                if (offset == -1) return -1;
-
-                return this.next.matches(matcher, offset);
+                return (
+                    matcher.caseInsensitivePeekRead(matcher.subject.subSequence(start, end))
+                    && this.next.matches(matcher)
+                );
             }
 
             @Override public String
@@ -841,20 +837,19 @@ class Sequences {
 
         return new CompositeSequence() {
 
-            @Override public int
-            matches(MatcherImpl matcher, int offset) {
+            @Override public boolean
+            matches(MatcherImpl matcher) {
 
                 int[] gs    = matcher.groups;
                 int   start = gs[2 * groupNumber];
                 int   end   = gs[2 * groupNumber + 1];
 
                 // If the referenced group didn't match, then neither does this back reference.
-                if (start == -1) return -1;
+                if (start == -1) return false;
 
-                offset = matcher.unicodeCaseInsensitivePeekRead(offset, matcher.subject.subSequence(start, end));
-                if (offset == -1) return -1;
+                if (!matcher.unicodeCaseInsensitivePeekRead(matcher.subject.subSequence(start, end))) return false;
 
-                return this.next.matches(matcher, offset);
+                return this.next.matches(matcher);
             }
 
             @Override public String
@@ -870,21 +865,20 @@ class Sequences {
 
         return new CompositeSequence() {
 
-            @Override public int
-            matches(MatcherImpl matcher, int offset) {
-                return offset != matcher.anchoringRegionStart ? -1 : this.next.matches(matcher, offset);
+            @Override public boolean
+            matches(MatcherImpl matcher) {
+                return matcher.offset == matcher.anchoringRegionStart && this.next.matches(matcher);
             }
 
             // Override "AbstractSequence.find()" such that we give the match only one shot.
             @Override public boolean
-            find(MatcherImpl matcher, int start) {
+            find(MatcherImpl matcher) {
 
                 matcher.hitEnd = false;
 
-                int newOffset = this.matches(matcher, start);
-                if (newOffset != -1) {
-                    matcher.groups[0] = start;
-                    matcher.groups[1] = newOffset;
+                if (this.matches(matcher)) {
+                    matcher.groups[0] = matcher.anchoringRegionStart;
+                    matcher.groups[1] = matcher.offset;
                     return true;
                 }
 
@@ -904,28 +898,28 @@ class Sequences {
 
         return new CompositeSequence() {
 
-            @Override public int
-            matches(MatcherImpl matcher, int offset) {
+            @Override public boolean
+            matches(MatcherImpl matcher) {
 
-                if (offset == matcher.anchoringRegionStart) return this.next.matches(matcher, offset);
+                int o = matcher.offset;
 
-                if (offset == matcher.anchoringRegionEnd) {
+                if (o == matcher.anchoringRegionStart) return this.next.matches(matcher);
+
+                if (o == matcher.anchoringRegionEnd) {
                     matcher.hitEnd = true;
-                    return -1;
+                    return false;
                 }
 
-                char c = matcher.subject.charAt(offset - 1);
-                if (
-                    (c == '\r' && matcher.subject.charAt(offset) != '\n')
+                char c = matcher.subject.charAt(o - 1);
+                return (
+                    (c == '\r' && matcher.subject.charAt(o) != '\n')
                     || c == '\n'
                     || c == '\u000B'
                     || c == '\f'
                     || c == '\u0085'
                     || c == '\u2028'
                     || c == '\u2029'
-                ) return this.next.matches(matcher, offset);
-
-                return -1;
+                ) && this.next.matches(matcher);
             }
 
             @Override public String
@@ -941,17 +935,19 @@ class Sequences {
 
         return new CompositeSequence() {
 
-            @Override public int
-            matches(MatcherImpl matcher, int offset) {
+            @Override public boolean
+            matches(MatcherImpl matcher) {
+
+                int o = matcher.offset;
 
                 if (
-                    offset == matcher.anchoringRegionStart
-                    || (matcher.subject.charAt(offset - 1) == '\n' && offset != matcher.anchoringRegionEnd)
-                ) return this.next.matches(matcher, offset);
+                    o == matcher.anchoringRegionStart
+                    || (matcher.subject.charAt(o - 1) == '\n' && o != matcher.anchoringRegionEnd)
+                ) return this.next.matches(matcher);
 
-                if (offset == matcher.anchoringRegionEnd) matcher.hitEnd = true;
+                if (o == matcher.anchoringRegionEnd) matcher.hitEnd = true;
 
-                return -1;
+                return false;
             }
 
             @Override public String
@@ -967,37 +963,41 @@ class Sequences {
 
         return new CompositeSequence() {
 
-            @Override public int
-            matches(MatcherImpl matcher, int offset) {
+            @Override public boolean
+            matches(MatcherImpl matcher) {
 
-                if (offset >= matcher.anchoringRegionEnd) {
+                int o = matcher.offset;
+
+                if (o >= matcher.anchoringRegionEnd) {
                     matcher.hitEnd     = true;
                     matcher.requireEnd = true;
-                    return this.next.matches(matcher, offset);
+                    return this.next.matches(matcher);
                 }
 
-                char c = matcher.subject.charAt(offset);
+                char c = matcher.subject.charAt(o);
                 if (!(
                     (c <= 0x0d && c >= 0x0a)
                     || c == 0x85
                     || (c >= 0x2028 && c <= 0x2029)
-                )) return -1;
+                )) return false;
 
-                if (offset == matcher.anchoringRegionEnd - 1) {
+                if (o == matcher.anchoringRegionEnd - 1) {
                     matcher.hitEnd     = true;
                     matcher.requireEnd = true;
-                    return this.next.matches(matcher, offset);
+                    return this.next.matches(matcher);
                 }
 
-                if (c == '\r' && matcher.subject.charAt(offset + 1) == '\n') {
-                    if (offset == matcher.anchoringRegionEnd - 2) {
-                        matcher.hitEnd     = true;
-                        matcher.requireEnd = true;
-                        return this.next.matches(matcher, offset);
-                    }
+                if (
+                    c == '\r'
+                    && matcher.subject.charAt(o + 1) == '\n'
+                    && o == matcher.anchoringRegionEnd - 2
+                ) {
+                    matcher.hitEnd     = true;
+                    matcher.requireEnd = true;
+                    return this.next.matches(matcher);
                 }
 
-                return -1;
+                return false;
             }
 
             @Override public String
@@ -1013,25 +1013,27 @@ class Sequences {
 
         return new CompositeSequence() {
 
-            @Override public int
-            matches(MatcherImpl matcher, int offset) {
+            @Override public boolean
+            matches(MatcherImpl matcher) {
 
-                if (offset >= matcher.anchoringRegionEnd) {
+                int o = matcher.offset;
+
+                if (o >= matcher.anchoringRegionEnd) {
                     matcher.hitEnd     = true;
                     matcher.requireEnd = true;
-                    return this.next.matches(matcher, offset);
+                    return this.next.matches(matcher);
                 }
 
                 if (
-                    offset == matcher.anchoringRegionEnd - 1
-                    && matcher.subject.charAt(offset) == '\n'
+                    o == matcher.anchoringRegionEnd - 1
+                    && matcher.subject.charAt(o) == '\n'
                 ) {
                     matcher.hitEnd     = true;
                     matcher.requireEnd = true;
-                    return this.next.matches(matcher, offset);
+                    return this.next.matches(matcher);
                 }
 
-                return -1;
+                return false;
             }
 
             @Override public String
@@ -1047,15 +1049,15 @@ class Sequences {
 
         return new CompositeSequence() {
 
-            @Override public int
-            matches(MatcherImpl matcher, int offset) {
+            @Override public boolean
+            matches(MatcherImpl matcher) {
 
-                if (offset < matcher.anchoringRegionEnd) return -1;
+                if (matcher.offset < matcher.anchoringRegionEnd) return false;
 
                 matcher.hitEnd     = true;
                 matcher.requireEnd = true;
 
-                return this.next.matches(matcher, offset);
+                return this.next.matches(matcher);
             }
 
             @Override public String
@@ -1071,20 +1073,22 @@ class Sequences {
 
         return new CompositeSequence() {
 
-            @Override public int
-            matches(MatcherImpl matcher, int offset) {
+            @Override public boolean
+            matches(MatcherImpl matcher) {
 
-                if (offset == matcher.anchoringRegionEnd) {
+                int o = matcher.offset;
+
+                if (o == matcher.anchoringRegionEnd) {
                     matcher.hitEnd     = true;
                     matcher.requireEnd = true;
-                    return this.next.matches(matcher, offset);
+                    return this.next.matches(matcher);
                 }
 
-                char c = matcher.subject.charAt(offset);
+                char c = matcher.subject.charAt(o);
                 return (
                     (c == '\n' && (
-                        offset == matcher.anchoringRegionStart
-                        || Character.codePointBefore(matcher.subject, offset) != '\r'
+                        o == matcher.anchoringRegionStart
+                        || Character.codePointBefore(matcher.subject, o) != '\r'
                     ))
                     || c == '\r'
                     || c == '\u000B'
@@ -1092,7 +1096,7 @@ class Sequences {
                     || c == '\u0085'
                     || c == '\u2028'
                     || c == '\u2029'
-                ) ? this.next.matches(matcher, offset) : -1;
+                ) && this.next.matches(matcher);
             }
 
             @Override public String
@@ -1108,16 +1112,18 @@ class Sequences {
 
         return new CompositeSequence() {
 
-            @Override public int
-            matches(MatcherImpl matcher, int offset) {
+            @Override public boolean
+            matches(MatcherImpl matcher) {
 
-                if (offset == matcher.anchoringRegionEnd) {
+                int o = matcher.offset;
+
+                if (o == matcher.anchoringRegionEnd) {
                     matcher.hitEnd     = true;
                     matcher.requireEnd = true;
-                    return this.next.matches(matcher, offset);
+                    return this.next.matches(matcher);
                 }
 
-                return matcher.subject.charAt(offset) == '\n' ? this.next.matches(matcher, offset) : -1;
+                return matcher.subject.charAt(o) == '\n' && this.next.matches(matcher);
             }
 
             @Override public String
@@ -1135,30 +1141,37 @@ class Sequences {
 
             char c1 = '\r', c2 = '\n';
 
-            @Override public int
-            matches(MatcherImpl matcher, int offset) {
+            @Override public boolean
+            matches(MatcherImpl matcher) {
 
-                if (offset >= matcher.regionEnd) return -1;
+                int o = matcher.offset;
 
-                char c = matcher.subject.charAt(offset);
+                if (o >= matcher.regionEnd) return false;
+
+                char c = matcher.subject.charAt(o);
 
                 // Check for linebreak characters in a highly optimized manner.
                 if (c <= 0x0d) {
                     if (
                         c == this.c1
-                        && offset < matcher.regionEnd - 1
-                        && matcher.subject.charAt(offset + 1) == this.c2
+                        && o < matcher.regionEnd - 1
+                        && matcher.subject.charAt(o + 1) == this.c2
                     ) {
-                        return this.next.matches(matcher, offset + 2);
+                        matcher.offset = o + 2;
+                        return this.next.matches(matcher);
                     }
-                    return c >= 0x0a ? this.next.matches(matcher, offset + 1) : -1;
+                    if (c >= 0x0a) {
+                        matcher.offset = o + 1;
+                        return this.next.matches(matcher);
+                    }
                 }
 
                 if (c == 0x85 || c == 0x2028 || c == 0x2029) {
-                    return this.next.matches(matcher, offset + 1);
+                    matcher.offset = o + 1;
+                    return this.next.matches(matcher);
                 }
 
-                return -1;
+                return false;
             }
 
             @Override public String
@@ -1186,50 +1199,56 @@ class Sequences {
 
         return new CompositeSequence() {
 
-            @Override public int
-            matches(MatcherImpl matcher, int offset) {
+            @Override public boolean
+            matches(MatcherImpl matcher) {
+
+                int o = matcher.offset;
 
                 // The "Non-spacing mark" character is sometimes a word character (iff its left neighbor is a word
                 // character), and sometimes it is not (iff its left neighbor is a non-word character).
 
-                boolean result;
-                if (offset >= matcher.transparentRegionEnd) {
+                if (o >= matcher.transparentRegionEnd) {
 
                     // At end of transparent region.
                     matcher.hitEnd     = true;
                     matcher.requireEnd = true;
-                    if (offset == matcher.transparentRegionStart) return -1; // Zero-length region.
-                    result = isWordCharacter.evaluate(Character.codePointBefore(matcher.subject, offset));
-                } else
-                if (offset <= matcher.transparentRegionStart) {
-
-                    // At start of transparent region.
-                    result = isWordCharacter.evaluate(Character.codePointAt(matcher.subject, offset));
-                } else
-                if (matcher.subject.charAt(offset) == '\u030a') {
-                    result = false;
-                } else
-                {
-
-                    // IN transparent region (not at its start nor at its end).
-                    int cpBefore = Character.codePointBefore(matcher.subject, offset);
-                    int cpAt     = Character.codePointAt(matcher.subject, offset);
-
-                    if (cpBefore == '\u030a') {
-                        for (int i = offset - 1;; i--) {
-                            if (i <= matcher.transparentRegionStart) {
-                                if (!isWordCharacter.evaluate(cpAt)) return -1;
-                                break;
-                            }
-
-                            cpBefore = Character.codePointBefore(matcher.subject, i);
-                            if (cpBefore != '\u030a') break;
-                        }
-                    }
-                    result = isWordCharacter.evaluate(cpBefore) != isWordCharacter.evaluate(cpAt);
+                    return (
+                        o != matcher.transparentRegionStart // Zero-length region.
+                        && isWordCharacter.evaluate(Character.codePointBefore(matcher.subject, o))
+                        && this.next.matches(matcher)
+                    );
                 }
 
-                return result ? this.next.matches(matcher, offset) : -1;
+                if (o <= matcher.transparentRegionStart) {
+
+                    // At start of transparent region.
+                    return (
+                        isWordCharacter.evaluate(Character.codePointAt(matcher.subject, o))
+                        && this.next.matches(matcher)
+                    );
+                }
+
+                if (matcher.subject.charAt(o) == '\u030a') return false;
+
+                // IN transparent region (neither at its start nor at its end).
+                int cpBefore = Character.codePointBefore(matcher.subject, o);
+                int cpAt     = Character.codePointAt(matcher.subject, o);
+
+                if (cpBefore == '\u030a') {
+                    for (int i = o - 1;; i--) {
+                        if (i <= matcher.transparentRegionStart) {
+                            if (!isWordCharacter.evaluate(cpAt)) return false;
+                            break;
+                        }
+
+                        cpBefore = Character.codePointBefore(matcher.subject, i);
+                        if (cpBefore != '\u030a') break;
+                    }
+                }
+                return (
+                    (isWordCharacter.evaluate(cpBefore) != isWordCharacter.evaluate(cpAt))
+                    && this.next.matches(matcher)
+                );
             }
 
             @Override public String
@@ -1245,17 +1264,15 @@ class Sequences {
 
         return new CompositeSequence() {
 
-            @Override public int
-            matches(MatcherImpl matcher, int offset) {
+            @Override public boolean
+            matches(MatcherImpl matcher) {
 
                 // The documentation of java.util.regex is totally unclear about the following case, but this seems to
                 // be how it works:
-                if (matcher.endOfPreviousMatch == -1) return this.next.matches(matcher, offset);
+                if (matcher.endOfPreviousMatch == -1) return this.next.matches(matcher);
 //                if (matcher.endOfPreviousMatch == -1) return -1;
 
-                if (offset != matcher.endOfPreviousMatch) return -1;
-
-                return this.next.matches(matcher, offset);
+                return matcher.offset == matcher.endOfPreviousMatch && this.next.matches(matcher);
             }
 
             @Override public String
@@ -1271,24 +1288,28 @@ class Sequences {
 
         return new CompositeSequence() {
 
-            @Override public int
-            matches(MatcherImpl matcher, int offset) {
+            @Override public boolean
+            matches(MatcherImpl matcher) {
 
                 boolean lookaheadMatches;
 
+                final int             savedOffset    = matcher.offset;
                 final MatcherImpl.End savedEnd       = matcher.end;
                 final int             savedRegionEnd = matcher.regionEnd;
                 {
                     matcher.end       = MatcherImpl.End.ANY;
                     matcher.regionEnd = matcher.transparentRegionEnd;
 
-                    lookaheadMatches   = op.matches(matcher, offset) != -1;
+                    lookaheadMatches   = op.matches(matcher);
                     matcher.requireEnd = matcher.hitEnd;
                 }
                 matcher.end       = savedEnd;
                 matcher.regionEnd = savedRegionEnd;
 
-                return lookaheadMatches ? this.next.matches(matcher, offset) : -1;
+                if (!lookaheadMatches) return false;
+
+                matcher.offset = savedOffset;
+                return this.next.matches(matcher);
             }
 
             @Override public String
@@ -1304,13 +1325,14 @@ class Sequences {
 
         return new CompositeSequence() {
 
-            @Override public int
-            matches(MatcherImpl matcher, int offset) {
+            @Override public boolean
+            matches(MatcherImpl matcher) {
 
                 // In most cases, it is more efficient to FIRST check whether the rest of the pattern matches, and
                 // only THEN check if the lookbehind matches.
-                int result = this.next.matches(matcher, offset);
-                if (result == -1) return -1;
+                final int savedOffset1 = matcher.offset;
+                if (!this.next.matches(matcher)) return false;
+                final int savedOffset2 = matcher.offset;
 
                 boolean lookbehindMatches;
                 {
@@ -1319,9 +1341,11 @@ class Sequences {
                     final int             savedRegionStart = matcher.regionStart;
                     final int             savedRegionEnd   = matcher.regionEnd;
                     try {
-                        matcher.end        = MatcherImpl.End.END_OF_REGION;
-                        matcher.regionEnd  = offset;
-                        lookbehindMatches  = op.find(matcher, matcher.transparentRegionStart);
+                        matcher.end         = MatcherImpl.End.END_OF_REGION;
+                        matcher.regionStart = matcher.transparentRegionStart;
+                        matcher.regionEnd   = savedOffset1;
+                        matcher.offset      = matcher.transparentRegionStart;
+                        lookbehindMatches   = op.find(matcher);
                     } finally {
                         matcher.end         = savedEnd;
                         matcher.hitEnd      = savedHitEnd;
@@ -1330,7 +1354,10 @@ class Sequences {
                     }
                 }
 
-                return lookbehindMatches ? result : -1;
+                if (!lookbehindMatches) return false;
+
+                matcher.offset = savedOffset2;
+                return true;
             }
 
             @Override public String
@@ -1347,42 +1374,45 @@ class Sequences {
 
         return new CompositeSequence() {
 
-            @Override public int
-            matches(MatcherImpl matcher, int offset) {
+            @Override public boolean
+            matches(MatcherImpl matcher) {
+
+                int o = matcher.offset;
 
                 // The operand MUST match (min) times;
                 int i;
                 for (i = 0; i < min; i++) {
 
-                    if (offset >= matcher.regionEnd) {
+                    if (o >= matcher.regionEnd) {
                         matcher.hitEnd = true;
-                        return -1;
+                        return false;
                     }
 
-                    int c = matcher.subject.charAt(offset++);
+                    int c = matcher.subject.charAt(o++);
 
                     // Special handling for UTF-16 surrogates.
-                    if (Character.isHighSurrogate((char) c) && offset < matcher.regionEnd) {
-                        char c2 = matcher.subject.charAt(offset);
+                    if (Character.isHighSurrogate((char) c) && o < matcher.regionEnd) {
+                        char c2 = matcher.subject.charAt(o);
                         if (Character.isLowSurrogate(c2)) {
                             c = Character.toCodePoint((char) c, c2);
-                            offset++;
+                            o++;
                         }
                     }
 
-                    if (!operand.matches(c)) return -1;
+                    matcher.offset = o;
+                    if (!operand.matches(c)) return false;
                 }
-                final int offsetAfterMin = offset;
+                final int offsetAfterMin = o;
 
                 // Now try to match the operand (max-min) more times.
                 for (; i < max; i++) {
 
-                    if (offset >= matcher.regionEnd) {
+                    if (o >= matcher.regionEnd) {
                         matcher.hitEnd = true;
                         break;
                     }
 
-                    int offset2 = offset;
+                    int offset2 = o;
                     int c       = matcher.subject.charAt(offset2++);
 
                     // Special handling for UTF-16 surrogates.
@@ -1394,26 +1424,27 @@ class Sequences {
                         }
                     }
 
+                    matcher.offset = offset2;
                     if (!operand.matches(c)) break;
 
-                    offset = offset2;
+                    o = offset2;
                 }
 
                 for (;; i--) {
 
-                    int offset2 = this.next.matches(matcher, offset);
-                    if (offset2 != -1) return offset2;
+                    matcher.offset = o;
+                    if (this.next.matches(matcher)) return true;
 
                     if (i == min) break;
 
                     if (
-                        Character.isLowSurrogate(matcher.subject.charAt(--offset))
-                        && offset > offsetAfterMin
-                        && Character.isHighSurrogate(matcher.subject.charAt(offset - 1))
-                    ) offset--;
+                        Character.isLowSurrogate(matcher.subject.charAt(--o))
+                        && o > offsetAfterMin
+                        && Character.isHighSurrogate(matcher.subject.charAt(o - 1))
+                    ) o--;
                 }
 
-                return -1;
+                return false;
             }
 
             @Override public Sequence
@@ -1461,14 +1492,15 @@ class Sequences {
             final IndexOf indexOf     = StringUtil.newIndexOf(s);
             final int     infixLength = s.length();
 
-            @Override public int
-            matches(MatcherImpl matcher, int offset) {
+            @Override public boolean
+            matches(MatcherImpl matcher) {
 
+                int o         = matcher.offset;
                 int fromIndex = matcher.regionEnd - this.infixLength;
 
-                if (fromIndex - offset > max) fromIndex = offset + max; // Beware of overflow!
+                if (fromIndex - o > max) fromIndex = o + max; // Beware of overflow!
 
-                int toIndex = offset + min;
+                int toIndex = o + min;
 
                 matcher.hitEnd = true;
 
@@ -1476,17 +1508,17 @@ class Sequences {
 
                     // Find next match of the infix withing the subject string.
                     fromIndex = this.indexOf.indexOf(matcher.subject, fromIndex, toIndex);
-                    if (fromIndex == -1) break;
+                    if (fromIndex == -1) return false;
 
                     // See if the successor matches the rest of the subject.
-                    int result = this.next.matches(matcher, fromIndex + this.infixLength);
-                    if (result != -1) return result;
+                    matcher.offset = fromIndex + this.infixLength;
+                    if (this.next.matches(matcher)) return true;
 
                     // Successor didn't match, continue with next character position.
                     fromIndex--;
                 }
 
-                return -1;
+                return false;
             }
 
             @Override public String
@@ -1525,20 +1557,24 @@ class Sequences {
 
         return new CompositeSequence() {
 
-            @Override public int
-            matches(MatcherImpl matcher, int offset) {
+            @Override public boolean
+            matches(MatcherImpl matcher) {
 
                 boolean operandMatches;
 
-                MatcherImpl.End savedEnd = matcher.end;
+                final int       savedOffset = matcher.offset;
+                MatcherImpl.End savedEnd    = matcher.end;
                 {
                     matcher.end = MatcherImpl.End.ANY;
 
-                    operandMatches = op.matches(matcher, offset) != -1;
+                    operandMatches = op.matches(matcher);
                 }
                 matcher.end = savedEnd;
 
-                return operandMatches ? -1 : this.next.matches(matcher, offset);
+                if (operandMatches) return false;
+
+                matcher.offset = savedOffset;
+                return this.next.matches(matcher);
             }
 
             @Override public String

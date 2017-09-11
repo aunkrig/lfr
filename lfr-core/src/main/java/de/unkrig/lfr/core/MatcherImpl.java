@@ -95,7 +95,7 @@ class MatcherImpl implements Matcher {
      * <var>n</var>th group is 2*<var>n</var>; the offset <em>after</em> the <var>n</var>th group is 2*<var>n</var> +
      * 1. These offsets are {@code -1} if the group did not match anything.
      * <p>
-     *   This field is modified bei {@link Sequence#matches(MatcherImpl, int)}, but the <em>elements</em> of this
+     *   This field is modified bei {@link Sequence#matches(MatcherImpl)}, but the <em>elements</em> of this
      *   array are <em>never</em> modified! This makes it easy to "remember" (and later restore) the groups.
      * </p>
      */
@@ -142,6 +142,14 @@ class MatcherImpl implements Matcher {
      * Whether the current matching must end at {@link End#END_OF_REGION} or {@link End#ANY}where.
      */
     @Nullable MatcherImpl.End end;
+
+    /**
+     * Designates the current matching position.
+     *
+     * @see Sequence#find(MatcherImpl)
+     * @see Sequence#matches(MatcherImpl)
+     */
+    public int offset;
 
     MatcherImpl(Pattern pattern, CharSequence subject) {
         this.pattern   = pattern;
@@ -297,18 +305,17 @@ class MatcherImpl implements Matcher {
         this.groups     = this.initialGroups;
         this.hitEnd     = false;
         this.requireEnd = false;
+        this.end        = MatcherImpl.End.END_OF_REGION;
+        this.offset     = this.regionStart;
 
-        this.end = MatcherImpl.End.END_OF_REGION;
-        int newOffset = this.pattern.sequence.matches(this, this.regionStart);
-
-        if (newOffset == -1) {
+        if (!this.pattern.sequence.matches(this)) {
             this.endOfPreviousMatch = -1;
             return false;
         }
 
         this.groups[0]          = this.regionStart;
-        this.groups[1]          = newOffset;
-        this.endOfPreviousMatch = newOffset;
+        this.groups[1]          = this.offset;
+        this.endOfPreviousMatch = this.offset;
 
         return true;
     }
@@ -319,18 +326,17 @@ class MatcherImpl implements Matcher {
         this.groups     = this.initialGroups;
         this.hitEnd     = false;
         this.requireEnd = false;
+        this.offset     = this.regionStart;
+        this.end        = MatcherImpl.End.ANY;
 
-        this.end = MatcherImpl.End.ANY;
-        int newOffset = this.pattern.sequence.matches(this, this.regionStart);
-
-        if (newOffset == -1) {
+        if (!this.pattern.sequence.matches(this)) {
             this.endOfPreviousMatch = -1;
             return false;
         }
 
         this.groups[0]          = this.regionStart;
-        this.groups[1]          = newOffset;
-        this.endOfPreviousMatch = newOffset;
+        this.groups[1]          = this.offset;
+        this.endOfPreviousMatch = this.offset;
         return true;
     }
 
@@ -362,9 +368,10 @@ class MatcherImpl implements Matcher {
             start++;
         }
 
+        this.offset = start;
         this.groups = this.initialGroups;
         this.end    = MatcherImpl.End.ANY;
-        if (this.pattern.sequence.find(this, start)) {
+        if (this.pattern.sequence.find(this)) {
             this.endOfPreviousMatch = this.groups[1];
             return true;
         }
@@ -524,6 +531,7 @@ class MatcherImpl implements Matcher {
         this.requireEnd         = false;
         this.endOfPreviousMatch = -1;
         this.lastAppendPosition = 0;
+        this.offset             = 0;
 
         return this;
     }
@@ -568,117 +576,129 @@ class MatcherImpl implements Matcher {
 
     /**
      * If the subject infix ranging from the <var>offset</var> to the region end starts with the <var>cs</var>,
-     * then the offset is advanced and returned.
-     *
-     * @return The offset after the match, or -1 if <var>cs</var> does not match
+     * then the offset is advanced and {@code true} is returned.
      */
-    int
-    peekRead(int offset, CharSequence cs) { return this.peekRead(offset, cs, 0, cs.length()); }
+    boolean
+    peekRead(CharSequence cs) { return this.peekRead(cs, 0, cs.length()); }
 
     /**
-     * If the subject infix ranging from the <var>offset</var> to the region end starts with {@code
-     * cs.subSequences(start, end)}, then the offset is advanced and returned.
-     *
-     * @return The offset after the match, or -1 if <var>cs</var> does not match
+     * If the subject infix ranging from the {@link #offset} to the region end starts with the sequence designated by
+     * <var>cs</var>, <var>start</var> and <var>end</var>, then the {@link #offset} is advanced and {@code true} is
+     * returned.
      */
-    int
-    peekRead(int offset, CharSequence cs, int start, int end) {
+    boolean
+    peekRead(CharSequence cs, int start, int end) {
 
-        for (int i = start; i < end; i++) {
+        int o = this.offset;
 
-            if (offset >= this.regionEnd) {
+        for (int i = start; i < end; i++, o++) {
+
+            if (o >= this.regionEnd) {
 
                 // Not enough chars left.
                 this.hitEnd = true;
-                return -1;
+                return false;
             }
 
-            if (this.subject.charAt(offset) != cs.charAt(i)) return -1;
-
-            offset++;
+            if (this.subject.charAt(o) != cs.charAt(i)) return false;
         }
 
-        return offset;
+        this.offset = o;
+        return true;
     }
 
     /**
      * If the subject infix ranging from the <var>offset</var> to the region end starts with the <var>cs</var>,
-     * then the offset is advanced and {@code true} is returned.
-     *
-     * @return The offset after the match, or -1 if <var>cs</var> does not match
+     * then the {@link #offset} is advanced and {@code true} is returned.
      */
-    int
-    caseInsensitivePeekRead(int offset, CharSequence cs) {
+    boolean
+    caseInsensitivePeekRead(CharSequence cs) { return this.caseInsensitivePeekRead(cs, 0, cs.length()); }
 
-        int csLength = cs.length();
+    /**
+     * If the subject infix ranging from the <var>offset</var> to the region end starts with the sequence designated by
+     * <var>cs</var>, <var>start</var> and <var>end</var>, then the {@link #offset} is advanced and {@code true} is
+     * returned.
+     */
+    boolean
+    caseInsensitivePeekRead(CharSequence cs, int start, int end) {
 
-        if (offset + csLength > this.regionEnd) {
+        int o = this.offset;
+
+        if (o + cs.length() > this.regionEnd) {
 
             // Not enough chars left.
             this.hitEnd = true;
-            return -1;
+            return false;
         }
 
-        for (int i = 0; i < csLength; i++) {
-            char c1 = this.subject.charAt(offset);
+        for (int i = start; i < end; i++, o++) {
+            char c1 = this.subject.charAt(o);
             char c2 = cs.charAt(i);
             if (!(
                 c1 == c2
                 || (c1 + 32 == c2 && c1 >= 'A' && c1 <= 'Z')
                 || (c1 - 32 == c2 && c1 >= 'a' && c1 <= 'z')
-            )) return -1;
-            offset++;
+            )) return false;
         }
 
-        return offset;
+        this.offset = o;
+        return true;
     }
 
     /**
      * If the subject infix ranging from the <var>offset</var> to the region end starts with the <var>cs</var>,
-     * then the offset is advanced and {@code true} is returned.
-     *
-     * @return The offset after the match, or -1 if <var>cs</var> does not match
+     * then the {@link #offset} is advanced and {@code true} is returned.
      */
-    int
-    unicodeCaseInsensitivePeekRead(int offset, CharSequence cs) {
+    boolean
+    unicodeCaseInsensitivePeekRead(CharSequence cs) { return this.unicodeCaseInsensitivePeekRead(cs, 0, cs.length()); }
 
-        int csLength = cs.length();
+    /**
+     * If the subject infix ranging from the {@link #offset} to the region end starts with the sequence designated by
+     * <var>cs</var>, <var>start</var> and <var>end</var>, then the {@link #offset} is advanced and {@code true} is
+     * returned.
+     */
+    boolean
+    unicodeCaseInsensitivePeekRead(CharSequence cs, int start, int end) {
 
-        if (offset + csLength > this.regionEnd) {
+        int o = this.offset;
+
+        if (o + cs.length() > this.regionEnd) {
 
             // Not enough chars left.
             this.hitEnd = true;
-            return -1;
+            return false;
         }
 
-        for (int i = 0;;) {
+        for (int i = start; i < end;) {
 
-            if (i >= csLength)            return offset;
-            if (offset >= this.regionEnd) return -1;
+            if (o >= this.regionEnd) return false;
 
-            int  c1 = this.subject.charAt(offset++);
+            int  c1 = this.subject.charAt(o++);
             char ls;
             if (
                 Character.isHighSurrogate((char) c1)
-                && offset < this.regionEnd
-                && Character.isLowSurrogate((ls = this.subject.charAt(offset)))
+                && o < this.regionEnd
+                && Character.isLowSurrogate((ls = this.subject.charAt(o)))
             ) {
                 c1 = Character.toCodePoint((char) c1, ls);
-                offset++;
+                o++;
             }
 
             int c2 = cs.charAt(i++);
             if (
                 Character.isHighSurrogate((char) c2)
-                && i < csLength
+                && i < end
                 && Character.isLowSurrogate((ls = cs.charAt(i)))
             ) {
                 c2 = Character.toCodePoint((char) c2, ls);
                 i++;
             }
 
-            if (!MatcherImpl.equalsIgnoreCase(c1, c2)) return -1;
+            if (!MatcherImpl.equalsIgnoreCase(c1, c2)) return false;
         }
+
+        this.offset = o;
+        return true;
     }
 
     private static boolean

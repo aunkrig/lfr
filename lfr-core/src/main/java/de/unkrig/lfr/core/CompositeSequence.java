@@ -29,7 +29,7 @@ package de.unkrig.lfr.core;
 /**
  * An {@link Sequence} that implements {@link #concat(Sequence)} by setting up a linked list of {@link Sequence}es.
  * <p>
- *   Notice that implementations' {@link #matches(MatcherImpl, int)} methods must always honor the {@link #next}!
+ *   Notice that implementations' {@link #matches(MatcherImpl)} methods must always honor the {@link #next}!
  * </p>
  */
 abstract

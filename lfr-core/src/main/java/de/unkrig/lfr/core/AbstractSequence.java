@@ -29,36 +29,37 @@ package de.unkrig.lfr.core;
 import de.unkrig.commons.nullanalysis.NotNullByDefault;
 
 /**
- * Implements {@link #find(MatcherImpl, int)} through {@link #matches(MatcherImpl, int)}.
+ * Implements {@link #find(MatcherImpl)} through {@link #matches(MatcherImpl)}.
  */
 abstract
 class AbstractSequence implements Sequence {
 
     @Override public boolean
-    find(MatcherImpl matcher, int start) {
+    find(MatcherImpl matcher) {
 
         final int re = matcher.regionEnd;
-        for (;;) {
 
-            int newOffset = this.matches(matcher, start);
+        for (int o = matcher.offset;;) {
 
-            if (newOffset != -1) {
-                matcher.groups[0] = start;
-                matcher.groups[1] = newOffset;
+            if (this.matches(matcher)) {
+                matcher.groups[0] = o;
+                matcher.groups[1] = matcher.offset;
                 return true;
             }
 
-            if (start >= re) break;
+            if (o >= re) {
+                matcher.hitEnd = true;
+                return false;
+            }
 
             if (
-                Character.isHighSurrogate(matcher.subject.charAt(start++))
-                && start < re
-                && Character.isLowSurrogate(matcher.subject.charAt(start))
-            ) start++;
-        }
+                Character.isHighSurrogate(matcher.subject.charAt(o++))
+                && o < re
+                && Character.isLowSurrogate(matcher.subject.charAt(o))
+            ) o++;
 
-        matcher.hitEnd = true;
-        return false;
+            matcher.offset = o;
+        }
     }
 
     @Override public abstract String toString();

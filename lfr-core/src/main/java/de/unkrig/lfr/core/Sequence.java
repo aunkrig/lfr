@@ -26,53 +26,51 @@
 
 package de.unkrig.lfr.core;
 
-import de.unkrig.commons.nullanalysis.NotNullByDefault;
-
 /**
- * A thing that can "match" a {@link CharSequence}.
+ * A thing that can "match" (or not match) the {@link MatcherImpl#subject}. While matching, it modifies the
+ * {@link MatcherImpl}'s state, in particular the {@link MatcherImpl#offset}.
  *
- * @see #matches(MatcherImpl, int)
+ * @see #matches(MatcherImpl)
+ * @see #find(MatcherImpl)
  */
-interface Sequence extends Cloneable {
+interface Sequence {
 
     /**
-     * Checks whether this sequence matches the subject of the <var>matcher</var>, starting at the
-     * <var>offset</var>.
+     * Checks whether this sequence matches the subject of the <var>matcher</var>, starting at the current {@link
+     * MatcherImpl#offset}.
      * <p>
-     *   If this sequence matches, then the method returns the offset of the first character <em>after</em> the
-     *   match, and <var>matcher</var>.{@link MatcherImpl#groups groups} is replaced with an array that reflects
-     *   the groups after the match.
+     *   If this sequence matches, then the method advances the {@link MatcherImpl#offset} to the offset of the first
+     *   character <em>after</em> the match, replaces the {@link MatcherImpl#groups} with an array that reflects the
+     *   groups after the matching, and returns {@code true}.
      * </p>
      * <p>
-     *   Otherwise, if this sequence does <em>not</em> match, then the method returns {@code -1}, and the
-     *   <var>matcher</var>.{@link MatcherImpl#groups groups} remain unchanged.
+     *   Otherwise, if this sequence does <em>not</em> match, then the {@link MatcherImpl#groups} remain unchanged, the
+     *   {@link MatcherImpl#offset} is undefined, and the method returns {@code false}.
      * </p>
      * <p>
-     *   In both cases, <var>matcher</var>.{@link MatcherImpl#hitEnd hitEnd} is set to {@code true} iff an attempt
-     *   was made to peek past the <var>matcher</var>'s region, and <var>matcher</var>.{@link MatcherImpl#hitStart
-     *   hitStart} is set to {@code true} iff an attempt was made to peek <em>before</em> the <var>matcher</var>'s
-     *   region.
+     *   In both cases, {@link MatcherImpl#hitEnd} is set to {@code true} iff an attempt was made to peek past the
+     *   <var>matcher</var>'s region, and {@link MatcherImpl#hitStart} is set to {@code true} iff an attempt was made
+     *   to peek <em>before</em> the <var>matcher</var>'s region.
      * </p>
-     *
-     * @return If this sequence matches, the offset of the first character <em>after</em> the match, otherwise {@code
-     *         -1}
      *
      * @see Matcher#region(int, int)
      * @see MatcherImpl#groups
      * @see MatcherImpl#hitEnd
      */
-    int
-    matches(MatcherImpl matcher, int offset);
+    boolean
+    matches(MatcherImpl matcher);
 
     /**
-     * Searches for the next occurrence, and, iff it finds one, updates {@code groups[0]} and {@code groups[1]},
-     * and returns {@code true}.
+     * Searches for the <var>next</var> match, starting at the current {@link MatcherImpl#offset}, and, iff it finds
+     * one, updates {@code groups[0]} and {@code groups[1]}, and returns {@code true}.
      */
     boolean
-    find(MatcherImpl matcherImpl, int start);
+    find(MatcherImpl matcherImpl);
 
     /**
-     * @return A sequence that is composed of {@code this} and <var>that</var>
+     * Concatenates {@code this} sequence with <var>that</var>. This operation may leave {@code this} and
+     * <var>that</var> sequence in an invalid state; only the <em>returned</em> sequence must be used after this
+     * operation.
      */
     Sequence
     concat(Sequence that);
@@ -83,7 +81,4 @@ interface Sequence extends Cloneable {
      */
     @Override String
     toString();
-
-    @NotNullByDefault(false) Sequence
-    clone();
 }

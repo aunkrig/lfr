@@ -27,34 +27,39 @@
 package de.unkrig.lfr.core;
 
 /**
- * A {@link CompositeSequence} that implements {@link #matches(MatcherImpl, int)} by applying {@link
+ * A {@link CompositeSequence} that implements {@link #matches(MatcherImpl)} by applying {@link
  * #matches(int)} onto itself.
  */
 public abstract
 class CharacterClass extends CompositeSequence {
 
-    @Override public final int
-    matches(MatcherImpl matcher, int offset) {
+    @Override public final boolean
+    matches(MatcherImpl matcher) {
 
-        if (offset >= matcher.regionEnd) {
+        int o = matcher.offset;
+
+        if (o >= matcher.regionEnd) {
             matcher.hitEnd = true;
-            return -1;
+            return false;
         }
 
-        int cp = matcher.subject.charAt(offset++);
+        int cp = matcher.subject.charAt(o++);
 
         // Special handling for UTF-16 surrogates.
         if (Character.isHighSurrogate((char) cp)) {
-            if (offset < matcher.regionEnd) {
-                char ls = matcher.subject.charAt(offset);
+            if (o < matcher.regionEnd) {
+                char ls = matcher.subject.charAt(o);
                 if (Character.isLowSurrogate(ls)) {
                     cp = Character.toCodePoint((char) cp, ls);
-                    offset++;
+                    o++;
                 }
             }
         }
 
-        return this.matches(cp) ? this.next.matches(matcher, offset) : -1;
+        if (!this.matches(cp)) return false;
+
+        matcher.offset = o;
+        return this.next.matches(matcher);
     }
 
     /**

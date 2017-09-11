@@ -681,7 +681,7 @@ class Pattern implements de.unkrig.ref4j.Pattern, Serializable {
 
         mi.end = MatcherImpl.End.END_OF_REGION;
 
-        return this.sequence.matches(mi, offset) != -1;
+        return this.sequence.matches(mi);
     }
 
     private void
