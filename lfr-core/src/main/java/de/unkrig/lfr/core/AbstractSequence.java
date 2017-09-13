@@ -63,14 +63,4 @@ class AbstractSequence implements Sequence {
     }
 
     @Override public abstract String toString();
-
-    @Override @NotNullByDefault(false) public Sequence
-    clone() {
-        try {
-            return (Sequence) super.clone();
-        } catch (CloneNotSupportedException cnse) {
-            throw new AssertionError(cnse);
-        }
-    }
-
 }
