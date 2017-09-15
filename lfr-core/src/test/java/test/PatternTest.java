@@ -584,7 +584,7 @@ class PatternTest {
         String regex = ".*" + infix;
 
         PatternTest.assertSequenceToString((
-            "greedyQuantifierOnCharacterClass(operand=negate(lineBreakCharacter), min=0, max=infinite)"
+            "greedyQuantifierOnCharacterClass(operand=anyCharButLineBreak, min=0, max=infinite)"
             + " . "
             + "knuthMorrisPratt(\"ABCDEFGHIJKLMNOP\")"
         ), regex);
@@ -898,7 +898,7 @@ class PatternTest {
     @Test public void
     testQuantifierOptimizations2() {
         PatternTest.assertSequenceToString(
-            "'A' . greedyQuantifierOnCharacterClass(operand=negate(lineBreakCharacter), min=0, max=infinite) . 'B'",
+            "'A' . greedyQuantifierOnCharacterClass(operand=anyCharButLineBreak, min=0, max=infinite) . 'B'",
             "A.*B"
         );
     }
@@ -906,7 +906,7 @@ class PatternTest {
     @Test public void
     testQuantifierOptimizations3() {
         PatternTest.assertSequenceToString(
-            "'A' . greedyQuantifierOnCharacterClass(operand=negate(lineBreakCharacter), min=0, max=infinite) . naive(\"BC\")", // SUPPRESS CHECKSTYLE LineLength
+            "'A' . greedyQuantifierOnCharacterClass(operand=anyCharButLineBreak, min=0, max=infinite) . naive(\"BC\")",
             "A.*BC"
         );
     }

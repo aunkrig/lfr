@@ -741,8 +741,8 @@ class CharacterClasses {
     public static CharacterClass
     negate(final CharacterClass operand, final String toString) {
 
-        if (operand instanceof CharacterClasses.AnyCharacter)        return CharacterClasses.FAIL;
-        if (operand == CharacterClasses.FAIL) return new CharacterClasses.AnyCharacter();
+        if (operand instanceof CharacterClasses.AnyCharacter) return CharacterClasses.FAIL;
+        if (operand == CharacterClasses.FAIL)                 return new CharacterClasses.AnyCharacter();
 
         return new CharacterClass() {
 
@@ -813,6 +813,33 @@ class CharacterClasses {
     class AnyCharacter extends CharacterClass {
         @Override public boolean matches(int subject)  { return true;           }
         @Override public String  toStringWithoutNext() { return "anyCharacter"; }
+    }
+
+    /**
+     * Optimized version of "{@code negate(literalCharacter('\n'))}".
+     */
+    static CharacterClass
+    anyButNewline() {
+        return new CharacterClass() {
+            @Override public boolean   matches(int c)        { return c != '\n';           }
+            @Override protected String toStringWithoutNext() { return "anyCharButNewline"; }
+        };
+    }
+
+    /**
+     * Optimized version of "{@code negate(lineBreakCharacter()}".
+     */
+    static CharacterClass
+    anyButLineBreak() {
+
+        return new CharacterClass() {
+
+            @Override public boolean
+            matches(int c) { return (c > 0x0d || c < 0x0a) && c != 0x85 && (c < 0x2028 || c > 0x2029); }
+
+            @Override protected String
+            toStringWithoutNext() { return "anyCharButLineBreak"; }
+        };
     }
 
     private static int

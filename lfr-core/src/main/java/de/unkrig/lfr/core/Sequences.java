@@ -928,7 +928,10 @@ class Sequences {
 
             @Override public boolean
             matches(MatcherImpl matcher) {
-                return matcher.offset == matcher.anchoringRegionStart && this.next.matches(matcher);
+                return (
+                    matcher.offset == (matcher.hasAnchoringBounds() ? matcher.regionStart : 0)
+                    && this.next.matches(matcher)
+                );
             }
 
             // Override this to return 0, which enforces that "find()" (below) is always invoked, and has a chence to
@@ -941,9 +944,10 @@ class Sequences {
             find(MatcherImpl matcher) {
 
                 matcher.hitEnd = false;
+                int savedOffset = matcher.offset;
 
                 if (this.matches(matcher)) {
-                    matcher.groups[0] = matcher.anchoringRegionStart;
+                    matcher.groups[0] = savedOffset;
                     matcher.groups[1] = matcher.offset;
                     return true;
                 }
@@ -969,9 +973,9 @@ class Sequences {
 
                 int o = matcher.offset;
 
-                if (o == matcher.anchoringRegionStart) return this.next.matches(matcher);
+                if (o == (matcher.hasAnchoringBounds() ? matcher.regionStart : 0)) return this.next.matches(matcher);
 
-                if (o == matcher.anchoringRegionEnd) {
+                if (o == (matcher.hasAnchoringBounds() ? matcher.regionEnd : matcher.subject.length())) {
                     matcher.hitEnd = true;
                     return false;
                 }
@@ -1007,11 +1011,16 @@ class Sequences {
                 int o = matcher.offset;
 
                 if (
-                    o == matcher.anchoringRegionStart
-                    || (matcher.subject.charAt(o - 1) == '\n' && o != matcher.anchoringRegionEnd)
+                    o == (matcher.hasAnchoringBounds() ? matcher.regionStart : 0)
+                    || (
+                        matcher.subject.charAt(o - 1) == '\n'
+                        && o != (matcher.hasAnchoringBounds() ? matcher.regionEnd : matcher.subject.length())
+                    )
                 ) return this.next.matches(matcher);
 
-                if (o == matcher.anchoringRegionEnd) matcher.hitEnd = true;
+                if (o == (matcher.hasAnchoringBounds() ? matcher.regionEnd : matcher.subject.length())) {
+                    matcher.hitEnd = true;
+                }
 
                 return false;
             }
@@ -1034,7 +1043,14 @@ class Sequences {
 
                 int o = matcher.offset;
 
-                if (o >= matcher.anchoringRegionEnd) {
+                int are = matcher.hasAnchoringBounds() ? matcher.regionEnd : matcher.subject.length();
+                if (o == are) {
+                    matcher.hitEnd     = true;
+                    matcher.requireEnd = true;
+                    return this.next.matches(matcher);
+                }
+
+                if (o >= matcher.subject.length()) {
                     matcher.hitEnd     = true;
                     matcher.requireEnd = true;
                     return this.next.matches(matcher);
@@ -1047,7 +1063,7 @@ class Sequences {
                     || (c >= 0x2028 && c <= 0x2029)
                 )) return false;
 
-                if (o == matcher.anchoringRegionEnd - 1) {
+                if (o == are - 1) {
                     matcher.hitEnd     = true;
                     matcher.requireEnd = true;
                     return this.next.matches(matcher);
@@ -1056,7 +1072,7 @@ class Sequences {
                 if (
                     c == '\r'
                     && matcher.subject.charAt(o + 1) == '\n'
-                    && o == matcher.anchoringRegionEnd - 2
+                    && o == are - 2
                 ) {
                     matcher.hitEnd     = true;
                     matcher.requireEnd = true;
@@ -1082,16 +1098,17 @@ class Sequences {
             @Override public boolean
             matches(MatcherImpl matcher) {
 
-                int o = matcher.offset;
+                int o   = matcher.offset;
+                int are = matcher.hasAnchoringBounds() ? matcher.regionEnd : matcher.subject.length();
 
-                if (o >= matcher.anchoringRegionEnd) {
+                if (o >= are) {
                     matcher.hitEnd     = true;
                     matcher.requireEnd = true;
                     return this.next.matches(matcher);
                 }
 
                 if (
-                    o == matcher.anchoringRegionEnd - 1
+                    o == are - 1
                     && matcher.subject.charAt(o) == '\n'
                 ) {
                     matcher.hitEnd     = true;
@@ -1118,8 +1135,13 @@ class Sequences {
             @Override public boolean
             matches(MatcherImpl matcher) {
 
-                if (matcher.offset < matcher.anchoringRegionEnd) return false;
+                // No anchoring bound, no match.
+                if (!matcher.hasAnchoringBounds()) return false;
 
+                // Are we at the end of the region?
+                if (matcher.offset < matcher.regionEnd) return false;
+
+                // Yes.
                 matcher.hitEnd     = true;
                 matcher.requireEnd = true;
 
@@ -1144,7 +1166,7 @@ class Sequences {
 
                 int o = matcher.offset;
 
-                if (o == matcher.anchoringRegionEnd) {
+                if (o == (matcher.hasAnchoringBounds() ? matcher.regionEnd : matcher.subject.length())) {
                     matcher.hitEnd     = true;
                     matcher.requireEnd = true;
                     return this.next.matches(matcher);
@@ -1153,7 +1175,7 @@ class Sequences {
                 char c = matcher.subject.charAt(o);
                 return (
                     (c == '\n' && (
-                        o == matcher.anchoringRegionStart
+                        o == (matcher.hasAnchoringBounds() ? matcher.regionStart : 0)
                         || Character.codePointBefore(matcher.subject, o) != '\r'
                     ))
                     || c == '\r'
@@ -1184,7 +1206,7 @@ class Sequences {
 
                 int o = matcher.offset;
 
-                if (o == matcher.anchoringRegionEnd) {
+                if (matcher.hasAnchoringBounds() && o == matcher.regionEnd) {
                     matcher.hitEnd     = true;
                     matcher.requireEnd = true;
                     return this.next.matches(matcher);
@@ -1272,19 +1294,28 @@ class Sequences {
                 // The "Non-spacing mark" character is sometimes a word character (iff its left neighbor is a word
                 // character), and sometimes it is not (iff its left neighbor is a non-word character).
 
-                if (o >= matcher.transparentRegionEnd) {
+                int trs, tre;
+                if (matcher.hasTransparentBounds()) {
+                    trs = 0;
+                    tre = matcher.subject.length();
+                } else {
+                    trs = matcher.regionStart;
+                    tre = matcher.regionEnd;
+                }
+
+                if (o >= tre) {
 
                     // At end of transparent region.
                     matcher.hitEnd     = true;
                     matcher.requireEnd = true;
                     return (
-                        o != matcher.transparentRegionStart // Zero-length region.
+                        o != trs // Zero-length region.
                         && isWordCharacter.evaluate(Character.codePointBefore(matcher.subject, o))
                         && this.next.matches(matcher)
                     );
                 }
 
-                if (o <= matcher.transparentRegionStart) {
+                if (o <= trs) {
 
                     // At start of transparent region.
                     return (
@@ -1301,7 +1332,7 @@ class Sequences {
 
                 if (cpBefore == '\u030a') {
                     for (int i = o - 1;; i--) {
-                        if (i <= matcher.transparentRegionStart) {
+                        if (i <= trs) {
                             if (!isWordCharacter.evaluate(cpAt)) return false;
                             break;
                         }
@@ -1362,8 +1393,9 @@ class Sequences {
                 final MatcherImpl.End savedEnd       = matcher.end;
                 final int             savedRegionEnd = matcher.regionEnd;
                 {
-                    matcher.end       = MatcherImpl.End.ANY;
-                    matcher.regionEnd = matcher.transparentRegionEnd;
+                    matcher.end = MatcherImpl.End.ANY;
+
+                    if (matcher.hasTransparentBounds()) matcher.regionEnd = matcher.subject.length();
 
                     lookaheadMatches   = op.matches(matcher);
                     matcher.requireEnd = matcher.hitEnd;
@@ -1394,7 +1426,7 @@ class Sequences {
             matches(MatcherImpl matcher) {
 
                 final int savedOffset = matcher.offset;
-                int       start       = matcher.transparentRegionStart;
+                int       start       = matcher.hasTransparentBounds() ? 0 : matcher.regionStart;
 
                 // Check whether there enough chars between the transparent region's start and the current offset.
                 if (op.minMatchLength() > savedOffset - start) return false;

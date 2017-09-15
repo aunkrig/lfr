@@ -78,16 +78,6 @@ class MatcherImpl implements Matcher {
      */
     int regionStart, regionEnd;
 
-    /**
-     * Where lookaheads and lookbehinds can see.
-     */
-    int transparentRegionStart, transparentRegionEnd;
-
-    /**
-     * Where anchors (such as {@code "^"} and {@code "$"} match.
-     */
-    int anchoringRegionStart, anchoringRegionEnd;
-
     // STATE
 
     /**
@@ -154,7 +144,7 @@ class MatcherImpl implements Matcher {
     MatcherImpl(Pattern pattern, CharSequence subject) {
         this.pattern   = pattern;
         this.subject   = subject;
-        this.regionEnd = (this.anchoringRegionEnd = (this.transparentRegionEnd = subject.length()));
+        this.regionEnd = subject.length();
 
         this.groups = (this.initialGroups = new int[2 + 2 * pattern.groupCount]);
         Arrays.fill(this.groups, -1);
@@ -556,11 +546,11 @@ class MatcherImpl implements Matcher {
 
         this.regionStart = start;
         this.regionEnd   = end;
-        this.updateTransparentBounds();
-        this.updateAnchoringBounds();
 
-        this.hitEnd             = false;
-        this.requireEnd         = false;
+        // For JUR, "region()" does NOT reset "hitEnd" and "requireEnd", as one might expect!
+//        this.hitEnd             = false;
+//        this.requireEnd         = false;
+
         this.endOfPreviousMatch = -1;
         this.lastAppendPosition = 0;
         this.offset             = 0;
@@ -571,40 +561,16 @@ class MatcherImpl implements Matcher {
     @Override public Matcher
     useTransparentBounds(boolean b) {
         this.hasTransparentBounds = b;
-        this.updateTransparentBounds();
         return this;
     }
 
     @Override public Matcher
     useAnchoringBounds(boolean b) {
         this.hasAnchoringBounds = b;
-        this.updateAnchoringBounds();
         return this;
     }
 
     // =====================================
-
-    private void
-    updateTransparentBounds() {
-        if (this.hasTransparentBounds) {
-            this.transparentRegionStart = 0;
-            this.transparentRegionEnd   = this.subject.length();
-        } else {
-            this.transparentRegionStart = this.regionStart;
-            this.transparentRegionEnd   = this.regionEnd;
-        }
-    }
-
-    private void
-    updateAnchoringBounds() {
-        if (this.hasAnchoringBounds) {
-            this.anchoringRegionStart = this.regionStart;
-            this.anchoringRegionEnd   = this.regionEnd;
-        } else {
-            this.anchoringRegionStart = 0;
-            this.anchoringRegionEnd   = this.subject.length();
-        }
-    }
 
     /**
      * If the subject infix ranging from the <var>offset</var> to the region end starts with the <var>cs</var>,

@@ -303,13 +303,7 @@ class PatternFactory extends de.unkrig.ref4j.PatternFactory {
                 String t = token.text;
 
                 if (this.peekRead(TokenType.CC_ANY) != null) {
-                    return (
-                        (this.currentFlags & de.unkrig.ref4j.Pattern.DOTALL) != 0
-                        ? new CharacterClasses.AnyCharacter()
-                        : (this.currentFlags & de.unkrig.ref4j.Pattern.UNIX_LINES) != 0
-                        ? CharacterClasses.negate(CharacterClasses.literalCharacter('\n'), ".")
-                        : CharacterClasses.negate(CharacterClasses.lineBreakCharacter(), ".")
-                    );
+                    return this.anyCharacter();
                 }
 
                 if (this.peekRead(TokenType.QUOTED_CHARACTER) != null) {
@@ -513,9 +507,25 @@ class PatternFactory extends de.unkrig.ref4j.PatternFactory {
             }
 
             /**
-             * @return A back references, based on the currently effective CASE_INSENSITIVE and UNICODE_CASE flags
+             * @return Matches <em>any</em> character, based on the currently effective {@link
+             *         de.unkrig.ref4j.Pattern#DOTALL} and {@link de.unkrig.ref4j.Pattern#UNIX_LINES} flags
              */
-            public Sequence
+            private CharacterClass
+            anyCharacter() {
+                return (
+                    (this.currentFlags & de.unkrig.ref4j.Pattern.DOTALL) != 0
+                    ? new CharacterClasses.AnyCharacter()
+                    : (this.currentFlags & de.unkrig.ref4j.Pattern.UNIX_LINES) != 0
+                    ? CharacterClasses.anyButNewline()
+                    : CharacterClasses.anyButLineBreak()
+                );
+            }
+
+            /**
+             * @return A capturing group back reference, based on the currently effective {@link
+             *         de.unkrig.ref4j.Pattern#CASE_INSENSITIVE} and {@link de.unkrig.ref4j.Pattern#UNICODE_CASE} flags
+             */
+            private Sequence
             capturingGroupBackReference(int groupNumber) {
                 return (this.currentFlags & de.unkrig.ref4j.Pattern.CASE_INSENSITIVE) == 0
                 ? Sequences.capturingGroupBackReference(groupNumber)
@@ -524,6 +534,10 @@ class PatternFactory extends de.unkrig.ref4j.PatternFactory {
                 : Sequences.unicodeCaseInsensitiveCapturingGroupBackReference(groupNumber);
             }
 
+            /**
+             * @return A word boundary, based on the currently effective {@link
+             *         de.unkrig.ref4j.Pattern#UNICODE_CHARACTER_CLASS} flag
+             */
             private Sequence
             wordBoundary() {
                 return (
@@ -534,25 +548,27 @@ class PatternFactory extends de.unkrig.ref4j.PatternFactory {
             }
 
             /**
-             * @return A {@link CharacterClass} that matches the <var>codePoint</var>, honoring surrogates and {@code
-             *         this} matcher's case-sensitivity flags
+             * @return A {@link CharacterClass} that matches the <var>codePoint</var>, honoring surrogates and the
+             *         currentliy effective {@link de.unkrig.ref4j.Pattern#CASE_SENSITIVE} and {@link
+             *         de.unkrig.ref4j.Pattern#UNICODE_CASE} flags
              */
             private CharacterClass
-            literalCharacter(int cp) {
+            literalCharacter(int codePoint) {
 
                 return (
                     (this.currentFlags & de.unkrig.ref4j.Pattern.CASE_INSENSITIVE) == 0
-                    ? CharacterClasses.literalCharacter(cp)
+                    ? CharacterClasses.literalCharacter(codePoint)
                     : (this.currentFlags & de.unkrig.ref4j.Pattern.UNICODE_CASE) == 0
-                    ? CharacterClasses.caseInsensitiveLiteralCharacter(cp)
-                    : CharacterClasses.unicodeCaseInsensitiveLiteralCharacter(cp)
+                    ? CharacterClasses.caseInsensitiveLiteralCharacter(codePoint)
+                    : CharacterClasses.unicodeCaseInsensitiveLiteralCharacter(codePoint)
                 );
             }
 
             /**
-             * @return A range, based on the currently effective CASE_INSENSITIVE and UNICODE_CASE flags
+             * @return A range, based on the currently effective {@link de.unkrig.ref4j.Pattern#CASE_INSENSITIVE} and
+             *         {@link de.unkrig.ref4j.Pattern#UNICODE_CASE} flags
              */
-            public CharacterClass
+            private CharacterClass
             range(int lhsCp, int rhsCp) {
 
                 return (
@@ -564,7 +580,11 @@ class PatternFactory extends de.unkrig.ref4j.PatternFactory {
                 );
             }
 
-            public Sequence
+            /**
+             * @return Implements {@code "\Z"}, based on the currently effective {@link
+             *         de.unkrig.ref4j.Pattern#UNIX_LINE} flag
+             */
+            private Sequence
             endOfInputButFinalTerminator() {
                 return (
                     (this.currentFlags & de.unkrig.ref4j.Pattern.UNIX_LINES) != 0
@@ -872,14 +892,12 @@ class PatternFactory extends de.unkrig.ref4j.PatternFactory {
 
                     // A unicode block?
                     if ((result = Characters.unicodeBlockFromName(name)) != null) return result;
-                } else
-                {
+                } else {
                     if (name.startsWith("Is")) name = name.substring(2);
 
                     // A POSIX character class?
-                    boolean isUnicode = (this.currentFlags & de.unkrig.ref4j.Pattern.UNICODE_CHARACTER_CLASS) != 0;
                     if ((result = (
-                        isUnicode
+                        (this.currentFlags & de.unkrig.ref4j.Pattern.UNICODE_CHARACTER_CLASS) != 0
                         ? Characters.unicodePredefinedCharacterClassFromName(name)
                         : Characters.posixCharacterClassFromName(name)
                     )) != null) return result;

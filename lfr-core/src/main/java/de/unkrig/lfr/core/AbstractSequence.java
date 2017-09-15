@@ -26,8 +26,6 @@
 
 package de.unkrig.lfr.core;
 
-import de.unkrig.commons.nullanalysis.NotNullByDefault;
-
 /**
  * Implements {@link #find(MatcherImpl)} through {@link #matches(MatcherImpl)}.
  */
