@@ -33,12 +33,30 @@ package de.unkrig.lfr.core;
 public abstract
 class CharacterClass extends CompositeSequence {
 
+    public
+    CharacterClass() {
+        super(
+            1, // minMatchLengthWithoutNext
+            2  // maxMatchLengthWithoutNext
+        );
+    }
+
+    public
+    CharacterClass(int matchLengthWithoutNext) {
+        super(matchLengthWithoutNext, matchLengthWithoutNext);
+    }
+
+    public
+    CharacterClass(int minMatchLengthWithoutNext, int maxMatchLengthWithoutNext) {
+        super(minMatchLengthWithoutNext, maxMatchLengthWithoutNext);
+    }
+
     @Override public final boolean
     matches(MatcherImpl matcher) {
 
         int o = matcher.offset;
 
-        if (o >= matcher.regionEnd) {
+        if (o + this.minMatchLength() > matcher.regionEnd) {
             matcher.hitEnd = true;
             return false;
         }

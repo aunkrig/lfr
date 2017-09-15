@@ -55,6 +55,9 @@ class Sequences {
             return matcher.end == MatcherImpl.End.ANY || matcher.offset >= matcher.regionEnd;
         }
 
+        @Override public int minMatchLength() { return 0; }
+        @Override public int maxMatchLength() { return 0; }
+
         @Override public Sequence
         concat(Sequence that) { return that; }
 
@@ -128,6 +131,9 @@ class Sequences {
         final boolean greedy
     ) {
 
+        final int minml = Sequences.mul(min, operand.minMatchLength());
+        final int maxml = Sequences.mul(max, operand.maxMatchLength());
+
         if ((min == 0 || min == 1) && max == Integer.MAX_VALUE) {
 
             // Optimization for "x*" and "x+": We can save the overhead of counting repetitions.
@@ -147,10 +153,13 @@ class Sequences {
             final Sequence[] operand2   = { operand };
             final String     opToString = operand.toString();
 
-            final CompositeSequence cs = new CompositeSequence() {
+            final CompositeSequence cs = new CompositeSequence(0, Integer.MAX_VALUE) {
 
                 @Override public boolean
                 matches(MatcherImpl matcher) {
+
+                    // Optimize:
+                    if (matcher.regionEnd - matcher.offset < this.next.minMatchLength()) return false;
 
                     if (greedy) {
 
@@ -181,6 +190,9 @@ class Sequences {
 
             return new AbstractSequence() {
 
+                int minMatchLength = minml;
+                int maxMatchLength = maxml;
+
                 @Override public boolean
                 matches(MatcherImpl matcher) {
 
@@ -192,6 +204,12 @@ class Sequences {
                         return operand2[0].matches(matcher);
                     }
                 }
+
+                @Override public int
+                minMatchLength() { return this.minMatchLength; }
+
+                @Override public int
+                maxMatchLength() { return this.maxMatchLength; }
 
                 @Override public Sequence
                 concat(final Sequence that) {
@@ -212,6 +230,10 @@ class Sequences {
                     }
 
                     cs.concat(that);
+
+                    this.minMatchLength = Sequences.add(minml, that.minMatchLength());
+                    this.maxMatchLength = Sequences.add(maxml, that.maxMatchLength());
+
                     return this;
                 }
 
@@ -229,6 +251,8 @@ class Sequences {
             };
         }
 
+        // Here we have the "general case", where min and max can have any value.
+
         //         +-----------+
         //         |  result   |
         //         +-----------+
@@ -244,12 +268,19 @@ class Sequences {
         final Sequence[] operand2   = { operand };
         final String     opToString = operand.toString();
 
-        final CompositeSequence cs = new CompositeSequence() {
+        final CompositeSequence cs = new CompositeSequence(
+            Sequences.mul(operand.minMatchLength(), (min == 0 ? 0   : min - 1)), // minMatchLength
+            Sequences.mul(operand.maxMatchLength(), (min == 0 ? max : max - 1))  // maxMatchLength
+        ) {
 
             @Override public boolean
             matches(MatcherImpl matcher) {
 
                 if (greedy) {
+
+                    // Optimize:
+                    if (matcher.regionEnd - matcher.offset < this.next.minMatchLength()) return false;
+
                     int ic = matcher.counters[counterIndex];
 
                     if (ic == max) return this.next.matches(matcher);
@@ -290,6 +321,9 @@ class Sequences {
 
         return new AbstractSequence() {
 
+            int minMatchLength = minml;
+            int maxMatchLength = maxml;
+
             @Override public boolean
             matches(MatcherImpl matcher) {
 
@@ -301,6 +335,12 @@ class Sequences {
                     return operand2[0].matches(matcher);
                 }
             }
+
+            @Override public int
+            minMatchLength() { return this.minMatchLength; }
+
+            @Override public int
+            maxMatchLength() { return this.maxMatchLength; }
 
             @Override public Sequence
             concat(final Sequence that) {
@@ -321,6 +361,10 @@ class Sequences {
                 }
 
                 cs.concat(that);
+
+                this.minMatchLength = Sequences.add(minml, that.minMatchLength());
+                this.maxMatchLength = Sequences.add(maxml, that.maxMatchLength());
+
                 return this;
             }
 
@@ -349,7 +393,10 @@ class Sequences {
     public static CompositeSequence
     reluctantQuantifierOnAnyCharAndLiteralString(final int min, final int max, final String s) {
 
-        return new CompositeSequence() {
+        return new CompositeSequence(
+            Sequences.add(min, s.length()),
+            Sequences.add(max, s.length())
+        ) {
 
             final int     len     = s.length();
             final IndexOf indexOf = StringUtil.newIndexOf(s);
@@ -403,7 +450,10 @@ class Sequences {
     private static Sequence
     possessiveQuantifier(final Sequence operand, final int min, final int max) {
 
-        return new CompositeSequence() {
+        return new CompositeSequence(
+            Sequences.mul(min, operand.minMatchLength()),
+            Sequences.mul(max, operand.maxMatchLength())
+        ) {
 
             @Override public boolean
             matches(MatcherImpl matcher) {
@@ -437,7 +487,8 @@ class Sequences {
 
             @Override public Sequence
             concat(Sequence that) {
-                that = (this.next = this.next.concat(that));
+
+                Sequence result = super.concat(that);
 
                 // Optimize for "." operand.
                 if (
@@ -446,7 +497,10 @@ class Sequences {
                 ) {
 
                     // Replace the possessive quantifier element.
-                    return new CompositeSequence() {
+                    return new CompositeSequence(
+                        Sequences.add(Sequences.mul(min, 1), result.minMatchLength()),
+                        Sequences.add(Sequences.mul(max, 2), result.maxMatchLength())
+                    ) {
 
                         @Override public boolean
                         matches(MatcherImpl matcher) {
@@ -508,6 +562,7 @@ class Sequences {
          * @param s The literal string that this sequence represents
          */
         LiteralString(String s) {
+            super(s.length());
             this.s       = s;
             this.indexOf = StringUtil.newIndexOf(this.s);
         }
@@ -560,10 +615,11 @@ class Sequences {
 
         @Override public Sequence
         concat(Sequence that) {
-            that = (this.next = this.next.concat(that));
 
-            if (that instanceof CharacterClasses.LiteralChar) {
-                CharacterClasses.LiteralChar thatLiteralCharacter = (CharacterClasses.LiteralChar) that;
+            super.concat(that);
+
+            if (this.next instanceof CharacterClasses.LiteralChar) {
+                CharacterClasses.LiteralChar thatLiteralCharacter = (CharacterClasses.LiteralChar) this.next;
 
                 String lhs = this.s;
                 int    rhs = thatLiteralCharacter.c;
@@ -574,8 +630,8 @@ class Sequences {
                 );
             }
 
-            if (that instanceof Sequences.LiteralString) {
-                Sequences.LiteralString thatLiteralString = (Sequences.LiteralString) that;
+            if (this.next instanceof Sequences.LiteralString) {
+                Sequences.LiteralString thatLiteralString = (Sequences.LiteralString) this.next;
 
                 String lhs = this.s;
                 String rhs = thatLiteralString.s;
@@ -605,7 +661,7 @@ class Sequences {
 
         if (alternatives.length == 1) return alternatives[0];
 
-        return new CompositeSequence() {
+        return new CompositeSequence(0, Integer.MAX_VALUE) {
 
             @Override public boolean
             matches(MatcherImpl matcher) {
@@ -649,7 +705,7 @@ class Sequences {
 
         if (alternatives.length == 1) return alternatives[0];
 
-        return new CompositeSequence() {
+        return new CompositeSequence(0, Integer.MAX_VALUE) {
 
             @Override public boolean
             matches(MatcherImpl matcher) {
@@ -684,24 +740,29 @@ class Sequences {
     public static Sequence
     capturingGroupStart(final int groupNumber) {
 
-        return new CompositeSequence() {
+        return new CompositeSequence(0) {
 
             @Override public boolean
             matches(MatcherImpl matcher) {
 
-                int[] newGroups = Arrays.copyOf(matcher.groups, matcher.groups.length);
-                newGroups[2 * groupNumber] = matcher.offset;
+                if (matcher.groups == matcher.initialGroups) {
+                    matcher.groups = Arrays.copyOf(matcher.groups, matcher.groups.length);
+                }
 
-                final int[] savedGroups = matcher.groups;
-                matcher.groups = newGroups;
+                int idx = 2 * groupNumber;
 
+                int savedGroupStart = matcher.groups[idx];
+                matcher.groups[idx] = matcher.offset;
+
+                // The following logic is (not only a bit...) strange, but that's how JUR's capturing groups
+                // behave:
                 if (!this.next.matches(matcher)) {
-                    matcher.groups = savedGroups;
+                    matcher.groups[idx] = savedGroupStart;
                     return false;
                 }
 
                 // Verify that the successor chain contained an "end" for the same capturing group.
-                assert matcher.groups[2 * groupNumber + 1] != -1;
+                assert matcher.groups[idx + 1] != -1;
 
                 return true;
             }
@@ -717,7 +778,7 @@ class Sequences {
     public static Sequence
     capturingGroupEnd(final int groupNumber) {
 
-        return new CompositeSequence() {
+        return new CompositeSequence(0) {
 
             @Override public boolean
             matches(MatcherImpl matcher) {
@@ -743,7 +804,7 @@ class Sequences {
     static Sequence
     capturingGroup(final int groupNumber, final Sequence subsequence) {
 
-        return new CompositeSequence() {
+        return new CompositeSequence(subsequence.minMatchLength(), subsequence.maxMatchLength()) {
 
             @Override public boolean
             matches(MatcherImpl matcher) {
@@ -776,7 +837,7 @@ class Sequences {
     static Sequence
     capturingGroupBackReference(final int groupNumber) {
 
-        return new CompositeSequence() {
+        return new CompositeSequence(0, Integer.MAX_VALUE) {
 
             @Override public boolean
             matches(MatcherImpl matcher) {
@@ -804,7 +865,7 @@ class Sequences {
     static Sequence
     caseInsensitiveCapturingGroupBackReference(final int groupNumber) {
 
-        return new CompositeSequence() {
+        return new CompositeSequence(0, Integer.MAX_VALUE) {
 
             @Override public boolean
             matches(MatcherImpl matcher) {
@@ -835,7 +896,7 @@ class Sequences {
     static Sequence
     unicodeCaseInsensitiveCapturingGroupBackReference(final int groupNumber) {
 
-        return new CompositeSequence() {
+        return new CompositeSequence(0, Integer.MAX_VALUE) {
 
             @Override public boolean
             matches(MatcherImpl matcher) {
@@ -858,17 +919,22 @@ class Sequences {
     }
 
     /**
-     * Implements {@code "^"} with !MULTILINE, and {@code "\A"}.
+     * Implements {@code "^"} with !{@link de.unkrig.ref4j.Pattern#MULTILINE}, and {@code "\A"}.
      */
     public static Sequence
     beginningOfInput() {
 
-        return new CompositeSequence() {
+        return new CompositeSequence(0) {
 
             @Override public boolean
             matches(MatcherImpl matcher) {
                 return matcher.offset == matcher.anchoringRegionStart && this.next.matches(matcher);
             }
+
+            // Override this to return 0, which enforces that "find()" (below) is always invoked, and has a chence to
+            // set "hitEnd = false".
+            @Override public int
+            minMatchLength() { return 0; }
 
             // Override "AbstractSequence.find()" such that we give the match only one shot.
             @Override public boolean
@@ -896,7 +962,7 @@ class Sequences {
     public static Sequence
     beginningOfLine() {
 
-        return new CompositeSequence() {
+        return new CompositeSequence(0) {
 
             @Override public boolean
             matches(MatcherImpl matcher) {
@@ -933,7 +999,7 @@ class Sequences {
     public static Sequence
     beginningOfUnixLine() {
 
-        return new CompositeSequence() {
+        return new CompositeSequence(0) {
 
             @Override public boolean
             matches(MatcherImpl matcher) {
@@ -961,7 +1027,7 @@ class Sequences {
     public static Sequence
     endOfInputButFinalTerminator() {
 
-        return new CompositeSequence() {
+        return new CompositeSequence(0) {
 
             @Override public boolean
             matches(MatcherImpl matcher) {
@@ -1011,7 +1077,7 @@ class Sequences {
     public static Sequence
     endOfInputButFinalUnixTerminator() {
 
-        return new CompositeSequence() {
+        return new CompositeSequence(0) {
 
             @Override public boolean
             matches(MatcherImpl matcher) {
@@ -1047,7 +1113,7 @@ class Sequences {
     public static Sequence
     endOfInput() {
 
-        return new CompositeSequence() {
+        return new CompositeSequence(0) {
 
             @Override public boolean
             matches(MatcherImpl matcher) {
@@ -1066,12 +1132,12 @@ class Sequences {
     }
 
     /**
-     * Implements {@code "$"} with MULTILINE.
+     * Implements {@code "$"} with {@link de.unkrig.ref4j.Pattern#MULTILINE}.
      */
     public static Sequence
     endOfLine() {
 
-        return new CompositeSequence() {
+        return new CompositeSequence(0) {
 
             @Override public boolean
             matches(MatcherImpl matcher) {
@@ -1105,12 +1171,13 @@ class Sequences {
     }
 
     /**
-     * Implements {@code "$"} with MULTILINE and UNIX_LINES.
+     * Implements {@code "$"} with {@link de.unkrig.ref4j.Pattern#MULTILINE} and {@link
+     * de.unkrig.ref4j.Pattern#UNIX_LINES}.
      */
     public static Sequence
     endOfUnixLine() {
 
-        return new CompositeSequence() {
+        return new CompositeSequence(0) {
 
             @Override public boolean
             matches(MatcherImpl matcher) {
@@ -1137,9 +1204,7 @@ class Sequences {
     public static Sequence
     linebreak() {
 
-        return new CompositeSequence() {
-
-            char c1 = '\r', c2 = '\n';
+        return new CompositeSequence(1, 2) {
 
             @Override public boolean
             matches(MatcherImpl matcher) {
@@ -1153,9 +1218,9 @@ class Sequences {
                 // Check for linebreak characters in a highly optimized manner.
                 if (c <= 0x0d) {
                     if (
-                        c == this.c1
+                        c == '\r'
                         && o < matcher.regionEnd - 1
-                        && matcher.subject.charAt(o + 1) == this.c2
+                        && matcher.subject.charAt(o + 1) == '\n'
                     ) {
                         matcher.offset = o + 2;
                         return this.next.matches(matcher);
@@ -1197,7 +1262,7 @@ class Sequences {
     private static Sequence
     wordBoundary(final Predicate<Integer> isWordCharacter, final String toString) {
 
-        return new CompositeSequence() {
+        return new CompositeSequence(0) {
 
             @Override public boolean
             matches(MatcherImpl matcher) {
@@ -1262,7 +1327,7 @@ class Sequences {
     public static Sequence
     endOfPreviousMatch() {
 
-        return new CompositeSequence() {
+        return new CompositeSequence(0) {
 
             @Override public boolean
             matches(MatcherImpl matcher) {
@@ -1286,7 +1351,7 @@ class Sequences {
     public static Sequence
     positiveLookahead(final Sequence op) {
 
-        return new CompositeSequence() {
+        return new CompositeSequence(0) {
 
             @Override public boolean
             matches(MatcherImpl matcher) {
@@ -1323,41 +1388,42 @@ class Sequences {
     public static Sequence
     positiveLookbehind(final Sequence op) {
 
-        return new CompositeSequence() {
+        return new CompositeSequence(0) {
 
             @Override public boolean
             matches(MatcherImpl matcher) {
 
-                // In most cases, it is more efficient to FIRST check whether the rest of the pattern matches, and
-                // only THEN check if the lookbehind matches.
-                final int savedOffset1 = matcher.offset;
-                if (!this.next.matches(matcher)) return false;
-                final int savedOffset2 = matcher.offset;
+                final int savedOffset = matcher.offset;
+                int       start       = matcher.transparentRegionStart;
 
-                boolean lookbehindMatches;
+                // Check whether there enough chars between the transparent region's start and the current offset.
+                if (op.minMatchLength() > savedOffset - start) return false;
+
+                // Optimize: Start the matching as far to the right as possible.
+                int opmaxml = op.maxMatchLength();
+                if (opmaxml < savedOffset - start) start = savedOffset - opmaxml;
+
                 {
                     final MatcherImpl.End savedEnd         = matcher.end;
                     final boolean         savedHitEnd      = matcher.hitEnd;
-                    final int             savedRegionStart = matcher.regionStart;
                     final int             savedRegionEnd   = matcher.regionEnd;
                     try {
+
                         matcher.end         = MatcherImpl.End.END_OF_REGION;
-                        matcher.regionStart = matcher.transparentRegionStart;
-                        matcher.regionEnd   = savedOffset1;
-                        matcher.offset      = matcher.transparentRegionStart;
-                        lookbehindMatches   = op.find(matcher);
+                        matcher.regionEnd   = savedOffset;
+                        matcher.offset      = start;
+
+                        if (!op.find(matcher)) return false;
                     } finally {
                         matcher.end         = savedEnd;
                         matcher.hitEnd      = savedHitEnd;
-                        matcher.regionStart = savedRegionStart;
                         matcher.regionEnd   = savedRegionEnd;
                     }
                 }
 
-                if (!lookbehindMatches) return false;
+                matcher.offset = savedOffset;
 
-                matcher.offset = savedOffset2;
-                return true;
+                return this.next.matches(matcher);
             }
 
             @Override public String
@@ -1372,7 +1438,7 @@ class Sequences {
     public static Sequence
     greedyQuantifierOnCharacterClass(final CharacterClass operand, final int min, final int max) {
 
-        return new CompositeSequence() {
+        return new CompositeSequence(min * operand.minMatchLength(), Sequences.mul(max, operand.maxMatchLength())) {
 
             @Override public boolean
             matches(MatcherImpl matcher) {
@@ -1487,7 +1553,7 @@ class Sequences {
     public static Sequence
     greedyQuantifierOnAnyCharAndLiteralString(final int min, final int max, final String s) {
 
-        return new CompositeSequence() {
+        return new CompositeSequence(min * s.length(), Sequences.mul(max, s.length())) {
 
             final IndexOf indexOf     = StringUtil.newIndexOf(s);
             final int     infixLength = s.length();
@@ -1555,7 +1621,7 @@ class Sequences {
     public static Sequence
     negate(final Sequence op) {
 
-        return new CompositeSequence() {
+        return new CompositeSequence(0) {
 
             @Override public boolean
             matches(MatcherImpl matcher) {
@@ -1585,4 +1651,14 @@ class Sequences {
 
     private static String
     maxToString(int n) { return n == Integer.MAX_VALUE ? "infinite" : Integer.toString(n); }
+
+    private static int
+    add(int op1, int op2) {
+        return (op1 == Integer.MAX_VALUE || op2 == Integer.MAX_VALUE) ? Integer.MAX_VALUE : op1 + op2;
+    }
+
+    private static int
+    mul(int op1, int op2) {
+        return (op1 == Integer.MAX_VALUE || op2 == Integer.MAX_VALUE) ? Integer.MAX_VALUE : op1 * op2;
+    }
 }

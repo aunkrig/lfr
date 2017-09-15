@@ -50,7 +50,7 @@ class CharacterClasses {
      * Always causes a match to fail.
      */
     public static final CharacterClass
-    FAIL = new CharacterClass() {
+    FAIL = new CharacterClass(Integer.MAX_VALUE, -1) {
 
         @Override public boolean   matches(int c)                { return false;  }
         @Override public boolean   find(MatcherImpl matcherImpl) { return false;  }
@@ -73,7 +73,10 @@ class CharacterClasses {
          */
         final char c;
 
-        LiteralChar(char c) { this.c = c; }
+        LiteralChar(char c) {
+            super(1);
+            this.c = c;
+        }
 
         @Override public boolean
         matches(int subject) { return subject == this.c; }
@@ -113,10 +116,11 @@ class CharacterClasses {
 
         @Override public Sequence
         concat(Sequence that) {
-            that = (this.next = this.next.concat(that));
 
-            if (that instanceof CharacterClasses.LiteralChar) {
-                CharacterClasses.LiteralChar thatLiteralCharacter = (CharacterClasses.LiteralChar) that;
+           super.concat(that);
+
+            if (this.next instanceof CharacterClasses.LiteralChar) {
+                CharacterClasses.LiteralChar thatLiteralCharacter = (CharacterClasses.LiteralChar) this.next;
 
                 int lhs = this.c;
                 int rhs = thatLiteralCharacter.c;
@@ -126,8 +130,8 @@ class CharacterClasses {
                 return new Sequences.LiteralString(ls).concat(thatLiteralCharacter.next);
             }
 
-            if (that instanceof Sequences.LiteralString) {
-                Sequences.LiteralString thatLiteralString = (Sequences.LiteralString) that;
+            if (this.next instanceof Sequences.LiteralString) {
+                Sequences.LiteralString thatLiteralString = (Sequences.LiteralString) this.next;
 
                 int    lhs = this.c;
                 String rhs = thatLiteralString.get();
@@ -205,7 +209,7 @@ class CharacterClasses {
         // Optimize for non-supplementary code points.
         if (!Character.isSupplementaryCodePoint(codePoint)) return new LiteralChar((char) codePoint);
 
-        return new CharacterClass() {
+        return new CharacterClass(Character.charCount(codePoint)) {
 
             @Override public boolean
             matches(int c) { return c == codePoint; }
@@ -341,7 +345,7 @@ class CharacterClasses {
 
         Iterator<Integer> it = chars.iterator();
         switch (chars.size()) {
-        case 1: return literalCharacter(chars.iterator().next());
+        case 1: return CharacterClasses.literalCharacter(chars.iterator().next());
         case 2: return new OneOfTwoCharacterClass(it.next(), it.next());
         case 3: return new OneOfThreeCharacterClass(it.next(), it.next(), it.next());
         }
@@ -429,9 +433,9 @@ class CharacterClasses {
     public static CharacterClass
     union(final CharacterClass lhs, final CharacterClass rhs) {
 
-        if (lhs instanceof EmptyCharacterClass) return rhs;
+        if (lhs == CharacterClasses.FAIL) return rhs;
 
-        if (rhs instanceof EmptyCharacterClass) return lhs;
+        if (rhs == CharacterClasses.FAIL) return lhs;
 
         if (lhs instanceof LiteralChar && rhs instanceof LiteralChar) {
             return CharacterClasses.oneOfTwo(((LiteralChar) lhs).c, ((LiteralChar) rhs).c);
@@ -449,12 +453,21 @@ class CharacterClasses {
             return CharacterClasses.oneOfThree(oot.c1, oot.c2, lc.c);
         }
 
-        return new CharacterClass() {
-            @Override public boolean   matches(int c)        { return lhs.matches(c) || rhs.matches(c);             }
-            @Override public int       lowerBound()          { return Math.min(lhs.lowerBound(), rhs.lowerBound()); }
-            @Override public int       upperBound()          { return Math.max(lhs.upperBound(), rhs.upperBound()); }
-            @Override public int       sizeBound()           { return lhs.sizeBound() + rhs.sizeBound();            }
-            @Override protected String toStringWithoutNext() { return "union(" + lhs + ", " + rhs + ')';            }
+        final int lb = Math.min(lhs.lowerBound(), rhs.lowerBound());
+        final int ub = Math.max(lhs.upperBound(), rhs.upperBound());
+        final int sb = lhs.sizeBound() + rhs.sizeBound();
+
+        return new CharacterClass(Character.charCount(lb), Character.charCount(ub - 1)) {
+
+            @Override public boolean
+            matches(int c) { return lhs.matches(c) || rhs.matches(c); }
+
+            @Override public int lowerBound() { return lb; }
+            @Override public int upperBound() { return ub; }
+            @Override public int sizeBound()  { return sb; }
+
+            @Override protected String
+            toStringWithoutNext() { return "union(" + lhs + ", " + rhs + ')'; }
         };
     }
 
@@ -542,8 +555,7 @@ class CharacterClasses {
             final BitSet bitSet = new BitSet(maxValue + 1);
             for (int c : integerSet) bitSet.set(c);
 
-            return new CharacterClass() {
-
+            return new CharacterClass(1) {
 
                 @Override public boolean matches(int c) { return bitSet.get(c); }
                 @Override public int     lowerBound()   { return minValue;      }
@@ -563,7 +575,7 @@ class CharacterClasses {
             };
         } else {
 
-            return new CharacterClass() {
+            return new CharacterClass(1, 2) {
 
                 @Override public boolean matches(int c) { return integerSet.contains(c); }
                 @Override public int     lowerBound()   { return minValue;               }
@@ -590,14 +602,18 @@ class CharacterClasses {
     public static CharacterClass
     intersection(final CharacterClass lhs, final CharacterClass rhs) {
 
-        return new CharacterClass() {
+        final int lb = Math.max(lhs.lowerBound(), rhs.lowerBound());
+        final int ub = Math.min(lhs.upperBound(), rhs.upperBound());
+        final int sb = Math.min(lhs.sizeBound(), rhs.sizeBound());
+
+        return new CharacterClass(Character.charCount(lb), Character.charCount(ub - 1)) {
 
             @Override public boolean
             matches(int subject) { return lhs.matches(subject) && rhs.matches(subject); }
 
-            @Override public int lowerBound() { return Math.max(lhs.lowerBound(), rhs.lowerBound()); }
-            @Override public int upperBound() { return Math.min(lhs.upperBound(), rhs.upperBound()); }
-            @Override public int sizeBound()  { return Math.min(lhs.sizeBound(), rhs.sizeBound());   }
+            @Override public int lowerBound() { return lb; }
+            @Override public int upperBound() { return ub; }
+            @Override public int sizeBound()  { return sb; }
 
             @Override public String
             toStringWithoutNext() { return "intersection(" + lhs + ", " + rhs + ")"; }
@@ -612,9 +628,9 @@ class CharacterClasses {
 
         if (lhs == rhs) return CharacterClasses.literalCharacter(lhs);
 
-        if (lhs > rhs) return new CharacterClasses.EmptyCharacterClass();
+        if (lhs > rhs) return CharacterClasses.FAIL;
 
-        return new CharacterClass() {
+        return new CharacterClass(Character.charCount(lhs), Character.charCount(rhs)) {
 
             @Override public boolean
             matches(int subject) { return (subject >= lhs && subject <= rhs); }
@@ -645,9 +661,9 @@ class CharacterClasses {
 
         if (lhs == rhs) return CharacterClasses.literalCharacter(lhs);
 
-        if (lhs > rhs) return new CharacterClasses.EmptyCharacterClass();
+        if (lhs > rhs) return CharacterClasses.FAIL;
 
-        return new CharacterClass() {
+        return new CharacterClass(Character.charCount(lhs), Character.charCount(rhs)) {
 
             @Override public boolean
             matches(int subject) {
@@ -725,8 +741,8 @@ class CharacterClasses {
     public static CharacterClass
     negate(final CharacterClass operand, final String toString) {
 
-        if (operand instanceof CharacterClasses.AnyCharacter)        return new CharacterClasses.EmptyCharacterClass();
-        if (operand instanceof CharacterClasses.EmptyCharacterClass) return new CharacterClasses.AnyCharacter();
+        if (operand instanceof CharacterClasses.AnyCharacter)        return CharacterClasses.FAIL;
+        if (operand == CharacterClasses.FAIL) return new CharacterClasses.AnyCharacter();
 
         return new CharacterClass() {
 
@@ -774,7 +790,7 @@ class CharacterClasses {
     public static CharacterClass
     lineBreakCharacter() {
 
-        return new CharacterClass() {
+        return new CharacterClass(1) {
 
             @Override public int lowerBound() { return 0x0a;   }
             @Override public int upperBound() { return 0x202a; }
@@ -797,16 +813,6 @@ class CharacterClasses {
     class AnyCharacter extends CharacterClass {
         @Override public boolean matches(int subject)  { return true;           }
         @Override public String  toStringWithoutNext() { return "anyCharacter"; }
-    }
-
-    public static
-    class EmptyCharacterClass extends CharacterClass {
-        @Override public boolean  matches(int subject)  { return false;                 }
-        @Override public int      lowerBound()          { return Integer.MAX_VALUE;     }
-        @Override public int      upperBound()          { return 0;                     }
-        @Override public int      sizeBound()           { return 0;                     }
-        @Override public Sequence concat(Sequence that) { return that;                  }
-        @Override public String   toStringWithoutNext() { return "emptyCharacterClass"; }
     }
 
     private static int

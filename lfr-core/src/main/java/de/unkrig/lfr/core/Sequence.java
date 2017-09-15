@@ -76,6 +76,28 @@ interface Sequence {
     concat(Sequence that);
 
     /**
+     * Computes and returns the minimum value by which {@link #matches(MatcherImpl)} increases {@link
+     * MatcherImpl#offset} iff it returns {@code true}. This is useful for many optimizations to check whether there
+     * are enough input characters before executing the (relatively expensive) match.
+     * <p>
+     *   May return {@link Integer#MAX_VALUE} iff the sequence can impossibly match.
+     * </p>
+     */
+    int
+    minMatchLength();
+
+    /**
+     * Computes and returns the maximum value by which {@link #matches(MatcherImpl)} increases {@link
+     * MatcherImpl#offset} iff it returns {@code true}. This is useful for many optimizations to check whether there
+     * are too many input characters before executing the (relatively expensive) match.
+     * <p>
+     *   May return {@code -1} iff the sequence can impossibly match.
+     * </p>
+     */
+    int
+    maxMatchLength();
+
+    /**
      * Returns an unambiguous string form of {@code this} sequence; practical for verifying a compiled sequence e.g.
      * for correctness, efficiency, etc. The syntax resembles Java.
      */

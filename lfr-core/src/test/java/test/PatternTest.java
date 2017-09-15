@@ -89,13 +89,10 @@ class PatternTest {
 
         String regex = infix;
 
-        Assert.assertEquals(
-            "naive(\"ABCDEFGHIJKLMNO\")",
-            OracleEssentials.LFR.compile(regex).sequenceToString()
-        );
+        PatternTest.assertSequenceToString("naive(\"ABCDEFGHIJKLMNO\")", regex);
 
         Producer<String> sp = PatternTest.randomSubjectProducer(infix);
-        for (int i = 0; i < 1000; i++) {
+        for (int i = 0; i < 10; i++) {
             OracleEssentials.harnessFull(regex, AssertionUtil.notNull(sp.produce()));
         }
     }
@@ -107,13 +104,10 @@ class PatternTest {
 
         String regex = infix;
 
-        Assert.assertEquals(
-            "knuthMorrisPratt(\"ABCDEFGHIJKLMNOP\")",
-            OracleEssentials.LFR.compile(regex).sequenceToString()
-        );
+        PatternTest.assertSequenceToString("knuthMorrisPratt(\"ABCDEFGHIJKLMNOP\")", regex);
 
         Producer<String> sp = PatternTest.randomSubjectProducer(infix);
-        for (int i = 0; i < 1000; i++) {
+        for (int i = 0; i < 10; i++) {
             OracleEssentials.harnessFull(regex, AssertionUtil.notNull(sp.produce()));
         }
     }
@@ -416,6 +410,16 @@ class PatternTest {
     }
 
     @Test public void
+    testNegativeLookbehind3() {
+        OracleEssentials.harnessFull("(?<!(?:b))a", " a aba abba a");
+    }
+
+    @Test public void
+    testNegativeLookbehind4() {
+        OracleEssentials.harnessFull("(?<!b)a", " a aba abba a");
+    }
+
+    @Test public void
     testRegion1() {
         OracleEssentials.harnessFull("a", "__a__ a aba abba __a__", 0, 5, 17);
     }
@@ -556,16 +560,34 @@ class PatternTest {
     }
 
     @Test public void
+    testLongLiteralString() {
+
+        String infix = "ABCDEFGHIJKLMNOP";
+
+        String regex = infix;
+
+        PatternTest.assertSequenceToString("knuthMorrisPratt(\"ABCDEFGHIJKLMNOP\")", regex);
+
+        Producer<String> rsp = PatternTest.randomSubjectProducer(infix);
+        for (int i = 0; i < 10; i++) {
+            String subject = AssertionUtil.notNull(rsp.produce());
+            Matcher m = PatternTest.PF.compile(regex, Pattern.DOTALL).matcher(subject);
+            while (m.find());
+        }
+    }
+
+    @Test public void
     testGreedyQuantifierFollowedByLongLiteralString() {
 
         String infix = "ABCDEFGHIJKLMNOP";
 
         String regex = ".*" + infix;
 
-        PatternTest.assertSequenceToString(
-            "greedyQuantifierOnCharacterClass(operand=negate(lineBreakCharacter), min=0, max=infinite) . knuthMorrisPratt(\"ABCDEFGHIJKLMNOP\")", // SUPPRESS CHECKSTYLE LineLength
-            regex
-        );
+        PatternTest.assertSequenceToString((
+            "greedyQuantifierOnCharacterClass(operand=negate(lineBreakCharacter), min=0, max=infinite)"
+            + " . "
+            + "knuthMorrisPratt(\"ABCDEFGHIJKLMNOP\")"
+        ), regex);
 
         Producer<String> rsp = PatternTest.randomSubjectProducer(infix);
         for (int i = 0; i < 10; i++) {
@@ -581,10 +603,7 @@ class PatternTest {
 
         Producer<String> rsp = PatternTest.randomSubjectProducer(infix);
 
-        Assert.assertEquals(
-            "knuthMorrisPratt(\"ABCDEFGHIJKLMNOP\")",
-            OracleEssentials.LFR.compile(infix).sequenceToString()
-        );
+        PatternTest.assertSequenceToString("knuthMorrisPratt(\"ABCDEFGHIJKLMNOP\")", infix);
 
         Pattern p = PatternTest.PF.compile(".*?" + infix, Pattern.DOTALL);
 
@@ -943,54 +962,54 @@ class PatternTest {
 
     @Test public void
     testQuantifierOptimizations9() {
-        Assert.assertEquals("naive(\"aaa\")", OracleEssentials.LFR.compile("a{3}").sequenceToString());
+        PatternTest.assertSequenceToString("naive(\"aaa\")", "a{3}");
     }
 
     @Test public void
     testQuantifierOptimizations10() {
-        Assert.assertEquals(
+        PatternTest.assertSequenceToString(
             "naive(\"aaa\") . greedyQuantifierOnCharacterClass(operand='a', min=0, max=2)",
-            OracleEssentials.LFR.compile("a{3,5}").sequenceToString()
+            "a{3,5}"
         );
     }
 
     @Test public void
     testQuantifierOptimizations11() {
-        Assert.assertEquals(
+        PatternTest.assertSequenceToString(
             "naive(\"aaa\") . reluctantQuantifier(operand='a', min=0, max=2)",
-            OracleEssentials.LFR.compile("a{3,5}?").sequenceToString()
+            "a{3,5}?"
         );
     }
 
     @Test public void
     testQuantifierOptimizations12() {
-        Assert.assertEquals(
+        PatternTest.assertSequenceToString(
             "naive(\"aaa\") . possessiveQuantifier(operand='a', min=0, max=2)",
-            OracleEssentials.LFR.compile("a{3,5}+").sequenceToString()
+            "a{3,5}+"
         );
     }
 
     @Test public void
     testQuantifierOptimizations13() {
-        Assert.assertEquals(
+        PatternTest.assertSequenceToString(
             "naive(\"abcabcabc\") . greedyQuantifier(operand=naive(\"abc\"), min=0, max=2)",
-            OracleEssentials.LFR.compile("(?:abc){3,5}").sequenceToString()
+            "(?:abc){3,5}"
         );
     }
 
     @Test public void
     testQuantifierOptimizations14() {
-        Assert.assertEquals(
+        PatternTest.assertSequenceToString(
             "naive(\"abcabcabc\") . reluctantQuantifier(operand=naive(\"abc\"), min=0, max=2)",
-            OracleEssentials.LFR.compile("(?:abc){3,5}?").sequenceToString()
+            "(?:abc){3,5}?"
         );
     }
 
     @Test public void
     testQuantifierOptimizations15() {
-        Assert.assertEquals(
+        PatternTest.assertSequenceToString(
             "naive(\"abcabcabc\") . possessiveQuantifier(operand=naive(\"abc\"), min=0, max=2)",
-            OracleEssentials.LFR.compile("(?:abc){3,5}+").sequenceToString()
+            "(?:abc){3,5}+"
         );
     }
 

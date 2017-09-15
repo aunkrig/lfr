@@ -308,6 +308,23 @@ class MatcherImpl implements Matcher {
         this.end        = MatcherImpl.End.END_OF_REGION;
         this.offset     = this.regionStart;
 
+        {
+            int regionLength = this.regionEnd - this.regionStart;
+
+            // Optimization: Test whether there are enough characters left so that the sequence can possibly match.
+            if (this.pattern.sequence.minMatchLength() > regionLength) {
+                this.endOfPreviousMatch = -1;
+                this.hitEnd             = true;
+                return false;
+            }
+
+            // Optimization: Test whether the sequence can possibly match all remaining chars.
+            if (this.pattern.sequence.maxMatchLength() < regionLength) {
+                this.endOfPreviousMatch = -1;
+                return false;
+            }
+        }
+
         if (!this.pattern.sequence.matches(this)) {
             this.endOfPreviousMatch = -1;
             return false;
@@ -328,6 +345,13 @@ class MatcherImpl implements Matcher {
         this.requireEnd = false;
         this.offset     = this.regionStart;
         this.end        = MatcherImpl.End.ANY;
+
+        // Optimization: Test whether there are enough chars lefts so that the sequence can possibly match.
+        if (this.pattern.sequence.minMatchLength() > this.regionEnd - this.regionStart) {
+            this.endOfPreviousMatch = -1;
+            this.hitEnd             = true;
+            return false;
+        }
 
         if (!this.pattern.sequence.matches(this)) {
             this.endOfPreviousMatch = -1;
@@ -371,13 +395,21 @@ class MatcherImpl implements Matcher {
         this.offset = start;
         this.groups = this.initialGroups;
         this.end    = MatcherImpl.End.ANY;
-        if (this.pattern.sequence.find(this)) {
-            this.endOfPreviousMatch = this.groups[1];
-            return true;
+
+        // Optimization: Test whether there are enough chars left so that the sequence can possibly match.
+        if (this.pattern.sequence.minMatchLength() > this.regionEnd - start) {
+            this.endOfPreviousMatch = -1;
+            this.hitEnd             = true;
+            return false;
         }
 
-        this.endOfPreviousMatch = -1;
-        return false;
+        if (!this.pattern.sequence.find(this)) {
+            this.endOfPreviousMatch = -1;
+            return false;
+        }
+
+        this.endOfPreviousMatch = this.groups[1];
+        return true;
     }
 
     // REGION GETTERS

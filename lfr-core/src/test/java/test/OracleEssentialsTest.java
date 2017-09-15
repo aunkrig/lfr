@@ -111,23 +111,24 @@ class OracleEssentialsTest {
     @Test public void testQuantifiers2() { OracleEssentials.harnessFull("a*", ""); }
     @Test public void testQuantifiers3() { OracleEssentials.harnessFull("a+", ""); }
 
-    @Test public void testZeroLengthMatches1()  { OracleEssentials.harnessFull("a?",     "a"); }
-    @Test public void testZeroLengthMatches2()  { OracleEssentials.harnessFull("a*",     "a"); }
-    @Test public void testZeroLengthMatches3()  { OracleEssentials.harnessFull("a+",     "a"); }
-    @Test public void testZeroLengthMatches4()  { OracleEssentials.harnessFull("a?",     "aaaaa"); }
-    @Test public void testZeroLengthMatches5()  { OracleEssentials.harnessFull("a*",     "aaaaa"); }
-    @Test public void testZeroLengthMatches6()  { OracleEssentials.harnessFull("a+",     "aaaaa"); }
+    @Test public void testZeroLengthMatches1()  { OracleEssentials.harnessFull("a?",     "a");         }
+    @Test public void testZeroLengthMatches2()  { OracleEssentials.harnessFull("a*",     "a");         }
+    @Test public void testZeroLengthMatches3()  { OracleEssentials.harnessFull("a+",     "a");         }
+    @Test public void testZeroLengthMatches4()  { OracleEssentials.harnessFull("a?",     "aaaaa");     }
+    @Test public void testZeroLengthMatches5()  { OracleEssentials.harnessFull("a*",     "aaaaa");     }
+    @Test public void testZeroLengthMatches6()  { OracleEssentials.harnessFull("a+",     "aaaaa");     }
     @Test public void testZeroLengthMatches7()  { OracleEssentials.harnessFull("a?",     "ababaaaab"); }
     @Test public void testZeroLengthMatches8()  { OracleEssentials.harnessFull("a*",     "ababaaaab"); }
     @Test public void testZeroLengthMatches9()  { OracleEssentials.harnessFull("a+",     "ababaaaab"); }
-    @Test public void testZeroLengthMatches10() { OracleEssentials.harnessFull("a{3}",   "aa"); }
-    @Test public void testZeroLengthMatches11() { OracleEssentials.harnessFull("a{3}",   "aaa"); }
-    @Test public void testZeroLengthMatches12() { OracleEssentials.harnessFull("a{3}",   "aaaa"); }
+    @Test public void testZeroLengthMatches10() { OracleEssentials.harnessFull("a{3}",   "aa");        }
+    @Test public void testZeroLengthMatches11() { OracleEssentials.harnessFull("a{3}",   "aaa");       }
+    @Test public void testZeroLengthMatches12() { OracleEssentials.harnessFull("a{3}",   "aaaa");      }
     @Test public void testZeroLengthMatches13() { OracleEssentials.harnessFull("a{3}",   "aaaaaaaaa"); }
     @Test public void testZeroLengthMatches14() { OracleEssentials.harnessFull("a{3,}",  "aaaaaaaaa"); }
     @Test public void testZeroLengthMatches15() { OracleEssentials.harnessFull("a{3,6}", "aaaaaaaaa"); }
 
-    @Test public void testCapturingGroupsAndCharacterClassesWithQuantifiers1() { OracleEssentials.harnessFull("(dog){3}", "dogdogdogdogdogdog"); } // SUPPRESS CHECKSTYLE LineLength:2
+    // SUPPRESS CHECKSTYLE LineLength:3
+    @Test public void testCapturingGroupsAndCharacterClassesWithQuantifiers1() { OracleEssentials.harnessFull("(dog){3}", "dogdogdogdogdogdog"); }
     @Test public void testCapturingGroupsAndCharacterClassesWithQuantifiers2() { OracleEssentials.harnessFull("dog{3}",   "dogdogdogdogdogdog"); }
     @Test public void testCapturingGroupsAndCharacterClassesWithQuantifiers3() { OracleEssentials.harnessFull("[abc]{3}", "abccabaaaccbbbc");    }
 
@@ -167,9 +168,9 @@ class OracleEssentialsTest {
      * @see <a href="https://docs.oracle.com/javase/tutorial/essential/regex/bounds.html">Essential Classes:
      * Lesson: Regular Expressions: Boundary Matchers</a>
      */
-    @Test public void testBoundaryMatchers1() { OracleEssentials.harnessFull("^dog$",    "dog"); }
-    @Test public void testBoundaryMatchers2() { OracleEssentials.harnessFull("^dog$",    "   dog"); }
-    @Test public void testBoundaryMatchers3() { OracleEssentials.harnessFull("\\s*dog$", "   dog"); }
+    @Test public void testBoundaryMatchers1() { OracleEssentials.harnessFull("^dog$",    "dog");         }
+    @Test public void testBoundaryMatchers2() { OracleEssentials.harnessFull("^dog$",    "   dog");      }
+    @Test public void testBoundaryMatchers3() { OracleEssentials.harnessFull("\\s*dog$", "   dog");      }
     @Test public void testBoundaryMatchers4() { OracleEssentials.harnessFull("^dog\\w*", "dogblahblah"); }
 
     /**
