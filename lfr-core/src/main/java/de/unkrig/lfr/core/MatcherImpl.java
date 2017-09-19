@@ -27,11 +27,24 @@
 package de.unkrig.lfr.core;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.regex.MatchResult;
 
+import de.unkrig.commons.lang.ExceptionUtil;
+import de.unkrig.commons.lang.protocol.Mapping;
+import de.unkrig.commons.lang.protocol.Mappings;
+import de.unkrig.commons.lang.protocol.NoException;
 import de.unkrig.commons.lang.protocol.Predicate;
+import de.unkrig.commons.lang.protocol.PredicateWhichThrows;
+import de.unkrig.commons.lang.protocol.Producer;
+import de.unkrig.commons.lang.protocol.ProducerUtil;
 import de.unkrig.commons.nullanalysis.Nullable;
+import de.unkrig.commons.text.expression.EvaluationException;
+import de.unkrig.commons.text.expression.Expression;
+import de.unkrig.commons.text.expression.ExpressionEvaluator;
+import de.unkrig.commons.text.parser.ParseException;
 
 /**
  * {@code de.unkrig.lfr.core}'s implementation of {@link Matcher}.
@@ -57,12 +70,6 @@ class MatcherImpl implements Matcher {
          */
         ANY,
     }
-
-    private static final java.util.regex.Pattern
-    VALID_GROUP_NAME = java.util.regex.Pattern.compile("[\\p{Lu}\\p{Ll}][\\p{Lu}\\p{Ll}\\p{Digit}]*");
-
-    private static final java.util.regex.Pattern
-    VALID_GROUP_NUMBER = java.util.regex.Pattern.compile("\\p{Digit}+");
 
     private Pattern pattern;
     private boolean hasTransparentBounds;
@@ -256,7 +263,7 @@ class MatcherImpl implements Matcher {
         int[] gs = this.groups;
 
         // Ironically, JUR throws an IndexOutOfBoundsException, not an ArrayIndexOutOfBoundsException...
-        if (2 * groupNumber >= gs.length) throw new IndexOutOfBoundsException();
+        if (2 * groupNumber >= gs.length) throw new IndexOutOfBoundsException(Integer.toString(groupNumber));
 
         int start = gs[2 * groupNumber];
         int end   = gs[2 * groupNumber + 1];
@@ -416,52 +423,95 @@ class MatcherImpl implements Matcher {
 
     @Override public Matcher
     appendReplacement(Appendable appendable, String replacement) {
+        return this.appendReplacement(appendable, this.compileReplacement(replacement));
+    }
 
-        if (this.endOfPreviousMatch < 0) throw new IllegalStateException("No match available");
+    @Override public Producer<String>
+    compileReplacement(String replacement) {
 
-        // Expand the replacement string.
-        StringBuilder sb = new StringBuilder();
+        final Mapping<String, Object> variables = new Mapping<String, Object>() {
+
+            @Override public boolean
+            containsKey(@Nullable Object key) {
+                String variableName = (String) key;
+                return (
+                    MatcherImpl.this.pattern.namedGroups.containsKey(variableName)
+                    || "m".equals(variableName)
+                );
+            }
+
+            @Override @Nullable public Object
+            get(@Nullable Object key) {
+
+                String variableName = (String) key;
+
+                if ("m".equals(variableName)) return MatcherImpl.this;
+
+                Integer groupNumber = MatcherImpl.this.pattern.namedGroups.get(variableName);
+                assert groupNumber != null;
+                return MatcherImpl.this.group(groupNumber);
+            }
+        };
+
+        final PredicateWhichThrows<String, NoException>
+        isValidVariableName = Mappings.<String, Object, NoException>containsKeyPredicate(variables);
+
+        final List<Producer<?>> segments = new ArrayList<Producer<?>>();
+
         for (int cursor = 0; cursor < replacement.length();) {
+
             char c = replacement.charAt(cursor++);
 
-            if (c == '\\') {
-                sb.append(replacement.charAt(cursor++));
-            } else
             if (c == '$') {
                 if (cursor == replacement.length()) {
                     throw new IllegalArgumentException("Illegal group reference: group index is missing");
                 }
 
-                int groupNumber = -1;
-
                 if (replacement.charAt(cursor) == '{') {
-                    int from = ++cursor, to;
-                    for (;; cursor++) {
-                        if (cursor == replacement.length()) {
-                            throw new IllegalArgumentException("named capturing group is missing trailing '}'");
-                        }
-                        c = replacement.charAt(cursor);
-                        if (c == '}') {
-                            to = cursor++;
-                            break;
-                        }
-                    }
-                    String s = replacement.substring(from, to);
 
-                    if (MatcherImpl.VALID_GROUP_NAME.matcher(s).matches()) {
-                        Integer tmp = MatcherImpl.this.pattern.namedGroups.get(s);
-                        if (tmp == null) throw new IllegalArgumentException("No group with name {" + s + "}");
-                        groupNumber = tmp;
-                    } else
-                    if (MatcherImpl.VALID_GROUP_NUMBER.matcher(s).matches()) {
-                        groupNumber = Integer.parseInt(s);
-                    } else
+                    // "${expr}".
+                    final CharSequence spec = replacement.subSequence(++cursor, replacement.length());
+                    final Expression   expression;
+
                     {
-                        throw new IllegalArgumentException("Invalid group name \"" + s + "\"");
+                        final int[] offset = new int[1];
+                        try {
+                            expression = new ExpressionEvaluator(isValidVariableName).parsePart(spec, offset);
+                        } catch (ParseException pe) {
+                            throw ExceptionUtil.wrap((
+                                "Parsing expression \""
+                                + spec
+                                + "\" in replacement string"
+                            ), pe, IllegalArgumentException.class);
+                        }
+                        cursor += offset[0];
                     }
+
+                    if (cursor == replacement.length() || replacement.charAt(cursor) != '}') {
+                        throw new IllegalArgumentException("expression is missing trailing '}'");
+                    }
+                    cursor++;
+
+                    segments.add(new Producer<Object>() {
+
+                        @Override @Nullable public Object
+                        produce() {
+                            try {
+                                return expression.evaluate(variables);
+                            } catch (EvaluationException ee) {
+                                throw ExceptionUtil.wrap((
+                                    "Evaluating expression \""
+                                    + spec
+                                    + "\" in replacement string"
+                                ), ee, IllegalArgumentException.class);
+                            }
+                        }
+                    });
                 } else
                 {
-                    groupNumber = Character.digit(replacement.charAt(cursor++), 10);
+
+                    // "$1".
+                    int groupNumber = Character.digit(replacement.charAt(cursor++), 10);
                     if (groupNumber == -1) throw new IllegalArgumentException("Illegal group reference");
 
                     for (; cursor < replacement.length(); cursor++) {
@@ -473,14 +523,63 @@ class MatcherImpl implements Matcher {
                         if (newGroupNumber > this.groupCount()) break;
                         groupNumber = newGroupNumber;
                     }
+
+                    final int finalGroupNumber = groupNumber;
+                    segments.add(new Producer<Object>() {
+
+                        @Override public Object
+                        produce() {
+                            String g = MatcherImpl.this.group(finalGroupNumber);
+                            return g != null ? g : "";
+                        }
+                    });
+                }
+            } else {
+                StringBuilder sb = new StringBuilder();
+                for (;; cursor++) {
+                    if (c == '\\') {
+                        sb.append(replacement.charAt(cursor++));
+                    } else {
+                        sb.append(c);
+                    }
+                    if (cursor >= replacement.length()) break;
+                    c = replacement.charAt(cursor);
+                    if (c == '$') break;
                 }
 
-                if (this.group(groupNumber) != null) sb.append(this.group(groupNumber));
-            } else
-            {
-                sb.append(c);
+                segments.add(ProducerUtil.constantProducer(sb.toString()));
             }
         }
+
+        return new Producer<String>() {
+
+            @Override @Nullable public String
+            produce() {
+
+                switch (segments.size()) {
+
+                case 0:
+                    return "";
+
+                case 1:
+                    return String.valueOf(segments.get(0).produce());
+
+                default:
+                    StringBuilder result = new StringBuilder();
+                    for (Producer<?> segment : segments) result.append(segment.produce());
+                    return result.toString();
+                }
+            }
+        };
+    }
+
+    @Override public Matcher
+    appendReplacement(Appendable appendable, Producer<String> replacement) {
+
+        if (this.endOfPreviousMatch < 0) throw new IllegalStateException("No match available");
+
+        // Expand the replacement string.
+        String s = replacement.produce();
 
         try {
 
@@ -488,7 +587,7 @@ class MatcherImpl implements Matcher {
             appendable.append(this.subject.subSequence(this.lastAppendPosition, this.groups[0]));
 
             // Append the expanded replacement string.
-            appendable.append(sb);
+            appendable.append(s);
 
             this.lastAppendPosition = this.groups[1];
         } catch (IOException ioe) {
@@ -511,6 +610,11 @@ class MatcherImpl implements Matcher {
 
     @Override public String
     replaceAll(String replacement) {
+        return replaceAll(compileReplacement(replacement));
+    }
+
+    @Override public String
+    replaceAll(Producer<String> replacement) {
 
         this.reset();
 
@@ -526,6 +630,11 @@ class MatcherImpl implements Matcher {
 
     @Override public String
     replaceFirst(String replacement) {
+        return replaceFirst(compileReplacement(replacement));
+    }
+
+    @Override public String
+    replaceFirst(Producer<String> replacement) {
 
         this.reset();
 

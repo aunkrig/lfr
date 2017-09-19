@@ -829,6 +829,56 @@ class PatternTest {
     }
 
     @Test public void
+    testReplaceAll1() {
+        Assert.assertEquals(" Xbc ",     PF.compile("a").matcher(" abc ").replaceAll("X"));
+    }
+
+    @Test public void
+    testReplaceAll2() {
+        Assert.assertEquals(" <<a>>bc ", PF.compile("(a)").matcher(" abc ").replaceAll("<<$1>>"));
+    }
+
+    @Test public void
+    testReplaceAll3() {
+        Assert.assertEquals(
+            " <<a>>bc ",
+            (JRE6 ? LFR : PF).compile("(?<grp>a)").matcher(" abc ").replaceAll("<<${grp}>>")
+        );
+    }
+
+    @Test public void
+    testReplaceAll4() {
+
+        // "Replacement-with-expression" is only supported with LFR.
+        Assert.assertEquals(" <<null>>bc ", LFR.compile("(a)").matcher(" abc ").replaceAll("<<${null}>>"));
+    }
+
+    @Test public void
+    testReplaceAll5() {
+
+        // "Replacement-with-expression" is only supported with LFR.
+        Assert.assertEquals(
+            " <<a>>bc ",
+            LFR.compile("(a)").matcher(" abc ").replaceAll("${\"<<\" + m.group() + \">>\"}")
+        );
+    }
+
+    @Test public void
+    testReplaceAll6() {
+
+        // "Replacement-with-expression" is only supported with LFR.
+        Assert.assertEquals(" <<a>>bc ", LFR.compile("(a)").matcher(" abc ").replaceAll("<<${m.group()}>>"));
+    }
+
+    @Test public void
+    testReplaceAll7() {
+        Assert.assertEquals(
+            " 7a1bc ",
+            LFR.compile("(?<grp>a)").matcher(" abc ").replaceAll("${\"\" + 7 + grp + m.groupCount()}")
+        );
+    }
+
+    @Test public void
     testAppendReplacementTail1() {
 
         // Verify that "appendReplacement()" without a preceding match throws an Exception.

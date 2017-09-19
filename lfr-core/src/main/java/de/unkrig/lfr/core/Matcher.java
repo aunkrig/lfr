@@ -26,9 +26,81 @@
 
 package de.unkrig.lfr.core;
 
+import de.unkrig.commons.lang.protocol.Producer;
+import de.unkrig.commons.text.expression.Parser;
+
 /**
- * A drop-in replacement for {@link java.util.regex.Matcher}.
+ * Adds some "advanced" methods to the {@link de.unkrig.ref4j.Matcher} interface.
  */
 public
 interface Matcher extends de.unkrig.ref4j.Matcher {
+
+    /**
+     * An optimized version of {@link #appendReplacement(Appendable, String)} that uses a pre-compiled replacement.
+     *
+     * @see #compileReplacement(String)
+     */
+    Matcher
+    appendReplacement(Appendable appendable, Producer<String> replacement);
+
+    /**
+     * An optimized version of {@link #replaceAll(String)} that uses a pre-compiled replacement.
+     *
+     * @see #compileReplacement(String)
+     */
+    String
+    replaceAll(Producer<String> replacement);
+
+    /**
+     * An optimized version of {@link #replaceFirst(String)} that uses a pre-compiled replacement.
+     *
+     * @see #compileReplacement(String)
+     */
+    String
+    replaceFirst(Producer<String> replacement);
+
+    /**
+     * Pre-compiles a replacement string for later use by {@link #appendReplacement(Appendable, Producer)}, {@link
+     * #replaceAll(Producer)} and {@link #replaceFirst(Producer)}.
+     *
+     * <p>
+     *   Supports the following JRE6-compatible constructs:
+     * </p>
+     *
+     * <dl>
+     *   <dt>{@code \}<var>x</var></dt>
+     *   <dt><var>x</var></dt>
+     *   <dd>
+     *     The character <<var>x</var>, literally.
+     *   </dd>
+     *   <dt>{@code $}<var>n</var></dt>
+     *   <dd>
+     *     The value of the <var>n</var>th capturing group, or {@code ""} if that group is not set.
+     *   </dd>
+     * </dl>
+     *
+     * <p>
+     *   Supports the following JRE7-compatible constructs:
+     * </p>
+     *
+     * <dl>
+     *   <dt><code>${</code><var>name</var><code>}</code></dt>
+     *   <dd>
+     *     The value of the named capturing group "<var>name</var>", or {@code ""} if that group is not set.
+     *   </dd>
+     * </dl>
+     *
+     * <p>
+     *   Supports the following additional constructs:
+     * </p>
+     * <dl>
+     *   <dt><code>${</code><var>expression</var><code>}</code></dt>
+     *   <dd>
+     *     The value of the <var>expression</var>. The named groups of the pattern are available as expression
+     *     variables; the matcher is available as variable "m". For the expression syntax, see {@link Parser}.
+     *   </dd>
+     * </dl>
+     */
+    Producer<String>
+    compileReplacement(String replacement);
 }

@@ -30,6 +30,7 @@ import java.util.Arrays;
 import java.util.Locale;
 
 import de.unkrig.commons.lang.protocol.ConsumerWhichThrows;
+import de.unkrig.commons.lang.protocol.NoException;
 import de.unkrig.commons.lang.protocol.TransformerUtil;
 import de.unkrig.commons.lang.protocol.TransformerWhichThrows;
 
@@ -49,7 +50,7 @@ class PerformanceMeasurement {
      */
     public static <T> void
     probe(String message, T[] inputs, final ConsumerWhichThrows<T, RuntimeException> execute) {
-        PerformanceMeasurement.probe(message, inputs, TransformerUtil.<T, T>identity(), execute);
+        PerformanceMeasurement.probe(message, inputs, TransformerUtil.<T, T, NoException>identity(), execute);
     }
 
     /**
@@ -59,10 +60,10 @@ class PerformanceMeasurement {
      */
     public static <T1, T2> void
     probe(
-        String                                                 message,
-        T1[]                                                   inputs,
-        final TransformerWhichThrows<T1, T2, RuntimeException> prepare,
-        final ConsumerWhichThrows<T2, RuntimeException>        execute
+        String                                                           message,
+        T1[]                                                             inputs,
+        final TransformerWhichThrows<T1, T2, ? extends RuntimeException> prepare,
+        final ConsumerWhichThrows<T2, ? extends RuntimeException>        execute
     ) {
 
         System.out.printf(Locale.US, "  %-25s ", message);
