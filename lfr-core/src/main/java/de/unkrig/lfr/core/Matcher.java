@@ -35,11 +35,18 @@ import de.unkrig.commons.text.expression.Parser;
 public
 interface Matcher extends de.unkrig.ref4j.Matcher {
 
+    /**
+     * Pre-parsing a "replacement string" saves considerable overhead compared to repeatedly calling {@link
+     * Matcher#appendReplacement(Appendable, String)}.
+     *
+     * @see Matcher#compileReplacement(String)
+     */
     public
     interface CompiledReplacement {
 
         /**
-         * An optimized version of {@link #appendReplacement(Appendable, String)} that uses a pre-compiled replacement.
+         * An optimized version of {@link Matcher#appendReplacement(Appendable, String)} that uses this pre-compiled
+         * replacement.
          *
          * @see #compileReplacement(String)
          */
@@ -47,7 +54,19 @@ interface Matcher extends de.unkrig.ref4j.Matcher {
         appendReplacement(Appendable appendable);
 
         /**
-         * An optimized version of {@link #replaceAll(String)} that uses a pre-compiled replacement.
+         * An optimized version of {@link Matcher#replaceAll(String)} that uses this pre-compiled replacement.
+         * <p>
+         *   Example:
+         * </p>
+         * <pre>
+         *   Pattern             p  = Pattern.compile(regex);
+         *   Matcher             m  = p.matcher(subject1);
+         *   CompiledReplacement cr = m.compileReplacement(replacement);
+         *
+         *   String result1 = cr.replaceAll();
+         *   m.reset(subject2);
+         *   String result2 = cr.replaceAll(); // Re-use the compiled replacement.
+         * </pre>
          *
          * @see #compileReplacement(String)
          */
@@ -55,7 +74,19 @@ interface Matcher extends de.unkrig.ref4j.Matcher {
         replaceAll();
 
         /**
-         * An optimized version of {@link #replaceFirst(String)} that uses a pre-compiled replacement.
+         * An optimized version of {@link Matcher#replaceFirst(String)} that uses this pre-compiled replacement.
+         * <p>
+         *   Example:
+         * </p>
+         * <pre>
+         *   Pattern             p  = Pattern.compile(regex);
+         *   Matcher             m  = p.matcher(subject1);
+         *   CompiledReplacement cr = m.compileReplacement(replacement);
+         *
+         *   String result1 = cr.replaceFirst();
+         *   m.reset(subject2);
+         *   String result2 = cr.replaceFirst(); // Re-use the compiled replacement.
+         * </pre>
          *
          * @see #compileReplacement(String)
          */
