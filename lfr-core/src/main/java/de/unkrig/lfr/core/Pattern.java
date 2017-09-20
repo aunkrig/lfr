@@ -543,26 +543,25 @@ class Pattern implements de.unkrig.ref4j.Pattern, Serializable {
 
         // Special constructs (named-capturing and non-capturing)
         // (?<name>X)          X, as a named-capturing group
-        ss.addRule(ScannerState.DEFAULT,   "\\(\\?<([\\p{Lu}\\p{Ll}][\\p{Lu}\\p{Ll}\\p{Digit}]*)>",
-                                                                                  NAMED_CAPTURING_GROUP).goTo(ss.REMAIN);
-        ss.addRule(ScannerState.DEFAULT_X, "\\(\\s*\\?<\\s*(\\w+)>",              NAMED_CAPTURING_GROUP).goTo(ss.REMAIN);
+        ss.addRule(ScannerState.DEFAULT,   "\\(\\?<([\\p{Lu}\\p{Ll}][\\p{Lu}\\p{Ll}\\p{Digit}]*)>", NAMED_CAPTURING_GROUP).goTo(ss.REMAIN);
+        ss.addRule(ScannerState.DEFAULT_X, "\\(\\s*\\?<\\s*(\\w+)>",                                NAMED_CAPTURING_GROUP).goTo(ss.REMAIN);
         // (?:X)               X, as a non-capturing group
-        ss.addRule(ScannerState.DEFAULT,   "\\(\\?:",                             NON_CAPTURING_GROUP).goTo(ss.REMAIN);
-        ss.addRule(ScannerState.DEFAULT_X, "\\(\\s*\\?\\s*:",                     NON_CAPTURING_GROUP).goTo(ss.REMAIN);
+        ss.addRule(ScannerState.DEFAULT,   "\\(\\?:",                                               NON_CAPTURING_GROUP).goTo(ss.REMAIN);
+        ss.addRule(ScannerState.DEFAULT_X, "\\(\\s*\\?\\s*:",                                       NON_CAPTURING_GROUP).goTo(ss.REMAIN);
         // (?idmsuxU-idmsuxU)  Nothing, but turns match flags i d m s u x U on - off
-        ss.addRule(Pattern.DEFAULT_STATES, "\\(\\?[idmsuxU]*(?:-[idmsuxU]+)?\\)", MATCH_FLAGS).goTo(ss.REMAIN);
+        ss.addRule(Pattern.DEFAULT_STATES, "\\(\\?[idmsuxU]*(?:-[idmsuxU]+)?\\)",                   MATCH_FLAGS).goTo(ss.REMAIN);
         // (?idmsux-idmsux:X)  X, as a non-capturing group with the given flags i d m s u x on - off
-        ss.addRule(Pattern.DEFAULT_STATES, "\\(\\?[idmsux]*(?:-[idmsux]*)?:",     MATCH_FLAGS_NON_CAPTURING_GROUP).goTo(ss.REMAIN);
+        ss.addRule(Pattern.DEFAULT_STATES, "\\(\\?[idmsux]*(?:-[idmsux]*)?:",                       MATCH_FLAGS_NON_CAPTURING_GROUP).goTo(ss.REMAIN);
         // (?=X)               X, via zero-width positive lookahead
-        ss.addRule(Pattern.DEFAULT_STATES, "\\(\\?=",                             POSITIVE_LOOKAHEAD).goTo(ss.REMAIN);
+        ss.addRule(Pattern.DEFAULT_STATES, "\\(\\?=",                                               POSITIVE_LOOKAHEAD).goTo(ss.REMAIN);
         // (?!X)               X, via zero-width negative lookahead
-        ss.addRule(Pattern.DEFAULT_STATES, "\\(\\?!",                             NEGATIVE_LOOKAHEAD).goTo(ss.REMAIN);
+        ss.addRule(Pattern.DEFAULT_STATES, "\\(\\?!",                                               NEGATIVE_LOOKAHEAD).goTo(ss.REMAIN);
         // (?<=X)              X, via zero-width positive lookbehind
-        ss.addRule(Pattern.DEFAULT_STATES, "\\(\\?<=",                            POSITIVE_LOOKBEHIND).goTo(ss.REMAIN);
+        ss.addRule(Pattern.DEFAULT_STATES, "\\(\\?<=",                                              POSITIVE_LOOKBEHIND).goTo(ss.REMAIN);
         // (?<!X)              X, via zero-width negative lookbehind
-        ss.addRule(Pattern.DEFAULT_STATES, "\\(\\?<!",                            NEGATIVE_LOOKBEHIND).goTo(ss.REMAIN);
+        ss.addRule(Pattern.DEFAULT_STATES, "\\(\\?<!",                                              NEGATIVE_LOOKBEHIND).goTo(ss.REMAIN);
         // (?>X)               X, as an independent, non-capturing group
-        ss.addRule(Pattern.DEFAULT_STATES, "\\(\\?>",                             INDEPENDENT_NON_CAPTURING_GROUP).goTo(ss.REMAIN);
+        ss.addRule(Pattern.DEFAULT_STATES, "\\(\\?>",                                               INDEPENDENT_NON_CAPTURING_GROUP).goTo(ss.REMAIN);
 
         // Any literal character. Notice that different sets of metacharacters are in effect in sequences and character
         // classes.
