@@ -35,29 +35,33 @@ import de.unkrig.commons.text.expression.Parser;
 public
 interface Matcher extends de.unkrig.ref4j.Matcher {
 
-    /**
-     * An optimized version of {@link #appendReplacement(Appendable, String)} that uses a pre-compiled replacement.
-     *
-     * @see #compileReplacement(String)
-     */
-    Matcher
-    appendReplacement(Appendable appendable, Producer<String> replacement);
+    public
+    interface CompiledReplacement {
 
-    /**
-     * An optimized version of {@link #replaceAll(String)} that uses a pre-compiled replacement.
-     *
-     * @see #compileReplacement(String)
-     */
-    String
-    replaceAll(Producer<String> replacement);
+        /**
+         * An optimized version of {@link #appendReplacement(Appendable, String)} that uses a pre-compiled replacement.
+         *
+         * @see #compileReplacement(String)
+         */
+        void
+        appendReplacement(Appendable appendable);
 
-    /**
-     * An optimized version of {@link #replaceFirst(String)} that uses a pre-compiled replacement.
-     *
-     * @see #compileReplacement(String)
-     */
-    String
-    replaceFirst(Producer<String> replacement);
+        /**
+         * An optimized version of {@link #replaceAll(String)} that uses a pre-compiled replacement.
+         *
+         * @see #compileReplacement(String)
+         */
+        String
+        replaceAll();
+
+        /**
+         * An optimized version of {@link #replaceFirst(String)} that uses a pre-compiled replacement.
+         *
+         * @see #compileReplacement(String)
+         */
+        String
+        replaceFirst();
+    }
 
     /**
      * Pre-compiles a replacement string for later use by {@link #appendReplacement(Appendable, Producer)}, {@link
@@ -101,6 +105,6 @@ interface Matcher extends de.unkrig.ref4j.Matcher {
      *   </dd>
      * </dl>
      */
-    Producer<String>
+    CompiledReplacement
     compileReplacement(String replacement);
 }

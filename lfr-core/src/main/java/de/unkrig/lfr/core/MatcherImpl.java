@@ -423,10 +423,11 @@ class MatcherImpl implements Matcher {
 
     @Override public Matcher
     appendReplacement(Appendable appendable, String replacement) {
-        return this.appendReplacement(appendable, this.compileReplacement(replacement));
+        this.compileReplacement(replacement).appendReplacement(appendable);
+        return this;
     }
 
-    @Override public Producer<String>
+    @Override public CompiledReplacement
     compileReplacement(String replacement) {
 
         final Mapping<String, Object> variables = new Mapping<String, Object>() {
@@ -551,50 +552,78 @@ class MatcherImpl implements Matcher {
             }
         }
 
-        return new Producer<String>() {
+        return new CompiledReplacement() {
 
-            @Override @Nullable public String
-            produce() {
+            @Override public void
+            appendReplacement(Appendable appendable) {
 
+                if (MatcherImpl.this.endOfPreviousMatch < 0) throw new IllegalStateException("No match available");
+
+                // Expand the replacement string.
+                String s;
                 switch (segments.size()) {
 
                 case 0:
-                    return "";
+                    s = "";
+                    break;
 
                 case 1:
-                    return String.valueOf(segments.get(0).produce());
+                    s = String.valueOf(segments.get(0).produce());
+                    break;
 
                 default:
                     StringBuilder result = new StringBuilder();
                     for (Producer<?> segment : segments) result.append(segment.produce());
-                    return result.toString();
+                    s =  result.toString();
+                    break;
+                }
+
+                try {
+
+                    // Append text between the previous match and THIS match.
+                    appendable.append(
+                        MatcherImpl.this.subject.subSequence(
+                            MatcherImpl.this.lastAppendPosition,
+                            MatcherImpl.this.groups[0]
+                        )
+                    );
+
+                    // Append the expanded replacement string.
+                    appendable.append(s);
+
+                    MatcherImpl.this.lastAppendPosition = MatcherImpl.this.groups[1];
+                } catch (IOException ioe) {
+                    throw new AssertionError(ioe);
                 }
             }
+
+            @Override public String
+            replaceAll() {
+
+                MatcherImpl.this.reset();
+
+                if (!MatcherImpl.this.find()) return MatcherImpl.this.subject.toString();
+
+                StringBuilder sb = new StringBuilder();
+                do {
+                    this.appendReplacement(sb);
+                } while (MatcherImpl.this.find());
+
+                return MatcherImpl.this.appendTail(sb).toString();
+            }
+
+            @Override public String
+            replaceFirst() {
+
+                MatcherImpl.this.reset();
+
+                if (!MatcherImpl.this.find()) return MatcherImpl.this.subject.toString();
+
+                StringBuilder sb = new StringBuilder();
+                this.appendReplacement(sb);
+                return MatcherImpl.this.appendTail(sb).toString();
+            }
         };
-    }
-
-    @Override public Matcher
-    appendReplacement(Appendable appendable, Producer<String> replacement) {
-
-        if (this.endOfPreviousMatch < 0) throw new IllegalStateException("No match available");
-
-        // Expand the replacement string.
-        String s = replacement.produce();
-
-        try {
-
-            // Append text between the previous match and THIS match.
-            appendable.append(this.subject.subSequence(this.lastAppendPosition, this.groups[0]));
-
-            // Append the expanded replacement string.
-            appendable.append(s);
-
-            this.lastAppendPosition = this.groups[1];
-        } catch (IOException ioe) {
-            throw new AssertionError(ioe);
-        }
-
-        return this;
     }
 
     @Override public <T extends Appendable> T
@@ -610,38 +639,12 @@ class MatcherImpl implements Matcher {
 
     @Override public String
     replaceAll(String replacement) {
-        return replaceAll(compileReplacement(replacement));
-    }
-
-    @Override public String
-    replaceAll(Producer<String> replacement) {
-
-        this.reset();
-
-        if (!this.find()) return this.subject.toString();
-
-        StringBuilder sb = new StringBuilder();
-        do {
-            this.appendReplacement(sb, replacement);
-        } while (this.find());
-
-        return this.appendTail(sb).toString();
+        return this.compileReplacement(replacement).replaceAll();
     }
 
     @Override public String
     replaceFirst(String replacement) {
-        return replaceFirst(compileReplacement(replacement));
-    }
-
-    @Override public String
-    replaceFirst(Producer<String> replacement) {
-
-        this.reset();
-
-        if (!this.find()) return this.subject.toString();
-
-        StringBuilder sb = new StringBuilder();
-        return this.appendReplacement(sb, replacement).appendTail(sb).toString();
+        return this.compileReplacement(replacement).replaceFirst();
     }
 
     // REGION/BOUNDS SETTERS
@@ -698,15 +701,14 @@ class MatcherImpl implements Matcher {
 
         int o = this.offset;
 
+        if (o + end - start > this.regionEnd) {
+
+            // Not enough chars left.
+            this.hitEnd = true;
+            return false;
+        }
+
         for (int i = start; i < end; i++, o++) {
-
-            if (o >= this.regionEnd) {
-
-                // Not enough chars left.
-                this.hitEnd = true;
-                return false;
-            }
-
             if (this.subject.charAt(o) != cs.charAt(i)) return false;
         }
 
@@ -731,7 +733,7 @@ class MatcherImpl implements Matcher {
 
         int o = this.offset;
 
-        if (o + cs.length() > this.regionEnd) {
+        if (o + end - start > this.regionEnd) {
 
             // Not enough chars left.
             this.hitEnd = true;
@@ -739,8 +741,12 @@ class MatcherImpl implements Matcher {
         }
 
         for (int i = start; i < end; i++, o++) {
+
+            // Notice: Don't need to worry about supplementary code points, because the case sensitive character
+            // ranges are all in the basic UNICODE plane.
             char c1 = this.subject.charAt(o);
             char c2 = cs.charAt(i);
+
             if (!(
                 c1 == c2
                 || (c1 + 32 == c2 && c1 >= 'A' && c1 <= 'Z')
@@ -769,7 +775,9 @@ class MatcherImpl implements Matcher {
 
         int o = this.offset;
 
-        if (o + cs.length() > this.regionEnd) {
+        // Knowing that "toUpperCase()", "toLowerCase()" and "toTitleCase" are either ALL in the basic plane or are
+        // ALL supplementary chars, the following optimization is possible:
+        if (o + end - start > this.regionEnd) {
 
             // Not enough chars left.
             this.hitEnd = true;
@@ -778,37 +786,34 @@ class MatcherImpl implements Matcher {
 
         for (int i = start; i < end;) {
 
-            if (o >= this.regionEnd) return false;
+            char c1 = this.subject.charAt(o++);
 
-            int  c1;
+            // Some highly optimized magic here for supplementary code points.
             {
-                c1 = this.subject.charAt(o++);
                 char ls;
+
                 if (
-                    Character.isHighSurrogate((char) c1)
+                    Character.isHighSurrogate(c1)
                     && o < this.regionEnd
                     && Character.isLowSurrogate((ls = this.subject.charAt(o)))
                 ) {
-                    c1 = Character.toCodePoint((char) c1, ls);
                     o++;
+
+                    if (
+                        !Character.isHighSurrogate(cs.charAt(i))
+                        || !Character.isLowSurrogate(cs.charAt(i + 1))
+                    ) return false;
+
+                    int cp1 = Character.toCodePoint((char) c1, ls);
+                    int cp2 = Character.toCodePoint(cs.charAt(i++), cs.charAt(i++));
+
+                    if (!MatcherImpl.equalsIgnoreCase(cp1, cp2)) return false;
+                    continue;
                 }
             }
 
-            int c2;
-            {
-                c2 = cs.charAt(i++);
-                char ls;
-                if (
-                    Character.isHighSurrogate((char) c2)
-                    && i < end
-                    && Character.isLowSurrogate((ls = cs.charAt(i)))
-                ) {
-                    c2 = Character.toCodePoint((char) c2, ls);
-                    i++;
-                }
-            }
-
-            if (!MatcherImpl.equalsIgnoreCase(c1, c2)) return false;
+            // We're in the basic plane... everything is very simple now.
+            if (!MatcherImpl.equalsIgnoreCase(c1, cs.charAt(i++))) return false;
         }
 
         this.offset = o;
