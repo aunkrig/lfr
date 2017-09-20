@@ -780,25 +780,32 @@ class MatcherImpl implements Matcher {
 
             if (o >= this.regionEnd) return false;
 
-            int  c1 = this.subject.charAt(o++);
-            char ls;
-            if (
-                Character.isHighSurrogate((char) c1)
-                && o < this.regionEnd
-                && Character.isLowSurrogate((ls = this.subject.charAt(o)))
-            ) {
-                c1 = Character.toCodePoint((char) c1, ls);
-                o++;
+            int  c1;
+            {
+                c1 = this.subject.charAt(o++);
+                char ls;
+                if (
+                    Character.isHighSurrogate((char) c1)
+                    && o < this.regionEnd
+                    && Character.isLowSurrogate((ls = this.subject.charAt(o)))
+                ) {
+                    c1 = Character.toCodePoint((char) c1, ls);
+                    o++;
+                }
             }
 
-            int c2 = cs.charAt(i++);
-            if (
-                Character.isHighSurrogate((char) c2)
-                && i < end
-                && Character.isLowSurrogate((ls = cs.charAt(i)))
-            ) {
-                c2 = Character.toCodePoint((char) c2, ls);
-                i++;
+            int c2;
+            {
+                c2 = cs.charAt(i++);
+                char ls;
+                if (
+                    Character.isHighSurrogate((char) c2)
+                    && i < end
+                    && Character.isLowSurrogate((ls = cs.charAt(i)))
+                ) {
+                    c2 = Character.toCodePoint((char) c2, ls);
+                    i++;
+                }
             }
 
             if (!MatcherImpl.equalsIgnoreCase(c1, c2)) return false;
