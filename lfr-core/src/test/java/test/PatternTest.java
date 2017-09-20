@@ -570,9 +570,9 @@ class PatternTest {
 
         Producer<String> rsp = PatternTest.randomSubjectProducer(infix);
         for (int i = 0; i < 10; i++) {
-            String subject = AssertionUtil.notNull(rsp.produce());
-            Matcher m = PatternTest.PF.compile(regex, Pattern.DOTALL).matcher(subject);
-            while (m.find());
+            String  subject = AssertionUtil.notNull(rsp.produce());
+            Matcher matcher = PatternTest.PF.compile(regex, Pattern.DOTALL).matcher(subject);
+            while (matcher.find());
         }
     }
 
