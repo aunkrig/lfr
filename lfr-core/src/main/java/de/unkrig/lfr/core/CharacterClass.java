@@ -56,7 +56,7 @@ class CharacterClass extends CompositeSequence {
 
         int o = matcher.offset;
 
-        if (o + this.minMatchLength() > matcher.regionEnd) {
+        if (matcher.regionEnd - o < this.minMatchLength()) { // Beware of overflow!
             matcher.hitEnd = true;
             return false;
         }
