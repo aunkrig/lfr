@@ -878,7 +878,7 @@ class Sequences {
                 if (start == -1) return false;
 
                 return (
-                    matcher.caseInsensitivePeekRead(matcher.subject.subSequence(start, end))
+                    matcher.caseInsensitivePeekRead(matcher.subject, start, end)
                     && this.next.matches(matcher)
                 );
             }
@@ -908,7 +908,7 @@ class Sequences {
                 // If the referenced group didn't match, then neither does this back reference.
                 if (start == -1) return false;
 
-                if (!matcher.unicodeCaseInsensitivePeekRead(matcher.subject.subSequence(start, end))) return false;
+                if (!matcher.unicodeCaseInsensitivePeekRead(matcher.subject, start, end)) return false;
 
                 return this.next.matches(matcher);
             }
@@ -1044,13 +1044,7 @@ class Sequences {
                 int o = matcher.offset;
 
                 int are = matcher.hasAnchoringBounds() ? matcher.regionEnd : matcher.subject.length();
-                if (o == are) {
-                    matcher.hitEnd     = true;
-                    matcher.requireEnd = true;
-                    return this.next.matches(matcher);
-                }
-
-                if (o >= matcher.subject.length()) {
+                if (o >= are) {
                     matcher.hitEnd     = true;
                     matcher.requireEnd = true;
                     return this.next.matches(matcher);
