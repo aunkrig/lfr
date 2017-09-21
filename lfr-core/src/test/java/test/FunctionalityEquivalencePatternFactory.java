@@ -35,7 +35,6 @@ import java.util.regex.PatternSyntaxException;
 
 import org.junit.Assert;
 
-import de.unkrig.commons.lang.AssertionUtil;
 import de.unkrig.commons.nullanalysis.NotNullByDefault;
 import de.unkrig.ref4j.Matcher;
 import de.unkrig.ref4j.Pattern;
@@ -67,41 +66,18 @@ class FunctionalityEquivalencePatternFactory extends PatternFactory {
     @Override public Pattern
     compile(final String regex, final int flags) throws PatternSyntaxException {
 
-        // Compile the two patterns.
+        // Compile the two patterns; verify that either BOTH compile, or NEITHER compiles.
         final Pattern referencePattern, subjectPattern;
-        {
-            Pattern                rp;
-            PatternSyntaxException rpse;
+        try {
+            referencePattern = this.reference.compile(regex, flags);
             try {
-                rp   = this.reference.compile(regex, flags);
-                rpse = null;
+                subjectPattern = this.subject.compile(regex, flags);
             } catch (PatternSyntaxException pse) {
-                rp   = null;
-                rpse = pse;
+                throw new AssertionError("Unexpected PatternSyntaxException: " + pse);
             }
-
-            Pattern                sp;
-            PatternSyntaxException spse;
-            try {
-                sp   = this.subject.compile(regex, flags);
-                spse = null;
-            } catch (PatternSyntaxException pse) {
-                sp   = null;
-                spse = pse;
-            }
-
-            // Verify that either BOTH compiled, or NONE compiled.
-            if (rpse != null) {
-                if (spse != null) throw rpse;
-                Assert.fail("Expected a PatternSyntaxException");
-            } else
-            if (spse != null) {
-                Assert.fail("Unexpected PatternSyntaxException");
-            }
-
-            // BOTH patterns compiled OK.
-            referencePattern = AssertionUtil.notNull(rp);
-            subjectPattern   = AssertionUtil.notNull(sp);
+        } catch (PatternSyntaxException pse) {
+            this.subject.compile(regex, flags);
+            throw new AssertionError("Expected a PatternSyntaxException: " + pse);
         }
 
         return new Pattern() {
