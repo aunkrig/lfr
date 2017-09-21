@@ -233,6 +233,10 @@ class PatternTest {
     @Test public void
     testJavaCharacterClasses2() {
         OracleEssentials.harnessFull("\\P{javaLowerCase}", " a B c ä Ä ");
+        assertPatternSyntaxException("\\P{JavaLowerCase}");
+        assertPatternSyntaxException("\\P{JAVALOWERCASE}");
+        assertPatternSyntaxException("\\P{javalowercase}");
+        assertPatternSyntaxException("\\P{IsJavaLowerCase}");
     }
 
     @Test public void
