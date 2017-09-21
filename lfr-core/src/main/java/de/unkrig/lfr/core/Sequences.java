@@ -667,7 +667,6 @@ class Sequences {
             matches(MatcherImpl matcher) {
 
                 final int             savedOffset = matcher.offset;
-                final int[]           savedGroups = matcher.groups;
                 final MatcherImpl.End savedEnd    = matcher.end;
 
                 matcher.end = MatcherImpl.End.ANY;
@@ -677,7 +676,6 @@ class Sequences {
                     if (alternatives[i].matches(matcher) && this.next.matches(matcher)) return true;
 
                     matcher.offset = savedOffset;
-                    matcher.groups = savedGroups;
                 }
 
                 matcher.end = savedEnd;
@@ -710,20 +708,19 @@ class Sequences {
             @Override public boolean
             matches(MatcherImpl matcher) {
 
-                final int             savedOffset = matcher.offset;
                 final MatcherImpl.End savedEnd    = matcher.end;
-                final int[]           savedGroups = matcher.groups;
+                {
+                    matcher.end = MatcherImpl.End.ANY;
 
-                matcher.end = MatcherImpl.End.ANY;
+                    final int savedOffset = matcher.offset;
 
-                for (Sequence a : alternatives) {
-                    if (a.matches(matcher)) return this.next.matches(matcher);
+                    for (Sequence a : alternatives) {
+                        if (a.matches(matcher)) return this.next.matches(matcher);
 
-                    // Alternative did not match; restore original capturing groups.
-                    matcher.groups = savedGroups;
-                    matcher.offset = savedOffset;
+                        // Alternative did not match; restore offset and try next alternative.
+                        matcher.offset = savedOffset;
+                    }
                 }
-
                 matcher.end = savedEnd;
 
                 return false;
@@ -744,10 +741,6 @@ class Sequences {
 
             @Override public boolean
             matches(MatcherImpl matcher) {
-
-                if (matcher.groups == matcher.initialGroups) {
-                    matcher.groups = Arrays.copyOf(matcher.groups, matcher.groups.length);
-                }
 
                 int idx = 2 * groupNumber;
 
@@ -814,7 +807,7 @@ class Sequences {
                 int end   = matcher.offset;
 
                 // Copy "this.groups" and store group start and end.
-                int[] gs = (matcher.groups = Arrays.copyOf(matcher.groups, matcher.groups.length));
+                int[] gs = matcher.groups;
 
                 // Record the group start and end in the matcher.
                 gs[2 * groupNumber]     = start;

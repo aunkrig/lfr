@@ -92,16 +92,10 @@ class MatcherImpl implements Matcher {
      * <var>n</var>th group is 2*<var>n</var>; the offset <em>after</em> the <var>n</var>th group is 2*<var>n</var> +
      * 1. These offsets are {@code -1} if the group did not match anything.
      * <p>
-     *   This field is modified bei {@link Sequence#matches(MatcherImpl)}, but the <em>elements</em> of this
-     *   array are <em>never</em> modified! This makes it easy to "remember" (and later restore) the groups.
+     *   This field is modified bei {@link MatcherImpl#usePattern(de.unkrig.ref4j.Pattern)}, so it cannot be FINAL.
      * </p>
      */
     int[] groups;
-
-    /**
-     * The template to store in {@link #groups} when the matching begins.
-     */
-    int[] initialGroups;
 
     /**
      * The counters for the currently executing iterations.
@@ -153,7 +147,7 @@ class MatcherImpl implements Matcher {
         this.subject   = subject;
         this.regionEnd = subject.length();
 
-        this.groups = (this.initialGroups = new int[2 + 2 * pattern.groupCount]);
+        this.groups = new int[2 + 2 * pattern.groupCount];
         Arrays.fill(this.groups, -1);
 
         this.counters = new int[pattern.quantifierNesting];
@@ -198,7 +192,7 @@ class MatcherImpl implements Matcher {
     @Override public Matcher
     usePattern(de.unkrig.ref4j.Pattern newPattern) {
         this.pattern = (Pattern) newPattern;
-        this.groups  = (this.initialGroups = new int[2 + 2 * this.pattern.groupCount]);
+        this.groups  = new int[2 + 2 * this.pattern.groupCount];
         Arrays.fill(this.groups, -1);
         return this;
     }
@@ -299,7 +293,7 @@ class MatcherImpl implements Matcher {
     @Override public boolean
     matches() {
 
-        this.groups     = this.initialGroups;
+        Arrays.fill(this.groups, -1);
         this.hitEnd     = false;
         this.requireEnd = false;
         this.end        = MatcherImpl.End.END_OF_REGION;
@@ -337,7 +331,7 @@ class MatcherImpl implements Matcher {
     @Override public boolean
     lookingAt() {
 
-        this.groups     = this.initialGroups;
+        Arrays.fill(this.groups, -1);
         this.hitEnd     = false;
         this.requireEnd = false;
         this.offset     = this.regionStart;
@@ -389,8 +383,8 @@ class MatcherImpl implements Matcher {
             start++;
         }
 
+        Arrays.fill(this.groups, -1);
         this.offset = start;
-        this.groups = this.initialGroups;
         this.end    = MatcherImpl.End.ANY;
 
         // Optimization: Test whether there are enough chars left so that the sequence can possibly match.
