@@ -767,10 +767,8 @@ class CharacterClasses {
     public static CharacterClass
     whitespace(boolean unicode) {
 
-        return (
-            unicode
-            ? CharacterClasses.characterClass(Characters.IS_UNICODE_WHITE_SPACE)
-            : CharacterClasses.oneOf(" \t\n\u000B\f\r")
+        return CharacterClasses.characterClass(
+            unicode ? Characters.IS_UNICODE_WHITE_SPACE : Characters.IS_POSIX_SPACE
         );
     }
 
