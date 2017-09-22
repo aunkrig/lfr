@@ -65,6 +65,9 @@ class Sequences {
 
     /**
      * Implements quantifiers (greedy, reluctant and possessive).
+     *
+     * @param min The "minimum count" of the quantifier
+     * @param man The "maximum count" of the quantifier (may be {@link Integer#MAX_VALUE})
      */
     public static Sequence
     quantifier(Sequence operand, final int min, final int max, final int counterIndex, QuantifierNature nature) {
@@ -378,6 +381,9 @@ class Sequences {
      * <p>
      *   Examples: <code>".*?ABC" ".{3,17}?ABC"</code>
      * </p>
+     *
+     * @param min The "minimum count" of the quantifier
+     * @param man The "maximum count" of the quantifier (may be {@link Integer#MAX_VALUE})
      */
     public static CompositeSequence
     reluctantQuantifierOnAnyCharAndLiteralString(final int min, final int max, final String s) {
@@ -435,6 +441,9 @@ class Sequences {
 
     /**
      * Implements a "possessive" quantifier for an operand.
+     *
+     * @param min The "minimum count" of the quantifier
+     * @param man The "maximum count" of the quantifier (may be {@link Integer#MAX_VALUE})
      */
     private static Sequence
     possessiveQuantifier(final Sequence operand, final int min, final int max) {
@@ -1444,6 +1453,9 @@ class Sequences {
      *   instead of recursion for backtracking and thus saves a considerable number of method calls and call stack
      *   depth.
      * </p>
+     *
+     * @param min The "minimum count" of the quantifier
+     * @param man The "maximum count" of the quantifier (may be {@link Integer#MAX_VALUE})
      */
     public static Sequence
     greedyQuantifierOnCharacterClass(final CharacterClass operand, final int min, final int max) {
@@ -1569,6 +1581,9 @@ class Sequences {
      *   instead of recursion for backtracking and thus saves a considerable number of method calls and call stack
      *   depth.
      * </p>
+     *
+     * @param min The "minimum count" of the quantifier
+     * @param man The "maximum count" of the quantifier (may be {@link Integer#MAX_VALUE})
      */
     public static Sequence
     greedyQuantifierOnChar(final char operand, final int min, final int max) {
@@ -1647,6 +1662,9 @@ class Sequences {
      *   instead of recursion for backtracking and thus saves a considerable number of method calls and call stack
      *   depth.
      * </p>
+     *
+     * @param min The "minimum count" of the quantifier
+     * @param man The "maximum count" of the quantifier (may be {@link Integer#MAX_VALUE})
      */
     public static Sequence
     reluctantQuantifierOnCharacterClass(final CharacterClass operand, final int min, final int max) {
@@ -1745,6 +1763,9 @@ class Sequences {
      *   instead of recursion for backtracking and thus saves a considerable number of method calls and call stack
      *   depth.
      * </p>
+     *
+     * @param min The "minimum count" of the quantifier
+     * @param man The "maximum count" of the quantifier (may be {@link Integer#MAX_VALUE})
      */
     public static Sequence
     reluctantQuantifierOnChar(final char operand, final int min, final int max) {
@@ -1810,6 +1831,9 @@ class Sequences {
      * <p>
      *   Examples: <code>".*ABC" ".{3,17}ABC"</code>
      * </p>
+     *
+     * @param min The "minimum count" of the quantifier
+     * @param man The "maximum count" of the quantifier (may be {@link Integer#MAX_VALUE})
      */
     public static Sequence
     greedyQuantifierOnAnyCharAndLiteralString(final int min, final int max, final String s) {
