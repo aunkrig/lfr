@@ -67,7 +67,7 @@ class Sequences {
      * Implements quantifiers (greedy, reluctant and possessive).
      *
      * @param min The "minimum count" of the quantifier
-     * @param man The "maximum count" of the quantifier (may be {@link Integer#MAX_VALUE})
+     * @param max The "maximum count" of the quantifier (may be {@link Integer#MAX_VALUE})
      */
     public static Sequence
     quantifier(Sequence operand, final int min, final int max, final int counterIndex, QuantifierNature nature) {
@@ -383,7 +383,7 @@ class Sequences {
      * </p>
      *
      * @param min The "minimum count" of the quantifier
-     * @param man The "maximum count" of the quantifier (may be {@link Integer#MAX_VALUE})
+     * @param max The "maximum count" of the quantifier (may be {@link Integer#MAX_VALUE})
      */
     public static CompositeSequence
     reluctantQuantifierOnAnyCharAndLiteralString(final int min, final int max, final String s) {
@@ -443,7 +443,7 @@ class Sequences {
      * Implements a "possessive" quantifier for an operand.
      *
      * @param min The "minimum count" of the quantifier
-     * @param man The "maximum count" of the quantifier (may be {@link Integer#MAX_VALUE})
+     * @param max The "maximum count" of the quantifier (may be {@link Integer#MAX_VALUE})
      */
     private static Sequence
     possessiveQuantifier(final Sequence operand, final int min, final int max) {
@@ -1455,7 +1455,7 @@ class Sequences {
      * </p>
      *
      * @param min The "minimum count" of the quantifier
-     * @param man The "maximum count" of the quantifier (may be {@link Integer#MAX_VALUE})
+     * @param max The "maximum count" of the quantifier (may be {@link Integer#MAX_VALUE})
      */
     public static Sequence
     greedyQuantifierOnCharacterClass(final CharacterClass operand, final int min, final int max) {
@@ -1583,7 +1583,7 @@ class Sequences {
      * </p>
      *
      * @param min The "minimum count" of the quantifier
-     * @param man The "maximum count" of the quantifier (may be {@link Integer#MAX_VALUE})
+     * @param max The "maximum count" of the quantifier (may be {@link Integer#MAX_VALUE})
      */
     public static Sequence
     greedyQuantifierOnChar(final char operand, final int min, final int max) {
@@ -1664,7 +1664,7 @@ class Sequences {
      * </p>
      *
      * @param min The "minimum count" of the quantifier
-     * @param man The "maximum count" of the quantifier (may be {@link Integer#MAX_VALUE})
+     * @param max The "maximum count" of the quantifier (may be {@link Integer#MAX_VALUE})
      */
     public static Sequence
     reluctantQuantifierOnCharacterClass(final CharacterClass operand, final int min, final int max) {
@@ -1765,7 +1765,7 @@ class Sequences {
      * </p>
      *
      * @param min The "minimum count" of the quantifier
-     * @param man The "maximum count" of the quantifier (may be {@link Integer#MAX_VALUE})
+     * @param max The "maximum count" of the quantifier (may be {@link Integer#MAX_VALUE})
      */
     public static Sequence
     reluctantQuantifierOnChar(final char operand, final int min, final int max) {
@@ -1833,7 +1833,7 @@ class Sequences {
      * </p>
      *
      * @param min The "minimum count" of the quantifier
-     * @param man The "maximum count" of the quantifier (may be {@link Integer#MAX_VALUE})
+     * @param max The "maximum count" of the quantifier (may be {@link Integer#MAX_VALUE})
      */
     public static Sequence
     greedyQuantifierOnAnyCharAndLiteralString(final int min, final int max, final String s) {
@@ -1846,27 +1846,27 @@ class Sequences {
             @Override public boolean
             matches(MatcherImpl matcher) {
 
-                int o         = matcher.offset;
-                int fromIndex = matcher.regionEnd - this.infixLength;
+                int o        = matcher.offset;
+                int maxIndex = matcher.regionEnd - this.infixLength;
 
-                if (fromIndex - o > max) fromIndex = o + max; // Beware of overflow!
+                if (maxIndex - o > max) maxIndex = o + max; // Beware of overflow!
 
-                int toIndex = o + min;
+                int minIndex = o + min;
 
                 matcher.hitEnd = true;
 
-                while (fromIndex >= toIndex) {
+                while (maxIndex >= minIndex) {
 
                     // Find next match of the infix withing the subject string.
-                    fromIndex = this.indexOf.indexOf(matcher.subject, fromIndex, toIndex);
-                    if (fromIndex == -1) return false;
+                    maxIndex = this.indexOf.lastIndexOf(matcher.subject, minIndex, maxIndex);
+                    if (maxIndex == -1) return false;
 
                     // See if the successor matches the rest of the subject.
-                    matcher.offset = fromIndex + this.infixLength;
+                    matcher.offset = maxIndex + this.infixLength;
                     if (this.next.matches(matcher)) return true;
 
                     // Successor didn't match, continue with next character position.
-                    fromIndex--;
+                    maxIndex--;
                 }
 
                 return false;
