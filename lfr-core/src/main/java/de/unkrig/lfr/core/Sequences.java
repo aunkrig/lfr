@@ -26,8 +26,6 @@
 
 package de.unkrig.lfr.core;
 
-import java.util.Arrays;
-
 import de.unkrig.commons.lang.Characters;
 import de.unkrig.commons.lang.StringUtil;
 import de.unkrig.commons.lang.StringUtil.IndexOf;
@@ -45,7 +43,7 @@ class Sequences {
     enum QuantifierNature { GREEDY, RELUCTANT, POSSESSIVE } // SUPPRESS CHECKSTYLE JavadocVariable
 
     /**
-     * Matches depending on the <var>offset</var>, and the value of {@code matcher.end}.
+     * Matches depending on the {@link MatcherImpl#offset} and the value of {@link MatcherImpl#end}.
      */
     public static final Sequence
     TERMINAL = new AbstractSequence() {
@@ -66,7 +64,7 @@ class Sequences {
     };
 
     /**
-     * Implements greedy and reluctant (but <em>not</em> possessive) quantifiers.
+     * Implements quantifiers (greedy, reluctant and possessive).
      */
     public static Sequence
     quantifier(Sequence operand, final int min, final int max, final int counterIndex, QuantifierNature nature) {
@@ -109,6 +107,12 @@ class Sequences {
             return Sequences.greedyOrReluctantQuantifier(operand, min, max, counterIndex, true);
 
         case RELUCTANT:
+            if (operand instanceof CharacterClass) {
+                CharacterClass cc = (CharacterClass) operand;
+                if (cc.next == Sequences.TERMINAL) {
+                    return Sequences.reluctantQuantifierOnCharacterClass(cc, min, max);
+                }
+            }
             return Sequences.greedyOrReluctantQuantifier(operand, min, max, counterIndex, false);
 
         case POSSESSIVE:
@@ -213,21 +217,6 @@ class Sequences {
 
                 @Override public Sequence
                 concat(final Sequence that) {
-
-                    // Optimize the special case ".{min,}literalstring".
-                    if (
-                        operand2[0] instanceof CharacterClasses.AnyCharacter
-                        && ((CompositeSequence) operand2[0]).next == cs
-                        && that instanceof LiteralString
-                    ) {
-                        LiteralString ls = (LiteralString) that;
-
-                        return (
-                            greedy
-                            ? Sequences.greedyQuantifierOnAnyCharAndLiteralString(min, Integer.MAX_VALUE, ls.s)
-                            : Sequences.reluctantQuantifierOnAnyCharAndLiteralString(min, Integer.MAX_VALUE, ls.s)
-                        ).concat(ls.next);
-                    }
 
                     cs.concat(that);
 
@@ -742,20 +731,20 @@ class Sequences {
             @Override public boolean
             matches(MatcherImpl matcher) {
 
-                int idx = 2 * groupNumber;
-
-                int savedGroupStart = matcher.groups[idx];
-                matcher.groups[idx] = matcher.offset;
+                int[] gs              = matcher.groups;
+                int   idx             = 2 * groupNumber;
+                int   savedGroupStart = gs[idx];
+                gs[idx] = matcher.offset;
 
                 // The following logic is (not only a bit...) strange, but that's how JUR's capturing groups
                 // behave:
                 if (!this.next.matches(matcher)) {
-                    matcher.groups[idx] = savedGroupStart;
+                    gs[idx] = savedGroupStart;
                     return false;
                 }
 
                 // Verify that the successor chain contained an "end" for the same capturing group.
-                assert matcher.groups[idx + 1] != -1;
+                assert gs[idx + 1] != -1;
 
                 return true;
             }
@@ -870,10 +859,7 @@ class Sequences {
                 // If the referenced group didn't match, then neither does this back reference.
                 if (start == -1) return false;
 
-                return (
-                    matcher.caseInsensitivePeekRead(matcher.subject, start, end)
-                    && this.next.matches(matcher)
-                );
+                return matcher.caseInsensitivePeekRead(matcher.subject, start, end) && this.next.matches(matcher);
             }
 
             @Override public String
@@ -1453,9 +1439,18 @@ class Sequences {
     /**
      * Optimized version of {@link #greedyOrReluctantQuantifier(Sequence, int, int, int, boolean)} when the operand is
      * a bare character class.
+     * <p>
+     *   This method, opposed to {@link #greedyOrReluctantQuantifier(Sequence, int, int, int, boolean)}, uses iteration
+     *   instead of recursion for backtracking and thus saves a considerable number of method calls and call stack
+     *   depth.
+     * </p>
      */
     public static Sequence
     greedyQuantifierOnCharacterClass(final CharacterClass operand, final int min, final int max) {
+
+        if (operand instanceof CharacterClasses.LiteralChar) {
+            return Sequences.greedyQuantifierOnChar(((CharacterClasses.LiteralChar) operand).c, min, max);
+        }
 
         return new CompositeSequence(min * operand.minMatchLength(), Sequences.mul(max, operand.maxMatchLength())) {
 
@@ -1464,11 +1459,13 @@ class Sequences {
 
                 int o = matcher.offset;
 
+                int limit = matcher.regionEnd - this.next.minMatchLength();
+
                 // The operand MUST match (min) times;
                 int i;
                 for (i = 0; i < min; i++) {
 
-                    if (o >= matcher.regionEnd) {
+                    if (o >= limit) {
                         matcher.hitEnd = true;
                         return false;
                     }
@@ -1492,35 +1489,36 @@ class Sequences {
                 // Now try to match the operand (max-min) more times.
                 for (; i < max; i++) {
 
-                    if (o >= matcher.regionEnd) {
+                    if (o >= limit) {
                         matcher.hitEnd = true;
                         break;
                     }
 
-                    int offset2 = o;
-                    int c       = matcher.subject.charAt(offset2++);
+                    int o2 = o;
+
+                    int c = matcher.subject.charAt(o2++);
 
                     // Special handling for UTF-16 surrogates.
-                    if (Character.isHighSurrogate((char) c) && offset2 < matcher.regionEnd) {
-                        char c2 = matcher.subject.charAt(offset2);
+                    if (Character.isHighSurrogate((char) c) && o2 < matcher.regionEnd) {
+                        char c2 = matcher.subject.charAt(o2);
                         if (Character.isLowSurrogate(c2)) {
                             c = Character.toCodePoint((char) c, c2);
-                            offset2++;
+                            o2++;
                         }
                     }
 
-                    matcher.offset = offset2;
                     if (!operand.matches(c)) break;
 
-                    o = offset2;
+                    o = o2;
                 }
 
+                // Now track back to the longest possible match.
                 for (;; i--) {
 
                     matcher.offset = o;
                     if (this.next.matches(matcher)) return true;
 
-                    if (i == min) break;
+                    if (i <= min) break;
 
                     if (
                         Character.isLowSurrogate(matcher.subject.charAt(--o))
@@ -1554,6 +1552,250 @@ class Sequences {
                     "greedyQuantifierOnCharacterClass(operand="
                     + operand
                     + ", min="
+                    + min
+                    + ", max="
+                    + Sequences.maxToString(max)
+                    + ")"
+                );
+            }
+        };
+    }
+
+    /**
+     * Optimized version of {@link #greedyOrReluctantQuantifier(Sequence, int, int, int, boolean)} when the operand is
+     * a bare (basic plane) {@code char}.
+     * <p>
+     *   This method, opposed to {@link #greedyOrReluctantQuantifier(Sequence, int, int, int, boolean)}, uses iteration
+     *   instead of recursion for backtracking and thus saves a considerable number of method calls and call stack
+     *   depth.
+     * </p>
+     */
+    public static Sequence
+    greedyQuantifierOnChar(final char operand, final int min, final int max) {
+
+        return new CompositeSequence(min, max) {
+
+            @Override public boolean
+            matches(MatcherImpl matcher) {
+
+                int o = matcher.offset;
+
+                int limit = matcher.regionEnd - this.next.minMatchLength();
+
+                // The char MUST match (min) times;
+                int i;
+                for (i = 0; i < min; i++) {
+
+                    if (o >= limit) {
+                        matcher.hitEnd = true;
+                        return false;
+                    }
+
+                    char c = matcher.subject.charAt(o++);
+
+                    matcher.offset = o;
+                    if (operand != c) return false;
+                }
+
+                // Now try to match the char (max-min) more times.
+                for (; i < max; i++) {
+
+                    if (o >= limit) {
+                        matcher.hitEnd = true;
+                        break;
+                    }
+
+                    if (matcher.subject.charAt(o) != operand) break;
+
+                    o++;
+                }
+
+                // Now track back to the longest possible match.
+                for (;; i--) {
+
+                    matcher.offset = o;
+                    if (this.next.matches(matcher)) return true;
+
+                    if (i <= min) break;
+
+                    o--;
+                }
+
+                return false;
+            }
+
+            @Override public String
+            toStringWithoutNext() {
+                return (
+                    "greedyQuantifierOnChar(operand='"
+                    + operand
+                    + "', min="
+                    + min
+                    + ", max="
+                    + Sequences.maxToString(max)
+                    + ")"
+                );
+            }
+        };
+    }
+
+    /**
+     * Optimized version of {@link #greedyOrReluctantQuantifier(Sequence, int, int, int, boolean)} when the operand is
+     * a bare character class.
+     * <p>
+     *   This method, opposed to {@link #greedyOrReluctantQuantifier(Sequence, int, int, int, boolean)}, uses iteration
+     *   instead of recursion for backtracking and thus saves a considerable number of method calls and call stack
+     *   depth.
+     * </p>
+     */
+    public static Sequence
+    reluctantQuantifierOnCharacterClass(final CharacterClass operand, final int min, final int max) {
+
+        return new CompositeSequence(min * operand.minMatchLength(), Sequences.mul(max, operand.maxMatchLength())) {
+
+            @Override public boolean
+            matches(MatcherImpl matcher) {
+
+                int o = matcher.offset;
+
+                // The operand MUST match (min) times;
+                int i;
+                for (i = 0; i < min; i++) {
+
+                    if (o >= matcher.regionEnd) {
+                        matcher.hitEnd = true;
+                        return false;
+                    }
+
+                    int c = matcher.subject.charAt(o++);
+
+                    // Special handling for UTF-16 surrogates.
+                    if (Character.isHighSurrogate((char) c) && o < matcher.regionEnd) {
+                        char c2 = matcher.subject.charAt(o);
+                        if (Character.isLowSurrogate(c2)) {
+                            c = Character.toCodePoint((char) c, c2);
+                            o++;
+                        }
+                    }
+
+                    matcher.offset = o;
+                    if (!operand.matches(c)) return false;
+                }
+
+                // Now try to match the operand (max-min) more times.
+                for (;; i++) {
+
+                    if (o >= matcher.regionEnd) {
+                        matcher.hitEnd = true;
+                        return false;
+                    }
+
+                    if (this.next.matches(matcher)) return true;
+
+                    if (i == max) break;
+
+                    if (
+                        Character.isLowSurrogate(matcher.subject.charAt(o++))
+                        && o < matcher.regionEnd
+                        && Character.isHighSurrogate(matcher.subject.charAt(o))
+                    ) o++;
+
+                    matcher.offset = o;
+                }
+
+                return false;
+            }
+
+            @Override public Sequence
+            concat(Sequence that) {
+
+                // Optimize the special case ".{min,}?literalstring".
+                if (
+                    operand instanceof CharacterClasses.AnyCharacter
+                    && ((CompositeSequence) operand).next == Sequences.TERMINAL
+                    && that instanceof LiteralString
+                ) {
+                    LiteralString ls = (LiteralString) that;
+                    return Sequences.reluctantQuantifierOnAnyCharAndLiteralString(min, Integer.MAX_VALUE, ls.s);
+                }
+
+                return super.concat(that);
+            }
+
+            @Override public String
+            toStringWithoutNext() {
+                return (
+                    "reluctantQuantifierOnCharacterClass(operand="
+                    + operand
+                    + ", min="
+                    + min
+                    + ", max="
+                    + Sequences.maxToString(max)
+                    + ")"
+                );
+            }
+        };
+    }
+
+    /**
+     * Optimized version of {@link #reluctantQuantifierOnCharacterClass(CharacterClass, int, int)} when the operand is
+     * a bare (basic plane) {@code char}.
+     * <p>
+     *   This method, opposed to {@link #greedyOrReluctantQuantifier(Sequence, int, int, int, boolean)}, uses iteration
+     *   instead of recursion for backtracking and thus saves a considerable number of method calls and call stack
+     *   depth.
+     * </p>
+     */
+    public static Sequence
+    reluctantQuantifierOnChar(final char operand, final int min, final int max) {
+
+        return new CompositeSequence(min, max) {
+
+            @Override public boolean
+            matches(MatcherImpl matcher) {
+
+                int o     = matcher.offset;
+                int limit = matcher.regionEnd - this.next.minMatchLength();
+
+                // The operand MUST match (min) times;
+                int i;
+                for (i = 0; i < min; i++) {
+
+                    if (o >= limit) {
+                        matcher.hitEnd = true;
+                        return false;
+                    }
+
+                    char c = matcher.subject.charAt(o++);
+
+                    if (c != operand) return false;
+                }
+
+                // Now try to match the operand (max-min) more times.
+                for (;; i++) {
+
+                    if (o >= limit) {
+                        matcher.hitEnd = true;
+                        return false;
+                    }
+
+                    matcher.offset = o;
+                    if (this.next.matches(matcher)) return true;
+
+                    if (i == max) break;
+
+                    o++;
+                }
+
+                return false;
+            }
+
+            @Override public String
+            toStringWithoutNext() {
+                return (
+                    "reluctantQuantifierOnChar(operand='"
+                    + operand
+                    + "', min="
                     + min
                     + ", max="
                     + Sequences.maxToString(max)

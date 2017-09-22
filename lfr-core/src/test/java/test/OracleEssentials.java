@@ -53,8 +53,8 @@ class OracleEssentials {
      * The pattern factory that verfies the functional equality of JUR and LFR.
      */
     public static final PatternFactory
-    PF  = new FunctionalityEquivalencePatternFactory(OracleEssentials.JUR, OracleEssentials.LFR);
-//    PF  = new PerformanceMeasurementPatternFactory(OracleEssentials.JUR, OracleEssentials.LFR);
+//    PF  = new FunctionalityEquivalencePatternFactory(OracleEssentials.JUR, OracleEssentials.LFR);
+    PF  = new PerformanceMeasurementPatternFactory(OracleEssentials.JUR, OracleEssentials.LFR);
 
     /**
      * Shorthand for "{@link #harnessFull(String, String, int, Integer, int, Boolean, Boolean) harness(regex, subject,
@@ -132,8 +132,10 @@ class OracleEssentials {
         int matchNumber = 1;
         try {
             while (m.find()) matchNumber++;
-        } catch (AssertionError ae) {
-            throw ExceptionUtil.wrap("Match #" + matchNumber, ae);
+        } catch (RuntimeException re) {
+            throw ExceptionUtil.wrap("find(): Match #" + matchNumber, re);
+        } catch (Error e) { // SUPPRESS CHECKSTYLE IllegalCatch
+            throw ExceptionUtil.wrap("find(): Match #" + matchNumber, e);
         }
     }
 }

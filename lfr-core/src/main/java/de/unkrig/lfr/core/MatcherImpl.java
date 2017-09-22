@@ -71,7 +71,8 @@ class MatcherImpl implements Matcher {
         ANY,
     }
 
-    private Pattern pattern;
+    private Pattern pattern; // Cannot be FINAL because of "usePattern()".
+
     private boolean hasTransparentBounds;
     private boolean hasAnchoringBounds = true;
 
@@ -88,9 +89,9 @@ class MatcherImpl implements Matcher {
     // STATE
 
     /**
-     * The offsets of the captured groups within the {@link #subject}. The offset of the first character of the
-     * <var>n</var>th group is 2*<var>n</var>; the offset <em>after</em> the <var>n</var>th group is 2*<var>n</var> +
-     * 1. These offsets are {@code -1} if the group did not match anything.
+     * The offsets of the captured groups within the {@link #subject}. The "start" offset of the <var>n</var>th group
+     * is {@code 2*}<var>n</var>; the end offset of the <var>n</var>th group is {@code 2*}<var>n</var> {@code + 1}.
+     * These offsets are {@code -1} if the group did not match anything.
      * <p>
      *   This field is modified bei {@link MatcherImpl#usePattern(de.unkrig.ref4j.Pattern)}, so it cannot be FINAL.
      * </p>
@@ -100,7 +101,7 @@ class MatcherImpl implements Matcher {
     /**
      * The counters for the currently executing iterations.
      */
-    final int[] counters;
+    int[] counters; // Cannot be FINAL because of "usePattern()".
 
     /**
      * Whether an attempt was made to peek at or behind the {@link #regionEnd}.
@@ -127,10 +128,13 @@ class MatcherImpl implements Matcher {
      */
     int endOfPreviousMatch = -1;
 
+    /**
+     * State information for {@link #appendReplacement(Appendable, String)} and {@link #appendTail(Appendable)}.
+     */
     private int lastAppendPosition;
 
     /**
-     * Whether the current matching must end at {@link End#END_OF_REGION} or {@link End#ANY}where.
+     * Whether the current matching must end at the {@link End#END_OF_REGION}, or may end {@link End#ANY}where.
      */
     @Nullable MatcherImpl.End end;
 
@@ -191,9 +195,12 @@ class MatcherImpl implements Matcher {
 
     @Override public Matcher
     usePattern(de.unkrig.ref4j.Pattern newPattern) {
-        this.pattern = (Pattern) newPattern;
-        this.groups  = new int[2 + 2 * this.pattern.groupCount];
+
+        this.pattern  = (Pattern) newPattern;
+        this.counters = new int[this.pattern.quantifierNesting];
+        this.groups   = new int[2 + 2 * this.pattern.groupCount];
         Arrays.fill(this.groups, -1);
+
         return this;
     }
 
@@ -681,6 +688,11 @@ class MatcherImpl implements Matcher {
     /**
      * If the subject infix ranging from the <var>offset</var> to the region end starts with the <var>cs</var>,
      * then the offset is advanced and {@code true} is returned.
+     * <p>
+     *   As a possible side effect, this method my set {@link #hitEnd} to {@code true}.
+     * </p>
+     *
+     * @see #peekRead(CharSequence, int, int)
      */
     boolean
     peekRead(CharSequence cs) { return this.peekRead(cs, 0, cs.length()); }
@@ -689,6 +701,9 @@ class MatcherImpl implements Matcher {
      * If the subject infix ranging from the {@link #offset} to the region end starts with the sequence designated by
      * <var>cs</var>, <var>start</var> and <var>end</var>, then the {@link #offset} is advanced and {@code true} is
      * returned.
+     * <p>
+     *   As a possible side effect, this method my set {@link #hitEnd} to {@code true}.
+     * </p>
      */
     boolean
     peekRead(CharSequence cs, int start, int end) {
@@ -713,6 +728,11 @@ class MatcherImpl implements Matcher {
     /**
      * If the subject infix ranging from the <var>offset</var> to the region end starts with the <var>cs</var>,
      * then the {@link #offset} is advanced and {@code true} is returned.
+     * <p>
+     *   As a possible side effect, this method my set {@link #hitEnd} to {@code true}.
+     * </p>
+     *
+     * @see #caseInsensitivePeekRead(CharSequence, int, int)
      */
     boolean
     caseInsensitivePeekRead(CharSequence cs) { return this.caseInsensitivePeekRead(cs, 0, cs.length()); }
@@ -721,6 +741,9 @@ class MatcherImpl implements Matcher {
      * If the subject infix ranging from the <var>offset</var> to the region end starts with the sequence designated by
      * <var>cs</var>, <var>start</var> and <var>end</var>, then the {@link #offset} is advanced and {@code true} is
      * returned.
+     * <p>
+     *   As a possible side effect, this method my set {@link #hitEnd} to {@code true}.
+     * </p>
      */
     boolean
     caseInsensitivePeekRead(CharSequence cs, int start, int end) {
@@ -755,6 +778,9 @@ class MatcherImpl implements Matcher {
     /**
      * If the subject infix ranging from the <var>offset</var> to the region end starts with the <var>cs</var>,
      * then the {@link #offset} is advanced and {@code true} is returned.
+     * <p>
+     *   As a possible side effect, this method my set {@link #hitEnd} to {@code true}.
+     * </p>
      */
     boolean
     unicodeCaseInsensitivePeekRead(CharSequence cs) { return this.unicodeCaseInsensitivePeekRead(cs, 0, cs.length()); }
@@ -763,6 +789,9 @@ class MatcherImpl implements Matcher {
      * If the subject infix ranging from the {@link #offset} to the region end starts with the sequence designated by
      * <var>cs</var>, <var>start</var> and <var>end</var>, then the {@link #offset} is advanced and {@code true} is
      * returned.
+     * <p>
+     *   As a possible side effect, this method my set {@link #hitEnd} to {@code true}.
+     * </p>
      */
     boolean
     unicodeCaseInsensitivePeekRead(CharSequence cs, int start, int end) {
@@ -824,15 +853,15 @@ class MatcherImpl implements Matcher {
         if (c1 == c2) return true;
 
         // Also have to do THIS, see source code of "String.regionMatches()".
-        c1 = Character.toLowerCase(c1);
-        c2 = Character.toLowerCase(c2);
-        if (c1 == c2) return true;
+        if (Character.toLowerCase(c1) == Character.toLowerCase(c2)) return true;
 
         return false;
     }
 
     /**
-     * @return Whether the <var>predicate</var> evaluates for the character at the given offset
+     * @param predicate Notably the type argument is {@link Character}, so this method cannot be used to process
+     *                  supplementary code points
+     * @return          Whether the <var>predicate</var> evaluates for the character at the given offset
      */
     public boolean
     peekRead(int offset, Predicate<Character> predicate) {
@@ -850,15 +879,15 @@ class MatcherImpl implements Matcher {
 
         StringBuilder sb = (
             new StringBuilder()
-            .append("[pattern=")
+            .append("[pattern=\"")
             .append(this.pattern())
-            .append(" region=")
+            .append("\" region=")
             .append(this.regionStart)
             .append(",")
             .append(this.regionEnd)
-            .append(" subject=")
+            .append(" subject=\"")
             .append(this.subject)
-            .append(" endOfPreviousMatch=")
+            .append("\" endOfPreviousMatch=")
             .append(this.endOfPreviousMatch)
         );
 

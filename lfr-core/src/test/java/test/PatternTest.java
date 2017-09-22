@@ -91,9 +91,9 @@ class PatternTest {
 
         PatternTest.assertSequenceToString("naive(\"ABCDEFGHIJKLMNO\")", regex);
 
-        Producer<String> sp = PatternTest.randomSubjectProducer(infix);
+        Producer<String> rsp = PatternTest.randomSubjectProducer(infix);
         for (int i = 0; i < 10; i++) {
-            OracleEssentials.harnessFull(regex, AssertionUtil.notNull(sp.produce()));
+            OracleEssentials.harnessFull(regex, AssertionUtil.notNull(rsp.produce()));
         }
     }
 
@@ -106,9 +106,9 @@ class PatternTest {
 
         PatternTest.assertSequenceToString("knuthMorrisPratt(\"ABCDEFGHIJKLMNOP\")", regex);
 
-        Producer<String> sp = PatternTest.randomSubjectProducer(infix);
+        Producer<String> rsp = PatternTest.randomSubjectProducer(infix);
         for (int i = 0; i < 10; i++) {
-            OracleEssentials.harnessFull(regex, AssertionUtil.notNull(sp.produce()));
+            OracleEssentials.harnessFull(regex, AssertionUtil.notNull(rsp.produce()));
         }
     }
 
@@ -233,10 +233,10 @@ class PatternTest {
     @Test public void
     testJavaCharacterClasses2() {
         OracleEssentials.harnessFull("\\P{javaLowerCase}", " a B c ä Ä ");
-        assertPatternSyntaxException("\\P{JavaLowerCase}");
-        assertPatternSyntaxException("\\P{JAVALOWERCASE}");
-        assertPatternSyntaxException("\\P{javalowercase}");
-        assertPatternSyntaxException("\\P{IsJavaLowerCase}");
+        PatternTest.assertPatternSyntaxException("\\P{JavaLowerCase}");
+        PatternTest.assertPatternSyntaxException("\\P{JAVALOWERCASE}");
+        PatternTest.assertPatternSyntaxException("\\P{javalowercase}");
+        PatternTest.assertPatternSyntaxException("\\P{IsJavaLowerCase}");
     }
 
     @Test public void
@@ -572,10 +572,13 @@ class PatternTest {
 
         PatternTest.assertSequenceToString("knuthMorrisPratt(\"ABCDEFGHIJKLMNOP\")", regex);
 
+        Pattern pattern = PatternTest.PF.compile(regex, Pattern.DOTALL);
+
         Producer<String> rsp = PatternTest.randomSubjectProducer(infix);
         for (int i = 0; i < 10; i++) {
+
             String  subject = AssertionUtil.notNull(rsp.produce());
-            Matcher matcher = PatternTest.PF.compile(regex, Pattern.DOTALL).matcher(subject);
+            Matcher matcher = pattern.matcher(subject);
             while (matcher.find());
         }
     }
@@ -593,10 +596,13 @@ class PatternTest {
             + "knuthMorrisPratt(\"ABCDEFGHIJKLMNOP\")"
         ), regex);
 
+        Pattern pattern = PatternTest.PF.compile(regex, Pattern.DOTALL);
+
         Producer<String> rsp = PatternTest.randomSubjectProducer(infix);
+
         for (int i = 0; i < 10; i++) {
             String subject = AssertionUtil.notNull(rsp.produce());
-            PatternTest.PF.compile(regex, Pattern.DOTALL).matcher(subject).matches();
+            pattern.matcher(subject).matches();
         }
     }
 
@@ -605,15 +611,22 @@ class PatternTest {
 
         final String infix = "ABCDEFGHIJKLMNOP";
 
+        String regex = ".*?" + infix;
+
+        PatternTest.assertSequenceToString((
+            "reluctantQuantifierOnCharacterClass(operand=anyCharButLineBreak, min=0, max=infinite)"
+            + " . "
+            + "knuthMorrisPratt(\"ABCDEFGHIJKLMNOP\")"
+        ), regex);
+
+        Pattern pattern = PatternTest.PF.compile(regex, Pattern.DOTALL);
+
         Producer<String> rsp = PatternTest.randomSubjectProducer(infix);
 
-        PatternTest.assertSequenceToString("knuthMorrisPratt(\"ABCDEFGHIJKLMNOP\")", infix);
-
-        Pattern p = PatternTest.PF.compile(".*?" + infix, Pattern.DOTALL);
-
         for (int i = 0; i < 10; i++) {
-            String  subject = AssertionUtil.notNull(rsp.produce());
-            Matcher matcher = p.matcher(subject);
+            String subject = AssertionUtil.notNull(rsp.produce());
+
+            Matcher matcher = pattern.matcher(subject);
             matcher.matches();
         }
     }
@@ -834,19 +847,22 @@ class PatternTest {
 
     @Test public void
     testReplaceAll1() {
-        Assert.assertEquals(" Xbc ",     PF.compile("a").matcher(" abc ").replaceAll("X"));
+        Assert.assertEquals(" Xbc ",     PatternTest.PF.compile("a").matcher(" abc ").replaceAll("X"));
     }
 
     @Test public void
     testReplaceAll2() {
-        Assert.assertEquals(" <<a>>bc ", PF.compile("(a)").matcher(" abc ").replaceAll("<<$1>>"));
+        Assert.assertEquals(" <<a>>bc ", PatternTest.PF.compile("(a)").matcher(" abc ").replaceAll("<<$1>>"));
     }
 
     @Test public void
     testReplaceAll3() {
+
+        PatternFactory pf = PatternTest.JRE6 ? PatternTest.LFR : PatternTest.PF;
+
         Assert.assertEquals(
             " <<a>>bc ",
-            (JRE6 ? LFR : PF).compile("(?<grp>a)").matcher(" abc ").replaceAll("<<${grp}>>")
+            pf.compile("(?<grp>a)").matcher(" abc ").replaceAll("<<${grp}>>")
         );
     }
 
@@ -854,7 +870,7 @@ class PatternTest {
     testReplaceAll4() {
 
         // "Replacement-with-expression" is only supported with LFR.
-        Assert.assertEquals(" <<null>>bc ", LFR.compile("(a)").matcher(" abc ").replaceAll("<<${null}>>"));
+        Assert.assertEquals(" <<null>>bc ", PatternTest.LFR.compile("(a)").matcher(" abc ").replaceAll("<<${null}>>"));
     }
 
     @Test public void
@@ -863,7 +879,7 @@ class PatternTest {
         // "Replacement-with-expression" is only supported with LFR.
         Assert.assertEquals(
             " <<a>>bc ",
-            LFR.compile("(a)").matcher(" abc ").replaceAll("${\"<<\" + m.group() + \">>\"}")
+            PatternTest.LFR.compile("(a)").matcher(" abc ").replaceAll("${\"<<\" + m.group() + \">>\"}")
         );
     }
 
@@ -871,14 +887,17 @@ class PatternTest {
     testReplaceAll6() {
 
         // "Replacement-with-expression" is only supported with LFR.
-        Assert.assertEquals(" <<a>>bc ", LFR.compile("(a)").matcher(" abc ").replaceAll("<<${m.group()}>>"));
+        Assert.assertEquals(
+            " <<a>>bc ",
+            PatternTest.LFR.compile("(a)").matcher(" abc ").replaceAll("<<${m.group()}>>")
+        );
     }
 
     @Test public void
     testReplaceAll7() {
         Assert.assertEquals(
             " 7a1bc ",
-            LFR.compile("(?<grp>a)").matcher(" abc ").replaceAll("${\"\" + 7 + grp + m.groupCount()}")
+            PatternTest.LFR.compile("(?<grp>a)").matcher(" abc ").replaceAll("${\"\" + 7 + grp + m.groupCount()}")
         );
     }
 
@@ -1022,7 +1041,7 @@ class PatternTest {
     @Test public void
     testQuantifierOptimizations10() {
         PatternTest.assertSequenceToString(
-            "naive(\"aaa\") . greedyQuantifierOnCharacterClass(operand='a', min=0, max=2)",
+            "naive(\"aaa\") . greedyQuantifierOnChar(operand='a', min=0, max=2)",
             "a{3,5}"
         );
     }
@@ -1030,7 +1049,7 @@ class PatternTest {
     @Test public void
     testQuantifierOptimizations11() {
         PatternTest.assertSequenceToString(
-            "naive(\"aaa\") . reluctantQuantifier(operand='a', min=0, max=2)",
+            "naive(\"aaa\") . reluctantQuantifierOnCharacterClass(operand='a', min=0, max=2)",
             "a{3,5}?"
         );
     }

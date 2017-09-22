@@ -49,8 +49,7 @@ interface Sequence {
      * </p>
      * <p>
      *   In both cases, {@link MatcherImpl#hitEnd} is set to {@code true} iff an attempt was made to peek past the
-     *   <var>matcher</var>'s region, and {@link MatcherImpl#hitStart} is set to {@code true} iff an attempt was made
-     *   to peek <em>before</em> the <var>matcher</var>'s region.
+     *   <var>matcher</var>'s region.
      * </p>
      *
      * @see Matcher#region(int, int)
@@ -69,8 +68,7 @@ interface Sequence {
 
     /**
      * Concatenates {@code this} sequence with <var>that</var>. This operation may leave {@code this} and
-     * <var>that</var> sequence in an invalid state; only the <em>returned</em> sequence must be used after this
-     * operation.
+     * <var>that</var> sequence in an invalid state; only the <em>returned</em> sequence may subsequently be used.
      */
     Sequence
     concat(Sequence that);
@@ -78,9 +76,9 @@ interface Sequence {
     /**
      * Computes and returns the minimum value by which {@link #matches(MatcherImpl)} increases {@link
      * MatcherImpl#offset} iff it returns {@code true}. This is useful for many optimizations to check whether there
-     * are enough input characters before executing the (relatively expensive) match.
+     * are enough input characters before executing the (typically expensive) match.
      * <p>
-     *   May return {@link Integer#MAX_VALUE} iff the sequence can impossibly match.
+     *   May return {@link Integer#MAX_VALUE} to indicate that the sequence can impossibly match any input.
      * </p>
      */
     int
@@ -89,9 +87,9 @@ interface Sequence {
     /**
      * Computes and returns the maximum value by which {@link #matches(MatcherImpl)} increases {@link
      * MatcherImpl#offset} iff it returns {@code true}. This is useful for many optimizations to check whether there
-     * are too many input characters before executing the (relatively expensive) match.
+     * are too many input characters before executing the (typically expensive) match.
      * <p>
-     *   May return {@code -1} iff the sequence can impossibly match.
+     *   May return {@code -1} to indicate that the sequence can impossibly match any input.
      * </p>
      */
     int

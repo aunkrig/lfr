@@ -174,7 +174,15 @@ class FunctionalityEquivalencePatternFactory extends PatternFactory {
                                 Assert.assertEquals(method.toString(), referenceResult, subjectResult);
                             }
 
-                            this.assertEqualState(method.getName() + "()");
+                            this.assertEqualState(
+                                "Pattern \""
+                                + pattern
+                                + "\", subject \""
+                                + subject
+                                + "\", "
+                                + method.getName()
+                                + "()"
+                            );
 
                             return referenceResult;
                         }

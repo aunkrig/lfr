@@ -27,14 +27,13 @@
 package de.unkrig.lfr.core;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Set;
-import java.util.SortedSet;
-import java.util.TreeSet;
 
 import de.unkrig.commons.lang.Characters;
 import de.unkrig.commons.lang.PrettyPrinter;
@@ -317,7 +316,7 @@ class CharacterClasses {
 
         if (chars.isEmpty()) return CharacterClasses.FAIL;
 
-        SortedSet<Integer> s = new TreeSet<Integer>();
+        Set<Integer> s = new HashSet<Integer>();
         for (int offset = 0; offset < chars.length();) {
             int cp = chars.codePointAt(offset);
             s.add(cp);
@@ -332,37 +331,70 @@ class CharacterClasses {
      */
     public static CharacterClass
     oneOf(Collection<Integer> chars) {
-        return CharacterClasses.oneOf(new HashSet<Integer>(chars));
+        return CharacterClasses.oneOf(
+            chars instanceof HashSet
+            ? (HashSet<Integer>) chars
+            : new HashSet<Integer>(chars)
+        );
     }
 
     /**
-     * Checks whether a code point is one of those in in <var>chars</var>.
+     * Checks whether a code point is one of the <var>codePoints</var>.
      */
     public static CharacterClass
-    oneOf(final Set<Integer> chars) {
+    oneOf(final HashSet<Integer> codePoints) {
 
-        if (chars.isEmpty()) return CharacterClasses.FAIL;
+        Iterator<Integer> it = codePoints.iterator();
+        switch (codePoints.size()) {
 
-        Iterator<Integer> it = chars.iterator();
-        switch (chars.size()) {
-        case 1: return CharacterClasses.literalCharacter(chars.iterator().next());
+        case 0: return CharacterClasses.FAIL;
+        case 1: return CharacterClasses.literalCharacter(codePoints.iterator().next());
         case 2: return new OneOfTwoCharacterClass(it.next(), it.next());
         case 3: return new OneOfThreeCharacterClass(it.next(), it.next(), it.next());
+
+        case 4:
+        case 5:
+        case 6:
+            int[] ia = new int[codePoints.size()];
+            {
+                int i = 0;
+                for (Integer v : codePoints) ia[i++] = v;
+            }
+            return CharacterClasses.oneOf(ia);
         }
 
         return new CharacterClass() {
 
             @Override public boolean
-            matches(int c) { return chars.contains(c); }
+            matches(int c) { return codePoints.contains(c); }
 
             @Override protected String
             toStringWithoutNext() {
                 return (
                     "oneOf("
-                    + PrettyPrinter.toString(new String(CharacterClasses.unwrap(chars), 0, chars.size()))
+                    + PrettyPrinter.toString(new String(CharacterClasses.unwrap(codePoints), 0, codePoints.size()))
                     + ")"
                 );
             }
+        };
+    }
+
+    /**
+     * Sorts the <var>codePoints</var> and implements a character class that is based on a binary search in that
+     * array.
+     */
+    public static CharacterClass
+    oneOf(final int[] codePoints) {
+
+        Arrays.sort(codePoints);
+
+        return new CharacterClass() {
+
+            @Override public boolean
+            matches(int subject) { return Arrays.binarySearch(codePoints, subject) >= 0; }
+
+            @Override protected String
+            toStringWithoutNext() { return "oneOf(" + PrettyPrinter.toString(codePoints) + ")"; }
         };
     }
 
