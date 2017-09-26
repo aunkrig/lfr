@@ -27,13 +27,43 @@
 package de.unkrig.lfr.core;
 
 /**
- * A thing that can "match" (or not match) the {@link MatcherImpl#subject}. While matching, it modifies the
- * {@link MatcherImpl}'s state, in particular the {@link MatcherImpl#offset}.
- *
- * @see #matches(MatcherImpl)
- * @see #find(MatcherImpl)
+ * Implements {@link #find(MatcherImpl)} through {@link #matches(MatcherImpl)}.
  */
-interface Sequence {
+abstract
+class Sequence {
+
+    /**
+     * The minimum value by which {@link #matches(MatcherImpl)} increases {@link MatcherImpl#offset} iff it returns
+     * {@code true}. This is useful for many optimizations to check whether there are enough input characters before
+     * executing the (typically expensive) match.
+     * <p>
+     *   May be {@link Integer#MAX_VALUE} to indicate that the sequence can impossibly match any input.
+     * </p>
+     * <p>
+     *   This field is initialized by {@link #Sequence(int, int)}, and must afterwards constantly be updated by the
+     *   derived class, esp. when {@link #concat(Sequence)} is called.
+     * </p>
+     */
+    int minMatchLength;
+
+    /**
+     * The maximum value by which {@link #matches(MatcherImpl)} increases {@link MatcherImpl#offset} iff it returns
+     * {@code true}. This is useful for many optimizations to check whether there are too many input characters before
+     * executing the (typically expensive) match.
+     * <p>
+     *   May be {@code -1} to indicate that the sequence can impossibly match any input.
+     * </p>
+     * <p>
+     *   This field is initialized by {@link #Sequence(int, int)}, and must afterwards constantly be updated by the
+     *   derived class, esp. when {@link #concat(Sequence)} is called.
+     * </p>
+     */
+    int maxMatchLength;
+
+    Sequence(int minMatchLength, int maxMatchLength) {
+        this.minMatchLength = minMatchLength;
+        this.maxMatchLength = maxMatchLength;
+    }
 
     /**
      * Checks whether this sequence matches the subject of the <var>matcher</var>, starting at the current {@link
@@ -56,49 +86,55 @@ interface Sequence {
      * @see MatcherImpl#groups
      * @see MatcherImpl#hitEnd
      */
-    boolean
+    abstract boolean
     matches(MatcherImpl matcher);
 
     /**
      * Searches for the <var>next</var> match, starting at the current {@link MatcherImpl#offset}, and, iff it finds
      * one, updates {@code groups[0]} and {@code groups[1]}, and returns {@code true}.
+     * <p>
+     *   Derived classes may override this method if there is a faster implementation.
+     * </p>
      */
-    boolean
-    find(MatcherImpl matcherImpl);
+    public boolean
+    find(MatcherImpl matcher) {
+
+        final int re = matcher.regionEnd;
+
+        for (int o = matcher.offset;;) {
+
+            if (this.matches(matcher)) {
+                matcher.groups[0] = o;
+                matcher.groups[1] = matcher.offset;
+                return true;
+            }
+
+            if (o >= re) {
+                matcher.hitEnd = true;
+                return false;
+            }
+
+            if (
+                Character.isHighSurrogate(matcher.subject.charAt(o++))
+                && o < re
+                && Character.isLowSurrogate(matcher.subject.charAt(o))
+            ) o++;
+
+            matcher.offset = o;
+        }
+    }
 
     /**
      * Concatenates {@code this} sequence with <var>that</var>. This operation may leave {@code this} and
      * <var>that</var> sequence in an invalid state; only the <em>returned</em> sequence may subsequently be used.
      */
-    Sequence
+    abstract Sequence
     concat(Sequence that);
-
-    /**
-     * Computes and returns the minimum value by which {@link #matches(MatcherImpl)} increases {@link
-     * MatcherImpl#offset} iff it returns {@code true}. This is useful for many optimizations to check whether there
-     * are enough input characters before executing the (typically expensive) match.
-     * <p>
-     *   May return {@link Integer#MAX_VALUE} to indicate that the sequence can impossibly match any input.
-     * </p>
-     */
-    int
-    minMatchLength();
-
-    /**
-     * Computes and returns the maximum value by which {@link #matches(MatcherImpl)} increases {@link
-     * MatcherImpl#offset} iff it returns {@code true}. This is useful for many optimizations to check whether there
-     * are too many input characters before executing the (typically expensive) match.
-     * <p>
-     *   May return {@code -1} to indicate that the sequence can impossibly match any input.
-     * </p>
-     */
-    int
-    maxMatchLength();
 
     /**
      * Returns an unambiguous string form of {@code this} sequence; practical for verifying a compiled sequence e.g.
      * for correctness, efficiency, etc. The syntax resembles Java.
      */
-    @Override String
+    @Override public abstract String
     toString();
 }

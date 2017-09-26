@@ -46,15 +46,12 @@ class Sequences {
      * Matches depending on the {@link MatcherImpl#offset} and the value of {@link MatcherImpl#end}.
      */
     public static final Sequence
-    TERMINAL = new AbstractSequence() {
+    TERMINAL = new Sequence(0, 0) {
 
         @Override public boolean
         matches(MatcherImpl matcher) {
             return matcher.end == MatcherImpl.End.ANY || matcher.offset >= matcher.regionEnd;
         }
-
-        @Override public int minMatchLength() { return 0; }
-        @Override public int maxMatchLength() { return 0; }
 
         @Override public Sequence
         concat(Sequence that) { return that; }
@@ -131,15 +128,15 @@ class Sequences {
      */
     private static Sequence
     greedyOrReluctantQuantifier(
-        Sequence      operand,
-        final int     min,
-        final int     max,
-        final int     counterIndex,
-        final boolean greedy
+        Sequence operand,
+        final int        min,
+        final int        max,
+        final int        counterIndex,
+        final boolean    greedy
     ) {
 
-        final int minml = Sequences.mul(min, operand.minMatchLength());
-        final int maxml = Sequences.mul(max, operand.maxMatchLength());
+        final int minml = Sequences.mul(min, operand.minMatchLength);
+        final int maxml = Sequences.mul(max, operand.maxMatchLength);
 
         if ((min == 0 || min == 1) && max == Integer.MAX_VALUE) {
 
@@ -158,7 +155,7 @@ class Sequences {
             //        +------------+
 
             final Sequence[] operand2   = { operand };
-            final String     opToString = operand.toString();
+            final String             opToString = operand.toString();
 
             final CompositeSequence cs = new CompositeSequence(0, Integer.MAX_VALUE) {
 
@@ -166,7 +163,7 @@ class Sequences {
                 matches(MatcherImpl matcher) {
 
                     // Optimize:
-                    if (matcher.regionEnd - matcher.offset < this.next.minMatchLength()) return false;
+                    if (matcher.regionEnd - matcher.offset < this.next.minMatchLength) return false;
 
                     if (greedy) {
 
@@ -195,10 +192,7 @@ class Sequences {
 
             operand2[0] = operand.concat(cs);
 
-            return new AbstractSequence() {
-
-                int minMatchLength = minml;
-                int maxMatchLength = maxml;
+            return new Sequence(minml, maxml) {
 
                 @Override public boolean
                 matches(MatcherImpl matcher) {
@@ -212,19 +206,13 @@ class Sequences {
                     }
                 }
 
-                @Override public int
-                minMatchLength() { return this.minMatchLength; }
-
-                @Override public int
-                maxMatchLength() { return this.maxMatchLength; }
-
                 @Override public Sequence
                 concat(final Sequence that) {
 
                     cs.concat(that);
 
-                    this.minMatchLength = Sequences.add(minml, that.minMatchLength());
-                    this.maxMatchLength = Sequences.add(maxml, that.maxMatchLength());
+                    this.minMatchLength = Sequences.add(minml, that.minMatchLength);
+                    this.maxMatchLength = Sequences.add(maxml, that.maxMatchLength);
 
                     return this;
                 }
@@ -258,11 +246,11 @@ class Sequences {
         //        +------------+
 
         final Sequence[] operand2   = { operand };
-        final String     opToString = operand.toString();
+        final String             opToString = operand.toString();
 
         final CompositeSequence cs = new CompositeSequence(
-            Sequences.mul(operand.minMatchLength(), (min == 0 ? 0   : min - 1)), // minMatchLength
-            Sequences.mul(operand.maxMatchLength(), (min == 0 ? max : max - 1))  // maxMatchLength
+            Sequences.mul(operand.minMatchLength, min == 0 ? 0   : min - 1), // minMatchLength
+            Sequences.mul(operand.maxMatchLength, min == 0 ? max : max - 1)  // maxMatchLength
         ) {
 
             @Override public boolean
@@ -271,7 +259,7 @@ class Sequences {
                 if (greedy) {
 
                     // Optimize:
-                    if (matcher.regionEnd - matcher.offset < this.next.minMatchLength()) return false;
+                    if (matcher.regionEnd - matcher.offset < this.next.minMatchLength) return false;
 
                     int ic = matcher.counters[counterIndex];
 
@@ -311,10 +299,7 @@ class Sequences {
 
         operand2[0] = operand.concat(cs);
 
-        return new AbstractSequence() {
-
-            int minMatchLength = minml;
-            int maxMatchLength = maxml;
+        return new Sequence(minml, maxml) {
 
             @Override public boolean
             matches(MatcherImpl matcher) {
@@ -327,12 +312,6 @@ class Sequences {
                     return operand2[0].matches(matcher);
                 }
             }
-
-            @Override public int
-            minMatchLength() { return this.minMatchLength; }
-
-            @Override public int
-            maxMatchLength() { return this.maxMatchLength; }
 
             @Override public Sequence
             concat(final Sequence that) {
@@ -354,8 +333,8 @@ class Sequences {
 
                 cs.concat(that);
 
-                this.minMatchLength = Sequences.add(minml, that.minMatchLength());
-                this.maxMatchLength = Sequences.add(maxml, that.maxMatchLength());
+                this.minMatchLength = Sequences.add(minml, that.minMatchLength);
+                this.maxMatchLength = Sequences.add(maxml, that.maxMatchLength);
 
                 return this;
             }
@@ -449,8 +428,8 @@ class Sequences {
     possessiveQuantifier(final Sequence operand, final int min, final int max) {
 
         return new CompositeSequence(
-            Sequences.mul(min, operand.minMatchLength()),
-            Sequences.mul(max, operand.maxMatchLength())
+            Sequences.mul(min, operand.minMatchLength),
+            Sequences.mul(max, operand.maxMatchLength)
         ) {
 
             @Override public boolean
@@ -496,8 +475,8 @@ class Sequences {
 
                     // Replace the possessive quantifier element.
                     return new CompositeSequence(
-                        Sequences.add(Sequences.mul(min, 1), result.minMatchLength()),
-                        Sequences.add(Sequences.mul(max, 2), result.maxMatchLength())
+                        Sequences.add(Sequences.mul(min, 1), result.minMatchLength),
+                        Sequences.add(Sequences.mul(max, 2), result.maxMatchLength)
                     ) {
 
                         @Override public boolean
@@ -795,7 +774,7 @@ class Sequences {
     static Sequence
     capturingGroup(final int groupNumber, final Sequence subsequence) {
 
-        return new CompositeSequence(subsequence.minMatchLength(), subsequence.maxMatchLength()) {
+        return new CompositeSequence(subsequence.minMatchLength, subsequence.maxMatchLength) {
 
             @Override public boolean
             matches(MatcherImpl matcher) {
@@ -922,10 +901,17 @@ class Sequences {
                 );
             }
 
-            // Override this to return 0, which enforces that "find()" (below) is always invoked, and has a chence to
-            // set "hitEnd = false".
-            @Override public int
-            minMatchLength() { return 0; }
+            @Override public Sequence
+            concat(Sequence that) {
+
+                Sequence result = super.concat(that);
+
+                // Set "minMatchLength" to 0, which enforces that "find()" (below) is always invoked, and has a chance
+                // to set "hitEnd = false".
+                this.minMatchLength = 0;
+
+                return result;
+            }
 
             // Override "AbstractSequence.find()" such that we give the match only one shot.
             @Override public boolean
@@ -1411,10 +1397,10 @@ class Sequences {
                 int       start       = matcher.hasTransparentBounds() ? 0 : matcher.regionStart;
 
                 // Check whether there enough chars between the transparent region's start and the current offset.
-                if (op.minMatchLength() > savedOffset - start) return false;
+                if (op.minMatchLength > savedOffset - start) return false;
 
                 // Optimize: Start the matching as far to the right as possible.
-                int opmaxml = op.maxMatchLength();
+                int opmaxml = op.maxMatchLength;
                 if (opmaxml < savedOffset - start) start = savedOffset - opmaxml;
 
                 {
@@ -1464,14 +1450,14 @@ class Sequences {
             return Sequences.greedyQuantifierOnChar(((CharacterClasses.LiteralChar) operand).c, min, max);
         }
 
-        return new CompositeSequence(min * operand.minMatchLength(), Sequences.mul(max, operand.maxMatchLength())) {
+        return new CompositeSequence(min * operand.minMatchLength, Sequences.mul(max, operand.maxMatchLength)) {
 
             @Override public boolean
             matches(MatcherImpl matcher) {
 
                 int o = matcher.offset;
 
-                int limit = matcher.regionEnd - this.next.minMatchLength();
+                int limit = matcher.regionEnd - this.next.minMatchLength;
 
                 // The operand MUST match (min) times;
                 int i;
@@ -1595,7 +1581,7 @@ class Sequences {
 
                 int o = matcher.offset;
 
-                int limit = matcher.regionEnd - this.next.minMatchLength();
+                int limit = matcher.regionEnd - this.next.minMatchLength;
 
                 // The char MUST match (min) times;
                 int i;
@@ -1669,7 +1655,7 @@ class Sequences {
     public static Sequence
     reluctantQuantifierOnCharacterClass(final CharacterClass operand, final int min, final int max) {
 
-        return new CompositeSequence(min * operand.minMatchLength(), Sequences.mul(max, operand.maxMatchLength())) {
+        return new CompositeSequence(min * operand.minMatchLength, Sequences.mul(max, operand.maxMatchLength)) {
 
             @Override public boolean
             matches(MatcherImpl matcher) {
@@ -1776,7 +1762,7 @@ class Sequences {
             matches(MatcherImpl matcher) {
 
                 int o     = matcher.offset;
-                int limit = matcher.regionEnd - this.next.minMatchLength();
+                int limit = matcher.regionEnd - this.next.minMatchLength;
 
                 // The operand MUST match (min) times;
                 int i;
@@ -1937,12 +1923,20 @@ class Sequences {
     private static String
     maxToString(int n) { return n == Integer.MAX_VALUE ? "infinite" : Integer.toString(n); }
 
-    private static int
+    /**
+     * @return <var>op1</var> {@code +} <var>op2</var> iff neither is {@link Integer#MAX_VALUE}, otherwise {@link
+     *         Integer#MAX_VALUE}
+     */
+    static int
     add(int op1, int op2) {
         return (op1 == Integer.MAX_VALUE || op2 == Integer.MAX_VALUE) ? Integer.MAX_VALUE : op1 + op2;
     }
 
-    private static int
+    /**
+     * @return <var>op1</var> {@code *} <var>op2</var> iff neither is {@link Integer#MAX_VALUE}, otherwise {@link
+     *         Integer#MAX_VALUE}
+     */
+    static int
     mul(int op1, int op2) {
         return (op1 == Integer.MAX_VALUE || op2 == Integer.MAX_VALUE) ? Integer.MAX_VALUE : op1 * op2;
     }

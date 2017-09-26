@@ -33,29 +33,30 @@ package de.unkrig.lfr.core;
  * </p>
  */
 abstract
-class CompositeSequence extends AbstractSequence {
+class CompositeSequence extends Sequence {
 
     /**
      * Reference to the "next" sequence.
      */
-    Sequence          next;
+    Sequence  next;
     private final int minMatchLengthWithoutNext;
     private final int maxMatchLengthWithoutNext;
-    private int       minMatchLength, maxMatchLength;
 
     CompositeSequence(int matchLengthWithoutNext) {
+        super(matchLengthWithoutNext, matchLengthWithoutNext);
         this.next                      = Sequences.TERMINAL;
-        this.minMatchLengthWithoutNext = (this.minMatchLength = matchLengthWithoutNext);
-        this.maxMatchLengthWithoutNext = (this.maxMatchLength = matchLengthWithoutNext);
+        this.minMatchLengthWithoutNext = matchLengthWithoutNext;
+        this.maxMatchLengthWithoutNext = matchLengthWithoutNext;
     }
 
     CompositeSequence(
         int minMatchLengthWithoutNext,
         int maxMatchLengthWithoutNext
     ) {
+        super(minMatchLengthWithoutNext, maxMatchLengthWithoutNext);
         this.next                      = Sequences.TERMINAL;
-        this.minMatchLengthWithoutNext = (this.minMatchLength = minMatchLengthWithoutNext);
-        this.maxMatchLengthWithoutNext = (this.maxMatchLength = maxMatchLengthWithoutNext);
+        this.minMatchLengthWithoutNext = minMatchLengthWithoutNext;
+        this.maxMatchLengthWithoutNext = maxMatchLengthWithoutNext;
     }
 
     @Override public Sequence
@@ -63,24 +64,11 @@ class CompositeSequence extends AbstractSequence {
 
         this.next = this.next.concat(that);
 
-        if (this.minMatchLengthWithoutNext != Integer.MAX_VALUE) {
-            int nminml = this.next.minMatchLength();
-            this.minMatchLength = nminml == Integer.MAX_VALUE ? nminml : this.minMatchLengthWithoutNext + nminml;
-        }
-
-        if (this.maxMatchLengthWithoutNext != Integer.MAX_VALUE) {
-            int nmaxml = this.next.maxMatchLength();
-            this.maxMatchLength = nmaxml == Integer.MAX_VALUE ? nmaxml : this.maxMatchLengthWithoutNext + nmaxml;
-        }
+        this.minMatchLength = Sequences.add(this.minMatchLengthWithoutNext, this.next.minMatchLength);
+        this.maxMatchLength = Sequences.add(this.maxMatchLengthWithoutNext, this.next.maxMatchLength);
 
         return this;
     }
-
-    @Override public int
-    minMatchLength() { return this.minMatchLength; }
-
-    @Override public int
-    maxMatchLength() { return this.maxMatchLength; }
 
     /**
      * @return A human-readable form of {@code this} sequence, but without the {@link #next} sequence

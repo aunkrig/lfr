@@ -310,14 +310,14 @@ class MatcherImpl implements Matcher {
             int regionLength = this.regionEnd - this.regionStart;
 
             // Optimization: Test whether there are enough characters left so that the sequence can possibly match.
-            if (this.pattern.sequence.minMatchLength() > regionLength) {
+            if (this.pattern.sequence.minMatchLength > regionLength) {
                 this.endOfPreviousMatch = -1;
                 this.hitEnd             = true;
                 return false;
             }
 
             // Optimization: Test whether the sequence can possibly match all remaining chars.
-            if (this.pattern.sequence.maxMatchLength() < regionLength) {
+            if (this.pattern.sequence.maxMatchLength < regionLength) {
                 this.endOfPreviousMatch = -1;
                 return false;
             }
@@ -345,7 +345,7 @@ class MatcherImpl implements Matcher {
         this.end        = MatcherImpl.End.ANY;
 
         // Optimization: Test whether there are enough chars lefts so that the sequence can possibly match.
-        if (this.pattern.sequence.minMatchLength() > this.regionEnd - this.regionStart) {
+        if (this.pattern.sequence.minMatchLength > this.regionEnd - this.regionStart) {
             this.endOfPreviousMatch = -1;
             this.hitEnd             = true;
             return false;
@@ -395,7 +395,7 @@ class MatcherImpl implements Matcher {
         this.end    = MatcherImpl.End.ANY;
 
         // Optimization: Test whether there are enough chars left so that the sequence can possibly match.
-        if (this.pattern.sequence.minMatchLength() > this.regionEnd - start) {
+        if (this.pattern.sequence.minMatchLength > this.regionEnd - start) {
             this.endOfPreviousMatch = -1;
             this.hitEnd             = true;
             return false;
