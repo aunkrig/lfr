@@ -133,7 +133,7 @@ class CharacterClasses {
                 Sequences.LiteralString thatLiteralString = (Sequences.LiteralString) this.next;
 
                 int    lhs = this.c;
-                String rhs = thatLiteralString.get();
+                String rhs = thatLiteralString.s;
 
                 String ls = new StringBuilder(rhs.length() + 2).appendCodePoint(lhs).append(rhs).toString();
 
@@ -229,7 +229,7 @@ class CharacterClasses {
     public static final
     class OneOfTwoCharacterClass extends CharacterClass {
 
-        private final int c1, c2;
+        final int c1, c2;
 
         private
         OneOfTwoCharacterClass(int c1, int c2) {
@@ -243,6 +243,32 @@ class CharacterClasses {
         @Override public int lowerBound() { return Math.min(this.c1, this.c2);     }
         @Override public int upperBound() { return Math.max(this.c1, this.c2) + 1; }
         @Override public int sizeBound()  { return 2;                              }
+
+        @Override public Sequence
+        concat(Sequence that) {
+
+            super.concat(that);
+
+            if (this.next instanceof OneOfTwoCharacterClass) {
+                OneOfTwoCharacterClass rhs = (OneOfTwoCharacterClass) that;
+
+                return new Sequences.BivalentChars(
+                    Sequences.cat(Character.toChars(this.c1), Character.toChars(rhs.c1)),
+                    Sequences.cat(Character.toChars(this.c2), Character.toChars(rhs.c2))
+                ).concat(rhs.next);
+            }
+
+            if (this.next instanceof Sequences.BivalentChars) {
+                Sequences.BivalentChars rhs = (Sequences.BivalentChars) that;
+
+                return new Sequences.BivalentChars(
+                    Sequences.cat(Character.toChars(this.c1), rhs.ca1),
+                    Sequences.cat(Character.toChars(this.c2), rhs.ca2)
+                ).concat(rhs.next);
+            }
+
+            return this;
+        }
 
         @Override public String
         toStringWithoutNext() {

@@ -152,6 +152,7 @@ class PatternTest {
     @Test public void testCaseInsensitive3() { OracleEssentials.harnessFull("(?i)Ä", "xxxäxxx"); }
     @Test public void testCaseInsensitive4() { Assert.assertTrue(OracleEssentials.LFR.matches("(?i)Ä", "Ä")); }
     @Test public void testCaseInsensitive5() { Assert.assertFalse(OracleEssentials.LFR.matches("(?i)Ä", "ä")); }
+    @Test public void testCaseInsensitive6() { PatternTest.assertSequenceToString("bivalentChars(\"abc\"|\"ABC\")", "abc", Pattern.CASE_INSENSITIVE);; } // SUPPRESS CHECKSTYLE LineLength
 
     @Test public void testUnicodeCaseInsensitive1() { OracleEssentials.harnessFull("(?ui)A", "xxxAxxx"); }
     @Test public void testUnicodeCaseInsensitive2() { OracleEssentials.harnessFull("(?ui)A", "xxxaxxx"); }
@@ -623,7 +624,7 @@ class PatternTest {
 
         Producer<String> rsp = PatternTest.randomSubjectProducer(infix);
 
-        for (int i = 0; i < 10; i++) {
+        for (int i = 0; i < 5; i++) {
             String subject = AssertionUtil.notNull(rsp.produce());
 
             Matcher matcher = pattern.matcher(subject);

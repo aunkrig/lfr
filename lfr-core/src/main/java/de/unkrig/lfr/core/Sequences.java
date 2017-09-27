@@ -27,6 +27,7 @@
 package de.unkrig.lfr.core;
 
 import de.unkrig.commons.lang.Characters;
+import de.unkrig.commons.lang.PrettyPrinter;
 import de.unkrig.commons.lang.StringUtil;
 import de.unkrig.commons.lang.StringUtil.IndexOf;
 import de.unkrig.commons.lang.protocol.Predicate;
@@ -532,28 +533,14 @@ class Sequences {
     public static
     class LiteralString extends CompositeSequence {
 
-        private String             s;
-        private StringUtil.IndexOf indexOf;
+        final String                     s;
+        private final StringUtil.IndexOf indexOf;
 
         /**
          * @param s The literal string that this sequence represents
          */
         LiteralString(String s) {
             super(s.length());
-            this.s       = s;
-            this.indexOf = StringUtil.newIndexOf(this.s);
-        }
-
-        /**
-         * @return The literal string that this sequence represents
-         */
-        public String get() { return this.s; }
-
-        /**
-         * Changes the literal string that this sequence represents.
-         */
-        public void
-        set(String s) {
             this.s       = s;
             this.indexOf = StringUtil.newIndexOf(this.s);
         }
@@ -621,6 +608,118 @@ class Sequences {
 
         @Override public String
         toStringWithoutNext() { return this.indexOf.toString(); }
+    }
+
+    /**
+     * Representation of a sequence of bivalent chars, like, e.g. {@code "[Aa][Bb][Cc]"}. (One {@link BivalentChars}
+     * sequence is faster than a chain of {@link CharacterClasses.OneOfTwoCharacterClass}es.)
+     */
+    public static
+    class BivalentChars extends CompositeSequence {
+
+        final char[]                    ca1, ca2;
+        @Nullable private final IndexOf indexOf;
+
+        /**
+         * @param s The literal string that this sequence represents
+         */
+        BivalentChars(char[] ca1, char[] ca2) {
+            super(ca1.length);
+            assert ca1.length == ca2.length;
+            this.ca1     = ca1;
+            this.ca2     = ca2;
+            this.indexOf = ca1.length >= 3 ? StringUtil.newKnuthMorrisPrattIndexOf(mirror(new char[][] { ca1, ca2 })) : null;
+        }
+
+        @Override public boolean
+        matches(MatcherImpl matcher) {
+
+            int o   = matcher.offset;
+            int len = this.ca1.length;
+
+            if (o + len > matcher.regionEnd) {
+
+                // Not enough chars left.
+                matcher.hitEnd = true;
+                return false;
+            }
+
+            for (int i = 0; i < len; i++, o++) {
+                char c = matcher.subject.charAt(o);
+                if (c != this.ca1[i] && c != this.ca2[i]) return false;
+            }
+
+            matcher.offset = o;
+
+            return this.next.matches(matcher);
+        }
+
+        @Override public boolean
+        find(MatcherImpl matcher) {
+
+            IndexOf io = this.indexOf;
+            if (io == null) return super.find(matcher);
+            
+            int o = matcher.offset;
+
+            while (o < matcher.regionEnd) {
+
+                // Find the next occurrence of the literal string.
+                o = io.indexOf(matcher.subject, o, matcher.regionEnd - this.ca1.length);
+                if (o == -1) break;
+
+                // See if the rest of the pattern matches.
+                matcher.offset = o + this.ca1.length;
+                if (this.next.matches(matcher)) {
+                    matcher.groups[0] = o;
+                    matcher.groups[1] = matcher.offset;
+                    return true;
+                }
+
+                // Rest of pattern didn't match; continue at the second character of the literal string match.
+                o++;
+            }
+
+            matcher.hitEnd = true;
+            return false;
+        }
+
+        @Override public Sequence
+        concat(Sequence that) {
+
+            super.concat(that);
+
+            if (this.next instanceof CharacterClasses.OneOfTwoCharacterClass) {
+                CharacterClasses.OneOfTwoCharacterClass rhs = (CharacterClasses.OneOfTwoCharacterClass) this.next;
+
+                return new Sequences.BivalentChars(
+                    cat(this.ca1, Character.toChars(rhs.c1)),
+                    cat(this.ca2, Character.toChars(rhs.c2))
+                ).concat(rhs.next);
+            }
+
+            if (this.next instanceof Sequences.BivalentChars) {
+                Sequences.BivalentChars rhs = (Sequences.BivalentChars) this.next;
+
+                return new Sequences.BivalentChars(
+                    cat(this.ca1, rhs.ca1),
+                    cat(this.ca2, rhs.ca2)
+                ).concat(rhs.next);
+            }
+
+            return this;
+        }
+
+        @Override public String
+        toStringWithoutNext() {
+            return (
+                "bivalentChars("
+                + PrettyPrinter.toString(new String(this.ca1))
+                + "|"
+                + PrettyPrinter.toString(new String(this.ca2))
+                + ")"
+            );
+        }
     }
 
     /**
@@ -1919,7 +2018,6 @@ class Sequences {
         };
     }
 
-
     private static String
     maxToString(int n) { return n == Integer.MAX_VALUE ? "infinite" : Integer.toString(n); }
 
@@ -1939,5 +2037,35 @@ class Sequences {
     static int
     mul(int op1, int op2) {
         return (op1 == Integer.MAX_VALUE || op2 == Integer.MAX_VALUE) ? Integer.MAX_VALUE : op1 * op2;
+    }
+
+    static char[]
+    cat(char[] ca1, char[] ca2) {
+
+        int ca1l = ca1.length;
+        int ca2l = ca2.length;
+
+        char[] result = new char[ca1l + ca2l];
+
+        System.arraycopy(ca1, 0, result, 0,    ca1l);
+        System.arraycopy(ca2, 0, result, ca1l, ca2l);
+
+        return result;
+    }
+
+    private static char[][]
+    mirror(char[][] a) {
+        
+        int n1 = a.length, n2 = a[0].length;
+        
+        char[][] result = new char[n2][n1];
+        for (int i = 0; i < n1; i++) {
+            assert a[i].length == n2;
+            for (int j = 0; j < n2; j++) {
+                result[j][i] = a[i][j];
+            }
+        }
+        
+        return result;
     }
 }
