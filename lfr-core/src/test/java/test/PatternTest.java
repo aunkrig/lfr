@@ -28,6 +28,7 @@
 
 package test;
 
+import java.util.Locale;
 import java.util.Random;
 import java.util.regex.PatternSyntaxException;
 
@@ -1095,6 +1096,22 @@ class PatternTest {
             OracleEssentials.harnessFull(new String(new char[] { c }), new String(tripleCaseLetters));
             OracleEssentials.harnessFull(new String(new char[] { c }), new String(tripleCaseLetters), Pattern.CASE_INSENSITIVE); // SUPPRESS CHECKSTYLE LineLength
         }
+    }
+
+    @Test public void
+    testPerformance() {
+
+        // Takes    453 ms on my machine for 20 "x"s.
+        // Takes  1,143 ms on my machine for 25 "x"s.
+        // Takes  1,839 ms on my machine for 26 "x"s.
+        // Takes  3,329 ms on my machine for 27 "x"s.
+        // Takes 23,125 ms on my machine for 30 "x"s.
+        // See https://blog.codinghorror.com/regex-performance/
+        long start = System.currentTimeMillis();
+        PatternTest.LFR.compile("(x+x+)+y").matcher("xxxxxxxxxxxxxxxxxxxxxxxxxxx").matches();
+        long end = System.currentTimeMillis();
+
+        System.out.printf(Locale.US, "Took %,d ms%n",  end - start);
     }
 
     private static void
