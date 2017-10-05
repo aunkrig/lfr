@@ -38,7 +38,7 @@ class CompositeSequence extends Sequence {
     /**
      * Reference to the "next" sequence.
      */
-    Sequence  next;
+    Sequence          next;
     private final int minMatchLengthWithoutNext;
     private final int maxMatchLengthWithoutNext;
 
