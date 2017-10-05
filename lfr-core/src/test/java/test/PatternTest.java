@@ -105,7 +105,7 @@ class PatternTest {
 
         String regex = infix;
 
-        PatternTest.assertSequenceToString("knuthMorrisPratt(\"ABCDEFGHIJKLMNOP\")", regex);
+        PatternTest.assertSequenceToString("boyerMooreHorspool(\"ABCDEFGHIJKLMNOP\")", regex);
 
         Producer<String> rsp = PatternTest.randomSubjectProducer(infix);
         for (int i = 0; i < 10; i++) {
@@ -153,7 +153,7 @@ class PatternTest {
     @Test public void testCaseInsensitive3() { OracleEssentials.harnessFull("(?i)Ä", "xxxäxxx"); }
     @Test public void testCaseInsensitive4() { Assert.assertTrue(OracleEssentials.LFR.matches("(?i)Ä", "Ä")); }
     @Test public void testCaseInsensitive5() { Assert.assertFalse(OracleEssentials.LFR.matches("(?i)Ä", "ä")); }
-    @Test public void testCaseInsensitive6() { PatternTest.assertSequenceToString("bivalentChars(\"abc\"|\"ABC\")", "abc", Pattern.CASE_INSENSITIVE);; } // SUPPRESS CHECKSTYLE LineLength
+    @Test public void testCaseInsensitive6() { PatternTest.assertSequenceToString("bivalentChars(\"abc\"|\"ABC\")", "abc", Pattern.CASE_INSENSITIVE); } // SUPPRESS CHECKSTYLE LineLength
 
     @Test public void testUnicodeCaseInsensitive1() { OracleEssentials.harnessFull("(?ui)A", "xxxAxxx"); }
     @Test public void testUnicodeCaseInsensitive2() { OracleEssentials.harnessFull("(?ui)A", "xxxaxxx"); }
@@ -572,7 +572,7 @@ class PatternTest {
 
         String regex = infix;
 
-        PatternTest.assertSequenceToString("knuthMorrisPratt(\"ABCDEFGHIJKLMNOP\")", regex);
+        PatternTest.assertSequenceToString("boyerMooreHorspool(\"ABCDEFGHIJKLMNOP\")", regex);
 
         Pattern pattern = PatternTest.PF.compile(regex, Pattern.DOTALL);
 
@@ -595,7 +595,7 @@ class PatternTest {
         PatternTest.assertSequenceToString((
             "greedyQuantifierOnCharacterClass(operand=anyCharButLineBreak, min=0, max=infinite)"
             + " . "
-            + "knuthMorrisPratt(\"ABCDEFGHIJKLMNOP\")"
+            + "boyerMooreHorspool(\"ABCDEFGHIJKLMNOP\")"
         ), regex);
 
         Pattern pattern = PatternTest.PF.compile(regex, Pattern.DOTALL);
@@ -618,7 +618,7 @@ class PatternTest {
         PatternTest.assertSequenceToString((
             "reluctantQuantifierOnCharacterClass(operand=anyCharButLineBreak, min=0, max=infinite)"
             + " . "
-            + "knuthMorrisPratt(\"ABCDEFGHIJKLMNOP\")"
+            + "boyerMooreHorspool(\"ABCDEFGHIJKLMNOP\")"
         ), regex);
 
         Pattern pattern = PatternTest.PF.compile(regex, Pattern.DOTALL);
@@ -989,7 +989,7 @@ class PatternTest {
     @Test public void
     testQuantifierOptimizations4() {
         PatternTest.assertSequenceToString(
-            "'A' . greedyQuantifierAnyChar(min=0, max=infinite, ls=naive(\"BC\"))",
+            "'A' . greedyQuantifierOnAnyCharAndLiteralString(min=0, max=infinite, ls=naive(\"BC\"))",
             "A.*BC",
             Pattern.DOTALL
         );
@@ -998,7 +998,7 @@ class PatternTest {
     @Test public void
     testQuantifierOptimizations5() {
         PatternTest.assertSequenceToString(
-            "'A' . reluctantQuantifierOnAnyChar(min=0, max=infinite, ls=naive(\"BC\"))",
+            "'A' . reluctantQuantifierOnAnyCharAndLiteralString(min=0, max=infinite, ls=naive(\"BC\"))",
             "A.*?BC",
             Pattern.DOTALL
         );
@@ -1018,7 +1018,7 @@ class PatternTest {
 
         // Naive string search, because the string literal is only 14 characters long.
         PatternTest.assertSequenceToString(
-            "'A' . greedyQuantifierAnyChar(min=0, max=infinite, ls=naive(\"abcdefghijklmno\"))",
+            "'A' . greedyQuantifierOnAnyCharAndLiteralString(min=0, max=infinite, ls=naive(\"abcdefghijklmno\"))",
             "A.*abcdefghijklmno",
             Pattern.DOTALL
         );
@@ -1027,9 +1027,17 @@ class PatternTest {
     @Test public void
     testQuantifierOptimizations8() {
 
-        // Knuth-Morris-Pratt string search, because the string literal is 15 characters long.
+        // Boyer-Moore-Horspool string search, because the string literal is 15 characters long.
         PatternTest.assertSequenceToString(
-            "'A' . greedyQuantifierAnyChar(min=0, max=infinite, ls=knuthMorrisPratt(\"abcdefghijklmnop\"))",
+            (
+                ""
+                + "'A' . "
+                + "greedyQuantifierOnAnyCharAndLiteralString("
+                +     "min=0, "
+                +     "max=infinite, "
+                +     "ls=boyerMooreHorspool(\"abcdefghijklmnop\")"
+                + ")"
+            ),
             "A.*abcdefghijklmnop",
             Pattern.DOTALL
         );

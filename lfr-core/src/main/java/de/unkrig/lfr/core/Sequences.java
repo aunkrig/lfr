@@ -129,11 +129,11 @@ class Sequences {
      */
     private static Sequence
     greedyOrReluctantQuantifier(
-        Sequence operand,
-        final int        min,
-        final int        max,
-        final int        counterIndex,
-        final boolean    greedy
+        Sequence      operand,
+        final int     min,
+        final int     max,
+        final int     counterIndex,
+        final boolean greedy
     ) {
 
         final int minml = Sequences.mul(min, operand.minMatchLength);
@@ -156,7 +156,7 @@ class Sequences {
             //        +------------+
 
             final Sequence[] operand2   = { operand };
-            final String             opToString = operand.toString();
+            final String     opToString = operand.toString();
 
             final CompositeSequence cs = new CompositeSequence(0, Integer.MAX_VALUE) {
 
@@ -247,7 +247,7 @@ class Sequences {
         //        +------------+
 
         final Sequence[] operand2   = { operand };
-        final String             opToString = operand.toString();
+        final String     opToString = operand.toString();
 
         final CompositeSequence cs = new CompositeSequence(
             Sequences.mul(operand.minMatchLength, min == 0 ? 0   : min - 1), // minMatchLength
@@ -374,7 +374,7 @@ class Sequences {
         ) {
 
             final int     len     = s.length();
-            final IndexOf indexOf = StringUtil.newIndexOf(s);
+            final IndexOf indexOf = StringUtil.indexOf(s);
 
             @Override public boolean
             matches(MatcherImpl matcher) {
@@ -407,7 +407,7 @@ class Sequences {
             @Override public String
             toStringWithoutNext() {
                 return (
-                    "reluctantQuantifierOnAnyChar(min="
+                    "reluctantQuantifierOnAnyCharAndLiteralString(min="
                     + min
                     + ", max="
                     + Sequences.maxToString(max)
@@ -542,7 +542,7 @@ class Sequences {
         LiteralString(String s) {
             super(s.length());
             this.s       = s;
-            this.indexOf = StringUtil.newIndexOf(this.s);
+            this.indexOf = StringUtil.indexOf(this.s);
         }
 
         @Override public boolean
@@ -628,7 +628,11 @@ class Sequences {
             assert ca1.length == ca2.length;
             this.ca1     = ca1;
             this.ca2     = ca2;
-            this.indexOf = ca1.length >= 3 ? StringUtil.newKnuthMorrisPrattIndexOf(mirror(new char[][] { ca1, ca2 })) : null;
+            this.indexOf = (
+                ca1.length >= 3
+                ? StringUtil.boyerMooreHorspoolIndexOf(mirror(new char[][] { ca1, ca2 }))
+                : null
+            );
         }
 
         @Override public boolean
@@ -1925,7 +1929,7 @@ class Sequences {
 
         return new CompositeSequence(min * s.length(), Sequences.mul(max, s.length())) {
 
-            final IndexOf indexOf     = StringUtil.newIndexOf(s);
+            final IndexOf indexOf     = StringUtil.indexOf(s);
             final int     infixLength = s.length();
 
             @Override public boolean
@@ -1960,7 +1964,7 @@ class Sequences {
             @Override public String
             toStringWithoutNext() {
                 return (
-                    "greedyQuantifierAnyChar(min="
+                    "greedyQuantifierOnAnyCharAndLiteralString(min="
                     + min
                     + ", max="
                     + Sequences.maxToString(max)
