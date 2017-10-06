@@ -31,6 +31,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import de.unkrig.commons.lang.CharSequences;
 import de.unkrig.commons.lang.Characters;
 import de.unkrig.commons.lang.StringUtil;
 import de.unkrig.commons.lang.StringUtil.IndexOf;
@@ -678,7 +679,7 @@ class Sequences {
         }
 
         @Override public char[][]
-        getNeedle() { return ArrayUtil.mirror(new char[][] { StringUtil.toCharArray(this.cs) }); }
+        getNeedle() { return ArrayUtil.mirror(new char[][] { CharSequences.toCharArray(this.cs) }); }
 
         @Override public boolean
         matches(MatcherImpl matcher) {
