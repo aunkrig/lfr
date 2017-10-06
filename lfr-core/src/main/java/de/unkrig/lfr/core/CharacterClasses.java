@@ -38,6 +38,8 @@ import java.util.Set;
 import de.unkrig.commons.lang.Characters;
 import de.unkrig.commons.lang.PrettyPrinter;
 import de.unkrig.commons.lang.protocol.Predicate;
+import de.unkrig.commons.util.collections.CollectionUtil;
+import de.unkrig.commons.util.collections.Sets;
 
 /**
  * Utility methods that create all kinds of {@link CharacterClass}s.
@@ -61,94 +63,30 @@ class CharacterClasses {
     private CharacterClasses() {}
 
     /**
-     * Representation of a non-supplementary literal character, i.e. that fits into one {@code char}, like {@code "a"}
-     * or {@code "\."}.
+     * Representation of a literal <em>BMP</em> (one-char) code point, like {@code "a"} or {@code "\."}.
      */
     public static
-    class LiteralChar extends CharacterClass {
+    class LiteralChar extends MultivalentCharClass {
 
         /**
          * The literal character that this sequence represents.
          */
-        final char c;
+        final int c;
 
         LiteralChar(char c) {
-            super(1);
+            super(Collections.singleton((int) c));
             this.c = c;
         }
 
         @Override public boolean
         matches(int subject) { return subject == this.c; }
 
-        /**
-         * Optimized version of {@link #find(MatcherImpl)}
-         */
-        @Override public boolean
-        find(MatcherImpl matcher) {
-
-            int o = matcher.offset;
-
-            FIND:
-            while (o < matcher.regionEnd) {
-
-                // Find the next occurrence of the literal char.
-                for (;; o++) {
-                    if (o >= matcher.regionEnd) break FIND;
-                    if (matcher.subject.charAt(o) == this.c) break;
-                }
-
-                // See if the rest of the pattern matches.
-                matcher.offset = o + 1;
-                if (this.next.matches(matcher)) {
-                    matcher.groups[0] = o;
-                    matcher.groups[1] = matcher.offset;
-                    return true;
-                }
-
-                // Rest of pattern didn't match; continue right behind the character match.
-                o++;
-            }
-
-            matcher.hitEnd = true;
-            return false;
-        }
-
-        @Override public Sequence
-        concat(Sequence that) {
-
-           super.concat(that);
-
-            if (this.next instanceof CharacterClasses.LiteralChar) {
-                CharacterClasses.LiteralChar thatLiteralCharacter = (CharacterClasses.LiteralChar) this.next;
-
-                int lhs = this.c;
-                int rhs = thatLiteralCharacter.c;
-
-                String ls = new StringBuilder(4).appendCodePoint(lhs).appendCodePoint(rhs).toString();
-
-                return new Sequences.LiteralString(ls).concat(thatLiteralCharacter.next);
-            }
-
-            if (this.next instanceof Sequences.LiteralString) {
-                Sequences.LiteralString thatLiteralString = (Sequences.LiteralString) this.next;
-
-                int    lhs = this.c;
-                String rhs = thatLiteralString.s;
-
-                String ls = new StringBuilder(rhs.length() + 2).appendCodePoint(lhs).append(rhs).toString();
-
-                return new Sequences.LiteralString(ls).concat(thatLiteralString.next);
-            }
-
-            return this;
-        }
-
         @Override public int lowerBound() { return this.c;     }
         @Override public int upperBound() { return this.c + 1; }
         @Override public int sizeBound()  { return 1;          }
 
         @Override public String
-        toStringWithoutNext() { return "'" + this.c + '\''; }
+        toStringWithoutNext() { return "'" + new String(Character.toChars(this.c)) + '\''; }
     }
 
     /**
@@ -222,123 +160,76 @@ class CharacterClasses {
      * Representation of a two-characters union, e.g. "[oO]".
      */
     public static CharacterClass
-    oneOfTwo(int c1, int c2) {
-        return c1 == c2 ? CharacterClasses.literalCharacter(c1) : new OneOfTwoCharacterClass(c1, c2);
-    }
+    oneOfTwoCodePoints(final int cp1, final int cp2) {
+        return (
+            cp1 == cp2
+            ? CharacterClasses.literalCharacter(cp1)
+            : Character.isSupplementaryCodePoint(cp1) || Character.isSupplementaryCodePoint(cp2)
+            ? new MultivalentCharacterClass(Sets.of(cp1, cp2)) {
 
-    public static final
-    class OneOfTwoCharacterClass extends CharacterClass {
+                @Override public boolean
+                matches(int subject) { return subject == cp1 || subject == cp2; }
 
-        final int c1, c2;
-
-        private
-        OneOfTwoCharacterClass(int c1, int c2) {
-            this.c1 = c1;
-            this.c2 = c2;
-        }
-
-        @Override public boolean
-        matches(int subject) { return subject == this.c1 || subject == this.c2; }
-
-        @Override public int lowerBound() { return Math.min(this.c1, this.c2);     }
-        @Override public int upperBound() { return Math.max(this.c1, this.c2) + 1; }
-        @Override public int sizeBound()  { return 2;                              }
-
-        @Override public Sequence
-        concat(Sequence that) {
-
-            super.concat(that);
-
-            if (this.next instanceof OneOfTwoCharacterClass) {
-                OneOfTwoCharacterClass rhs = (OneOfTwoCharacterClass) that;
-
-                return new Sequences.BivalentChars(
-                    Sequences.cat(Character.toChars(this.c1), Character.toChars(rhs.c1)),
-                    Sequences.cat(Character.toChars(this.c2), Character.toChars(rhs.c2))
-                ).concat(rhs.next);
+                @Override public String
+                toStringWithoutNext() {
+                    return new StringBuilder("oneOfTwoCodePoints('").appendCodePoint(cp1).append("', '").appendCodePoint(cp2).append("')").toString(); // SUPPRESS CHECKSTYLE LineLength
+                }
             }
+            : new MultivalentCharClass(Sets.of(cp1, cp2)) {
 
-            if (this.next instanceof Sequences.BivalentChars) {
-                Sequences.BivalentChars rhs = (Sequences.BivalentChars) that;
+                @Override public boolean
+                matches(int subject) { return subject == cp1 || subject == cp2; }
 
-                return new Sequences.BivalentChars(
-                    Sequences.cat(Character.toChars(this.c1), rhs.ca1),
-                    Sequences.cat(Character.toChars(this.c2), rhs.ca2)
-                ).concat(rhs.next);
+                @Override public String
+                toStringWithoutNext() {
+                    return new StringBuilder("oneOfTwoChars('").appendCodePoint(cp1).append("', '").appendCodePoint(cp2).append("')").toString(); // SUPPRESS CHECKSTYLE LineLength
+                }
             }
-
-            return this;
-        }
-
-        @Override public String
-        toStringWithoutNext() {
-            return (
-                new StringBuilder("oneOfTwo('")
-                .appendCodePoint(this.c1)
-                .append("', '")
-                .appendCodePoint(this.c2)
-                .append("')")
-                .toString()
-            );
-        }
+        );
     }
 
     /**
      * Representation of a three-characters union, e.g. "[abc]".
      */
     public static CharacterClass
-    oneOfThree(final int c1, final int c2, final int c3) {
+    oneOfThreeCodePoints(final int cp1, final int cp2, final int cp3) {
 
         return (
-            c1 == c2 ? CharacterClasses.oneOfTwo(c1, c3) :
-            c1 == c3 ? CharacterClasses.oneOfTwo(c1, c2) :
-            c2 == c3 ? CharacterClasses.oneOfTwo(c1, c2) :
-            new OneOfThreeCharacterClass(c1, c2, c3)
+            cp1 == cp2 ? CharacterClasses.oneOfTwoCodePoints(cp1, cp3) :
+            cp1 == cp3 ? CharacterClasses.oneOfTwoCodePoints(cp1, cp2) :
+            cp2 == cp3 ? CharacterClasses.oneOfTwoCodePoints(cp1, cp2) :
+            (
+                Character.isSupplementaryCodePoint(cp1)
+                || Character.isSupplementaryCodePoint(cp2)
+                || Character.isSupplementaryCodePoint(cp3)
+            ) ? new MultivalentCharacterClass(Sets.of(cp1, cp2, cp3)) {
+
+                @Override public boolean
+                matches(int subject) { return subject == cp1 || subject == cp2 || subject == cp3; }
+
+                @Override public String
+                toStringWithoutNext() {
+                    return "oneOfThreeCodePoints(" + PrettyPrinter.codePointToString(cp1) + ", " + PrettyPrinter.codePointToString(cp2) + ", " + PrettyPrinter.codePointToString(cp3) + ")"; // SUPPRESS CHECKSTYLE LineLength
+                }
+            } :
+            new MultivalentCharClass(Sets.of(cp1, cp2, cp3)) {
+
+                @Override public boolean
+                matches(int subject) { return subject == cp1 || subject == cp2 || subject == cp3; }
+
+                @Override public String
+                toStringWithoutNext() {
+                    return "oneOfThreeChars(" + PrettyPrinter.codePointToString(cp1) + ", " + PrettyPrinter.codePointToString(cp2) + ", " + PrettyPrinter.codePointToString(cp3) + ")"; // SUPPRESS CHECKSTYLE LineLength
+                }
+            }
         );
-    }
-
-    static
-    class OneOfThreeCharacterClass extends CharacterClass {
-
-        private final int cp1, cp2, cp3;
-
-        OneOfThreeCharacterClass(int cp1, int cp2, int cp3) {
-            this.cp1 = cp1;
-            this.cp2 = cp2;
-            this.cp3 = cp3;
-        }
-
-        @Override public boolean
-        matches(int subject) { return subject == this.cp1 || subject == this.cp2 || subject == this.cp3; }
-
-        @Override public int
-        lowerBound() { return CharacterClasses.min(this.cp1, this.cp2, this.cp3); }
-
-        @Override public int
-        upperBound() { return CharacterClasses.max(this.cp1, this.cp2, this.cp3) + 1; }
-
-        @Override public int
-        sizeBound() { return 3; }
-
-        @Override public String
-        toStringWithoutNext() {
-            return (
-                "oneOfThree("
-                + PrettyPrinter.codePointToString(this.cp1)
-                + ", "
-                + PrettyPrinter.codePointToString(this.cp2)
-                + ", "
-                + PrettyPrinter.codePointToString(this.cp3)
-                + ")"
-            );
-        }
     }
 
     /**
      * Checks whether a code point is one of those in in <var>chars</var>.
      */
     public static CharacterClass
-    oneOf(final String chars) {
+    oneOfManyCodePoints(final String chars) {
 
         if (chars.isEmpty()) return CharacterClasses.FAIL;
 
@@ -349,18 +240,18 @@ class CharacterClasses {
             offset += Character.charCount(cp);
         }
 
-        return CharacterClasses.oneOf(s);
+        return CharacterClasses.oneOfManyCodePoints(s);
     }
 
     /**
      * Checks whether a code point is one of those in in <var>chars</var>.
      */
     public static CharacterClass
-    oneOf(Collection<Integer> chars) {
-        return CharacterClasses.oneOf(
-            chars instanceof HashSet
-            ? (HashSet<Integer>) chars
-            : new HashSet<Integer>(chars)
+    oneOfManyCodePoints(Collection<Integer> codePoints) {
+        return CharacterClasses.oneOfManyCodePoints(
+            codePoints instanceof HashSet
+            ? (HashSet<Integer>) codePoints
+            : new HashSet<Integer>(codePoints)
         );
     }
 
@@ -368,39 +259,45 @@ class CharacterClasses {
      * Checks whether a code point is one of the <var>codePoints</var>.
      */
     public static CharacterClass
-    oneOf(final HashSet<Integer> codePoints) {
+    oneOfManyCodePoints(final HashSet<Integer> codePoints) {
+
+        NO_SUPPLEMENTARIES: {
+            for (int cp : codePoints) {
+                if (Character.isSupplementaryCodePoint(cp)) break NO_SUPPLEMENTARIES;
+            }
+
+            return CharacterClasses.oneOfManyChars(codePoints);
+        }
 
         Iterator<Integer> it = codePoints.iterator();
         switch (codePoints.size()) {
 
-        case 0: return CharacterClasses.FAIL;
-        case 1: return CharacterClasses.literalCharacter(codePoints.iterator().next());
-        case 2: return new OneOfTwoCharacterClass(it.next(), it.next());
-        case 3: return new OneOfThreeCharacterClass(it.next(), it.next(), it.next());
-
-        case 4:
-        case 5:
-        case 6:
-            int[] ia = new int[codePoints.size()];
-            {
-                int i = 0;
-                for (Integer v : codePoints) ia[i++] = v;
-            }
-            return CharacterClasses.oneOf(ia);
+        case 0:  return CharacterClasses.FAIL;
+        case 1:  return CharacterClasses.literalCharacter(codePoints.iterator().next());
+        case 2:  return oneOfTwoCodePoints(it.next(), it.next());
+        case 3:  return oneOfThreeCodePoints(it.next(), it.next(), it.next());
+        default: return new MultivalentCharacterClass(codePoints);
         }
+    }
 
-        return new CharacterClass() {
+    /**
+     * Sorts the <var>chars</var> and implements a character class that is based on a binary search in that
+     * array.
+     */
+    public static CharacterClass
+    oneOfManyChars(final Set<Integer> chars) {
+
+        final int[] chars2 = CollectionUtil.toIntArray(chars);
+        Arrays.sort(chars2);
+
+        return new MultivalentCharClass(chars) {
 
             @Override public boolean
-            matches(int c) { return codePoints.contains(c); }
+            matches(int subject) { return Arrays.binarySearch(chars2, subject) >= 0; }
 
             @Override protected String
             toStringWithoutNext() {
-                return (
-                    "oneOf("
-                    + PrettyPrinter.toString(new String(CharacterClasses.unwrap(codePoints), 0, codePoints.size()))
-                    + ")"
-                );
+                return "oneOfManyCharsBinarySearch(" + Arrays.toString(chars2) + ")";
             }
         };
     }
@@ -410,7 +307,7 @@ class CharacterClasses {
      * array.
      */
     public static CharacterClass
-    oneOf(final int[] codePoints) {
+    oneOfManyCodePoints(final int[] codePoints) {
 
         Arrays.sort(codePoints);
 
@@ -420,46 +317,10 @@ class CharacterClasses {
             matches(int subject) { return Arrays.binarySearch(codePoints, subject) >= 0; }
 
             @Override protected String
-            toStringWithoutNext() { return "oneOf(" + PrettyPrinter.toString(codePoints) + ")"; }
+            toStringWithoutNext() {
+                return "oneOfManyCodePointsBinarySearch(" + PrettyPrinter.toString(codePoints) + ")";
+            }
         };
-    }
-
-    public static final
-    class OneOfManyCharacterClass extends CharacterClass {
-
-        private final String chars;
-
-        private
-        OneOfManyCharacterClass(String chars) { this.chars = chars; }
-
-        @Override public boolean
-        matches(int subject) { return this.chars.indexOf(subject) != -1; }
-
-        @Override public int
-        lowerBound() {
-            int result = Integer.MAX_VALUE;
-            for (int i = this.chars.length() - 1; i >= 0; i--) {
-                int c = this.chars.codePointAt(i);
-                if (c < result) result = c;
-            }
-            return result;
-        }
-
-        @Override public int
-        upperBound() {
-            int result = 0;
-            for (int i = this.chars.length() - 1; i >= 0; i--) {
-                int c = this.chars.codePointAt(i);
-                if (c > result) result = c;
-            }
-            return result;
-        }
-
-        @Override public int
-        sizeBound() { return this.chars.length(); }
-
-        @Override public String
-        toStringWithoutNext() { return "oneOf(\"" + this.chars + "\")"; }
     }
 
     /**
@@ -467,8 +328,8 @@ class CharacterClasses {
      */
     public static CharacterClass
     caseInsensitiveLiteralCharacter(final int c) {
-        if (c >= 'A' && c <= 'Z') return CharacterClasses.oneOfTwo(c, c + 32);
-        if (c >= 'a' && c <= 'z') return CharacterClasses.oneOfTwo(c, c - 32);
+        if (c >= 'A' && c <= 'Z') return CharacterClasses.oneOfTwoCodePoints(c, c + 32);
+        if (c >= 'a' && c <= 'z') return CharacterClasses.oneOfTwoCodePoints(c, c - 32);
         return CharacterClasses.literalCharacter(c);
     }
 
@@ -482,7 +343,7 @@ class CharacterClasses {
 
         if (s == null) return CharacterClasses.literalCharacter(cp);
 
-        return CharacterClasses.oneOf(s);
+        return CharacterClasses.oneOfManyCodePoints(s);
     }
 
     /**
@@ -495,20 +356,12 @@ class CharacterClasses {
 
         if (rhs == CharacterClasses.FAIL) return lhs;
 
-        if (lhs instanceof LiteralChar && rhs instanceof LiteralChar) {
-            return CharacterClasses.oneOfTwo(((LiteralChar) lhs).c, ((LiteralChar) rhs).c);
-        }
+        // Optimization when both operands are multivalent code points.
+        if (lhs instanceof MultivalentCharacterClass && rhs instanceof MultivalentCharacterClass) {
+            MultivalentCharacterClass lhs2 = (MultivalentCharacterClass) lhs;
+            MultivalentCharacterClass rhs2 = (MultivalentCharacterClass) rhs;
 
-        if (lhs instanceof LiteralChar && rhs instanceof OneOfTwoCharacterClass) {
-            LiteralChar            lc  = (LiteralChar)       lhs;
-            OneOfTwoCharacterClass oot = (OneOfTwoCharacterClass) rhs;
-            return CharacterClasses.oneOfThree(lc.c, oot.c1, oot.c2);
-        }
-
-        if (lhs instanceof OneOfTwoCharacterClass && rhs instanceof LiteralChar) {
-            OneOfTwoCharacterClass oot = (OneOfTwoCharacterClass) lhs;
-            LiteralChar            lc  = (LiteralChar)       rhs;
-            return CharacterClasses.oneOfThree(oot.c1, oot.c2, lc.c);
+            return oneOfManyCodePoints(Sets.union(lhs2.codePoints, rhs2.codePoints));
         }
 
         final int lb = Math.min(lhs.lowerBound(), rhs.lowerBound());
@@ -597,13 +450,13 @@ class CharacterClasses {
         case 2:
             {
                 Iterator<Integer> it = integerSet.iterator();
-                return CharacterClasses.oneOfTwo(it.next(), it.next());
+                return CharacterClasses.oneOfTwoCodePoints(it.next(), it.next());
             }
 
         case 3:
             {
                 Iterator<Integer> it = integerSet.iterator();
-                return CharacterClasses.oneOfThree(it.next(), it.next(), it.next());
+                return CharacterClasses.oneOfThreeCodePoints(it.next(), it.next(), it.next());
             }
         }
 
@@ -660,9 +513,20 @@ class CharacterClasses {
     public static CharacterClass
     intersection(final CharacterClass lhs, final CharacterClass rhs) {
 
+        assert lhs.next == Sequences.TERMINAL;
+        assert rhs.next == Sequences.TERMINAL;
+
+        // Optimization when both operands are multivalent character classes.
+        if (lhs instanceof MultivalentCharacterClass && rhs instanceof MultivalentCharacterClass) {
+            MultivalentCharacterClass lhs2 = (MultivalentCharacterClass) lhs;
+            MultivalentCharacterClass rhs2 = (MultivalentCharacterClass) rhs;
+
+            return oneOfManyCodePoints(Sets.intersection(lhs2.codePoints, rhs2.codePoints));
+        }
+
         final int lb = Math.max(lhs.lowerBound(), rhs.lowerBound());
         final int ub = Math.min(lhs.upperBound(), rhs.upperBound());
-        final int sb = Math.min(lhs.sizeBound(), rhs.sizeBound());
+        final int sb = Math.min(lhs.sizeBound(),  rhs.sizeBound());
 
         return new CharacterClass(Character.charCount(lb), Character.charCount(ub - 1)) {
 
@@ -832,7 +696,7 @@ class CharacterClasses {
 
     /**  A vertical whitespace character: [\n\x0B\f\r\x85/u2028/u2029] */
     public static CharacterClass
-    verticalWhitespace() { return CharacterClasses.oneOf("\r\n\u000B\f\u0085\u2028\u2029"); }
+    verticalWhitespace() { return CharacterClasses.oneOfManyCodePoints("\r\n\u000B\f\u0085\u2028\u2029"); }
 
     /**  A word character: [a-zA-Z_0-9] */
     public static CharacterClass
@@ -846,21 +710,16 @@ class CharacterClasses {
     public static CharacterClass
     lineBreakCharacter() {
 
-        return new CharacterClass(1) {
-
-            @Override public int lowerBound() { return 0x0a;   }
-            @Override public int upperBound() { return 0x202a; }
-            @Override public int sizeBound()  { return 7;      }
+        return new MultivalentCharClass(LINE_BREAK_CHARACTERS) {
 
             @Override public boolean
-            matches(int c) {
-                return (c <= 0x0d && c >= 0x0a) || c == 0x85 || (c >= 0x2028 && c <= 0x2029);
-            }
+            matches(int c) { return (c <= 0x0d && c >= 0x0a) || c == 0x85 || (c >= 0x2028 && c <= 0x2029); }
 
             @Override public String
             toStringWithoutNext() { return "lineBreakCharacter"; }
         };
     }
+    private static final Set<Integer> LINE_BREAK_CHARACTERS = Sets.of(0x0a, 0x0b, 0x0d, 0x85, 0x2028, 0x2029);
 
     /**
      * Matches <em>any</em> character.
@@ -898,26 +757,37 @@ class CharacterClasses {
         };
     }
 
-    private static int
-    min(int i1, int i2, int i3) {
-        if (i1 < i2) return i1 < i3 ? i1 : i3;
-        return i2 < i3 ? i2 : i3;
-    }
-
-    private static int
-    max(int i1, int i2, int i3) {
-        if (i1 > i2) return i1 > i3 ? i1 : i3;
-        return i2 > i3 ? i2 : i3;
-    }
-
-    /**
-     * @return The elements of the given {@link Integer} collection
-     */
-    private static int[]
-    unwrap(Collection<Integer> c) {
-        int[] result = new int[c.size()];
-        int   idx    = 0;
-        for (int i : c) result[idx++] = i;
+    static int
+    min(Set<Integer> set) {
+        int result = Integer.MAX_VALUE;
+        for (int i : set) {
+            if (i < result) result = i;
+        }
         return result;
+    }
+
+    static int
+    max(Set<Integer> set) {
+        int result = Integer.MIN_VALUE;
+        for (int i : set) {
+            if (i > result) result = i;
+        }
+        return result;
+    }
+
+    static int
+    minCharCountOf(Set<Integer> codePoints) {
+        for (int cp : codePoints) {
+            if (Character.charCount(cp) == 1) return 1;
+        }
+        return 2;
+    }
+
+    static int
+    maxCharCountOf(Set<Integer> codePoints) {
+        for (int cp : codePoints) {
+            if (Character.charCount(cp) == 2) return 2;
+        }
+        return 1;
     }
 }

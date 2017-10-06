@@ -153,7 +153,45 @@ class PatternTest {
     @Test public void testCaseInsensitive3() { OracleEssentials.harnessFull("(?i)Ä", "xxxäxxx"); }
     @Test public void testCaseInsensitive4() { Assert.assertTrue(OracleEssentials.LFR.matches("(?i)Ä", "Ä")); }
     @Test public void testCaseInsensitive5() { Assert.assertFalse(OracleEssentials.LFR.matches("(?i)Ä", "ä")); }
-    @Test public void testCaseInsensitive6() { PatternTest.assertSequenceToString("bivalentChars(\"abc\"|\"ABC\")", "abc", Pattern.CASE_INSENSITIVE); } // SUPPRESS CHECKSTYLE LineLength
+
+    @Test public void
+    testCaseInsensitive6() {
+        PatternTest.assertSequenceToString("naiveIndexOf([[a, A], [b, B]])", "ab", Pattern.CASE_INSENSITIVE);
+    }
+
+    @Test public void
+    testCaseInsensitive7() {
+        PatternTest.assertSequenceToString(
+            "boyerMooreHorspool([[a, A], [b, B], [c, C]])",
+            "abc",
+            Pattern.CASE_INSENSITIVE
+        );
+    }
+
+    @Test public void
+    testCaseInsensitive8() {
+        PatternTest.assertSequenceToString(
+            "boyerMooreHorspool([[a, A], [b, B], [c, C], [d, D], [e, E], [f, F], [g, G], [h, H], [i, I], [j, J], [k, K], [l, L], [m, M], [n, N], [o, O], [p, P], [q, Q], [r, R], [s, S], [t, T], [u, U], [v, V], [w, W], [x, X], [y, Y], [z, Z]])", // SUPPRESS CHECKSTYLE LineLength
+            "abcdefghijklmnopqrstuvwxyz",
+            Pattern.CASE_INSENSITIVE
+        );
+    }
+
+    @Test public void
+    testBoyerMooreHorspool1() {
+        PatternTest.assertSequenceToString(
+            "boyerMooreHorspool([[a, k], [,], [ä, Ö]])",
+            "[ak][,,,,,][äÖ]"
+        );
+    }
+
+    @Test public void
+    testBoyerMooreHorspool2() {
+        PatternTest.assertSequenceToString(
+            "boyerMooreHorspool([[a, k], [a, b, c], [ä, Ö]])",
+            "[ak][abc][äÖ]"
+        );
+    }
 
     @Test public void testUnicodeCaseInsensitive1() { OracleEssentials.harnessFull("(?ui)A", "xxxAxxx"); }
     @Test public void testUnicodeCaseInsensitive2() { OracleEssentials.harnessFull("(?ui)A", "xxxaxxx"); }
@@ -200,7 +238,9 @@ class PatternTest {
 
     @Test public void
     testMatchFlagsNonCapturingGroup() {
-        OracleEssentials.harnessFull("a(?i:b)c", " abc abC aBc aBC Abc AbC ABc ABC ");
+        String regex = "a(?i:b)c";
+        assertSequenceToString("boyerMooreHorspool([[a], [b, B], [c]])", regex);
+        OracleEssentials.harnessFull(regex, " abc abC aBc aBC Abc AbC ABc ABC ");
     }
 
     @Test public void
@@ -937,12 +977,12 @@ class PatternTest {
 
     @Test public void
     testCharacterClassOptimizations2() {
-        PatternTest.assertSequenceToString("oneOfTwo('A', 'B')",                             "[AB]");
+        PatternTest.assertSequenceToString("oneOfTwoChars('A', 'B')",                        "[AB]");
     }
 
     @Test public void
     testCharacterClassOptimizations3() {
-        PatternTest.assertSequenceToString("oneOfTwo('A', 'K')",                             "[AK]");
+        PatternTest.assertSequenceToString("oneOfTwoChars('A', 'K')",                        "[AK]");
     }
 
     @Test public void

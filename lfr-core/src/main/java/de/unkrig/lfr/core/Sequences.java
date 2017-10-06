@@ -26,12 +26,17 @@
 
 package de.unkrig.lfr.core;
 
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
 import de.unkrig.commons.lang.Characters;
-import de.unkrig.commons.lang.PrettyPrinter;
 import de.unkrig.commons.lang.StringUtil;
 import de.unkrig.commons.lang.StringUtil.IndexOf;
 import de.unkrig.commons.lang.protocol.Predicate;
 import de.unkrig.commons.nullanalysis.Nullable;
+import de.unkrig.commons.util.ArrayUtil;
 
 /**
  * Methods that create all kinds of {@link Sequence}s.
@@ -62,6 +67,133 @@ class Sequences {
     };
 
     /**
+     * A sequence of fixed length, where all elements are {@link MultivalentCharClass}es, i.e. a set of BMP (one-char)
+     * code points. These sets of chars are also called "the needle", as a metaphor for the needle that is to be found
+     * in a haystack.
+     *
+     * @see #getNeedle()
+     */
+    abstract static
+    class MultivalentSequence extends CompositeSequence {
+
+        MultivalentSequence(int matchLengthWithoutNext) {
+            super(matchLengthWithoutNext);
+        }
+
+        /**
+         * @return The character sets that represent a match, e.g. "<code>{ { 'a', 'A' }, { 'b', 'B' }, { 'c', 'C' }
+         *         }</code>"
+         */
+        public abstract char[][]
+        getNeedle();
+
+        @Override public Sequence
+        concat(Sequence that) {
+
+            Sequence result = super.concat(that);
+            if (result != this) return result;
+
+            if (this.next instanceof Sequences.MultivalentSequence) {
+                Sequences.MultivalentSequence next2 = (Sequences.MultivalentSequence) this.next;
+
+                return Sequences.multivalentSequence(ArrayUtil.append(
+                    this.getNeedle(),
+                    next2.getNeedle()
+                )).concat(next2.next);
+            }
+
+            if (this.next instanceof MultivalentCharacterClass) {
+                MultivalentCharacterClass
+                next2 = (MultivalentCharacterClass) this.next;
+
+                if (next2.minMatchLength == next2.maxMatchLength) {
+
+                    List<char[]> chars = new ArrayList<char[]>();
+                    for (int cp : next2.codePoints) chars.add(Character.toChars(cp));
+
+                    return Sequences.multivalentSequence(ArrayUtil.append(
+                        this.getNeedle(),
+                        ArrayUtil.mirror(chars.toArray(new char[chars.size()][]))
+                    )).concat(next2.next);
+                }
+            }
+
+            return this;
+        }
+    }
+
+    /**
+     * Constructs a sequence from a <var>needle</var>, and implements lots of optimizations.
+     */
+    static Sequence
+    multivalentSequence(final char[][] needle) {
+
+        if (needle.length == 0) return Sequences.TERMINAL;
+
+        if (needle.length == 1) {
+            Set<Integer> chars = new HashSet<Integer>(needle[0].length);
+            for (char c : needle[0]) chars.add((int) c);
+            return CharacterClasses.oneOfManyChars(chars);
+        }
+
+        for (char[] n : needle) {
+            if (n.length != 1) return new MultivalentSequence(needle.length) {
+
+                final StringUtil.IndexOf indexOf = StringUtil.indexOf(needle);
+
+                @Override public char[][]
+                getNeedle() { return needle; }
+
+                @Override boolean
+                matches(MatcherImpl matcher) {
+                    if (matcher.offset + needle.length > matcher.regionEnd) return false;
+                    for (char[] n : needle) {
+                        char c = matcher.subject.charAt(matcher.offset++);
+                        NC: {
+                            for (char nc : n) {
+                                if (c == nc) break NC;
+                            }
+                            return false;
+                        }
+                    }
+                    return true;
+                }
+
+                @Override public boolean
+                find(MatcherImpl matcher) {
+
+                    final int maxIndex = matcher.regionEnd - needle.length;
+
+                    for (int o = matcher.offset;;) {
+
+                        o = this.indexOf.indexOf(matcher.subject, o, maxIndex);
+                        if (o == -1) {
+                            matcher.hitEnd = true;
+                            return false;
+                        }
+
+                        matcher.offset = o;
+                        if (this.matches(matcher)) {
+                            matcher.groups[0] = o;
+                            matcher.groups[1] = matcher.offset;
+                            return true;
+                        }
+
+                        o++;
+                    }
+                }
+
+                @Override protected String
+                toStringWithoutNext() { return this.indexOf.toString(); }
+            };
+        }
+
+        // All elements of "needle" are arrays of length 1.
+
+        return new LiteralString(new String(ArrayUtil.mirror(needle)[0]));
+    }
+
+    /**
      * Implements quantifiers (greedy, reluctant and possessive).
      *
      * @param min The "minimum count" of the quantifier
@@ -79,7 +211,7 @@ class Sequences {
             CharacterClasses.LiteralChar lc = (CharacterClasses.LiteralChar) operand;
             if (lc.next == Sequences.TERMINAL) {
                 return (
-                    new Sequences.LiteralString(StringUtil.repeat(min, lc.c))
+                    new Sequences.LiteralString(StringUtil.repeat(min, Character.toChars(lc.c)))
                     .concat(Sequences.quantifier(lc, 0, max - min, counterIndex, nature))
                 );
             }
@@ -88,9 +220,9 @@ class Sequences {
         // Optimize "(?:abc){3,5}" into "abcabcabc(?:abc){0,2}".
         if (min >= 2 && operand instanceof Sequences.LiteralString) {
             Sequences.LiteralString ls = (Sequences.LiteralString) operand;
-            if (ls.next == Sequences.TERMINAL && min * ls.s.length() <= 1000) {
+            if (ls.next == Sequences.TERMINAL && min * ls.cs.length() <= 1000) {
                 return (
-                    new Sequences.LiteralString(StringUtil.repeat(min, ls.s))
+                    new Sequences.LiteralString(StringUtil.repeat(min, ls.cs))
                     .concat(Sequences.quantifier(ls, 0, max - min, counterIndex, nature))
                 );
             }
@@ -327,8 +459,8 @@ class Sequences {
 
                     return (
                         greedy
-                        ? Sequences.greedyQuantifierOnAnyCharAndLiteralString(min, max, ls.s)
-                        : Sequences.reluctantQuantifierOnAnyCharAndLiteralString(min, max, ls.s)
+                        ? Sequences.greedyQuantifierOnAnyCharAndLiteralString(min, max, ls.cs)
+                        : Sequences.reluctantQuantifierOnAnyCharAndLiteralString(min, max, ls.cs)
                     ).concat(ls.next);
                 }
 
@@ -366,15 +498,15 @@ class Sequences {
      * @param max The "maximum count" of the quantifier (may be {@link Integer#MAX_VALUE})
      */
     public static CompositeSequence
-    reluctantQuantifierOnAnyCharAndLiteralString(final int min, final int max, final String s) {
+    reluctantQuantifierOnAnyCharAndLiteralString(final int min, final int max, final CharSequence ls) {
 
         return new CompositeSequence(
-            Sequences.add(min, s.length()),
-            Sequences.add(max, s.length())
+            Sequences.add(min, ls.length()),
+            Sequences.add(max, ls.length())
         ) {
 
-            final int     len     = s.length();
-            final IndexOf indexOf = StringUtil.indexOf(s);
+            final int     len     = ls.length();
+            final IndexOf indexOf = StringUtil.indexOf(ls);
 
             @Override public boolean
             matches(MatcherImpl matcher) {
@@ -531,23 +663,26 @@ class Sequences {
      * Representation of a sequence of literal, case-sensitive characters.
      */
     public static
-    class LiteralString extends CompositeSequence {
+    class LiteralString extends MultivalentSequence {
 
-        final String                     s;
+        final CharSequence               cs;
         private final StringUtil.IndexOf indexOf;
 
         /**
-         * @param s The literal string that this sequence represents
+         * @param cs The literal string that this sequence represents
          */
-        LiteralString(String s) {
-            super(s.length());
-            this.s       = s;
-            this.indexOf = StringUtil.indexOf(this.s);
+        LiteralString(CharSequence cs) {
+            super(cs.length());
+            this.cs      = cs;
+            this.indexOf = StringUtil.indexOf(this.cs);
         }
+
+        @Override public char[][]
+        getNeedle() { return ArrayUtil.mirror(new char[][] { StringUtil.toCharArray(this.cs) }); }
 
         @Override public boolean
         matches(MatcherImpl matcher) {
-            return matcher.peekRead(this.s) && this.next.matches(matcher);
+            return matcher.peekRead(this.cs) && this.next.matches(matcher);
         }
 
         @Override public boolean
@@ -558,11 +693,11 @@ class Sequences {
             while (o < matcher.regionEnd) {
 
                 // Find the next occurrence of the literal string.
-                o = this.indexOf.indexOf(matcher.subject, o, matcher.regionEnd - this.s.length());
+                o = this.indexOf.indexOf(matcher.subject, o, matcher.regionEnd - this.cs.length());
                 if (o == -1) break;
 
                 // See if the rest of the pattern matches.
-                matcher.offset = o + this.s.length();
+                matcher.offset = o + this.cs.length();
                 if (this.next.matches(matcher)) {
                     matcher.groups[0] = o;
                     matcher.groups[1] = matcher.offset;
@@ -575,155 +710,10 @@ class Sequences {
 
             matcher.hitEnd = true;
             return false;
-        }
-
-        @Override public Sequence
-        concat(Sequence that) {
-
-            super.concat(that);
-
-            if (this.next instanceof CharacterClasses.LiteralChar) {
-                CharacterClasses.LiteralChar thatLiteralCharacter = (CharacterClasses.LiteralChar) this.next;
-
-                String lhs = this.s;
-                int    rhs = thatLiteralCharacter.c;
-
-                return (
-                    new Sequences.LiteralString(new StringBuilder(lhs).appendCodePoint(rhs).toString())
-                    .concat(thatLiteralCharacter.next)
-                );
-            }
-
-            if (this.next instanceof Sequences.LiteralString) {
-                Sequences.LiteralString thatLiteralString = (Sequences.LiteralString) this.next;
-
-                String lhs = this.s;
-                String rhs = thatLiteralString.s;
-
-                return new Sequences.LiteralString(lhs + rhs).concat(thatLiteralString.next);
-            }
-
-            return this;
         }
 
         @Override public String
         toStringWithoutNext() { return this.indexOf.toString(); }
-    }
-
-    /**
-     * Representation of a sequence of bivalent chars, like, e.g. {@code "[Aa][Bb][Cc]"}. (One {@link BivalentChars}
-     * sequence is faster than a chain of {@link CharacterClasses.OneOfTwoCharacterClass}es.)
-     */
-    public static
-    class BivalentChars extends CompositeSequence {
-
-        final char[]                    ca1, ca2;
-        @Nullable private final IndexOf indexOf;
-
-        /**
-         * @param s The literal string that this sequence represents
-         */
-        BivalentChars(char[] ca1, char[] ca2) {
-            super(ca1.length);
-            assert ca1.length == ca2.length;
-            this.ca1     = ca1;
-            this.ca2     = ca2;
-            this.indexOf = (
-                ca1.length >= 3
-                ? StringUtil.boyerMooreHorspoolIndexOf(mirror(new char[][] { ca1, ca2 }))
-                : null
-            );
-        }
-
-        @Override public boolean
-        matches(MatcherImpl matcher) {
-
-            int o   = matcher.offset;
-            int len = this.ca1.length;
-
-            if (o + len > matcher.regionEnd) {
-
-                // Not enough chars left.
-                matcher.hitEnd = true;
-                return false;
-            }
-
-            for (int i = 0; i < len; i++, o++) {
-                char c = matcher.subject.charAt(o);
-                if (c != this.ca1[i] && c != this.ca2[i]) return false;
-            }
-
-            matcher.offset = o;
-
-            return this.next.matches(matcher);
-        }
-
-        @Override public boolean
-        find(MatcherImpl matcher) {
-
-            IndexOf io = this.indexOf;
-            if (io == null) return super.find(matcher);
-            
-            int o = matcher.offset;
-
-            while (o < matcher.regionEnd) {
-
-                // Find the next occurrence of the literal string.
-                o = io.indexOf(matcher.subject, o, matcher.regionEnd - this.ca1.length);
-                if (o == -1) break;
-
-                // See if the rest of the pattern matches.
-                matcher.offset = o + this.ca1.length;
-                if (this.next.matches(matcher)) {
-                    matcher.groups[0] = o;
-                    matcher.groups[1] = matcher.offset;
-                    return true;
-                }
-
-                // Rest of pattern didn't match; continue at the second character of the literal string match.
-                o++;
-            }
-
-            matcher.hitEnd = true;
-            return false;
-        }
-
-        @Override public Sequence
-        concat(Sequence that) {
-
-            super.concat(that);
-
-            if (this.next instanceof CharacterClasses.OneOfTwoCharacterClass) {
-                CharacterClasses.OneOfTwoCharacterClass rhs = (CharacterClasses.OneOfTwoCharacterClass) this.next;
-
-                return new Sequences.BivalentChars(
-                    cat(this.ca1, Character.toChars(rhs.c1)),
-                    cat(this.ca2, Character.toChars(rhs.c2))
-                ).concat(rhs.next);
-            }
-
-            if (this.next instanceof Sequences.BivalentChars) {
-                Sequences.BivalentChars rhs = (Sequences.BivalentChars) this.next;
-
-                return new Sequences.BivalentChars(
-                    cat(this.ca1, rhs.ca1),
-                    cat(this.ca2, rhs.ca2)
-                ).concat(rhs.next);
-            }
-
-            return this;
-        }
-
-        @Override public String
-        toStringWithoutNext() {
-            return (
-                "bivalentChars("
-                + PrettyPrinter.toString(new String(this.ca1))
-                + "|"
-                + PrettyPrinter.toString(new String(this.ca2))
-                + ")"
-            );
-        }
     }
 
     /**
@@ -1550,7 +1540,7 @@ class Sequences {
     greedyQuantifierOnCharacterClass(final CharacterClass operand, final int min, final int max) {
 
         if (operand instanceof CharacterClasses.LiteralChar) {
-            return Sequences.greedyQuantifierOnChar(((CharacterClasses.LiteralChar) operand).c, min, max);
+            return Sequences.greedyQuantifierOnChar((char) ((CharacterClasses.LiteralChar) operand).c, min, max);
         }
 
         return new CompositeSequence(min * operand.minMatchLength, Sequences.mul(max, operand.maxMatchLength)) {
@@ -1641,7 +1631,7 @@ class Sequences {
                     && that instanceof LiteralString
                 ) {
                     LiteralString ls = (LiteralString) that;
-                    return Sequences.greedyQuantifierOnAnyCharAndLiteralString(min, Integer.MAX_VALUE, ls.s);
+                    return Sequences.greedyQuantifierOnAnyCharAndLiteralString(min, Integer.MAX_VALUE, ls.cs);
                 }
 
                 return super.concat(that);
@@ -1823,7 +1813,7 @@ class Sequences {
                     && that instanceof LiteralString
                 ) {
                     LiteralString ls = (LiteralString) that;
-                    return Sequences.reluctantQuantifierOnAnyCharAndLiteralString(min, Integer.MAX_VALUE, ls.s);
+                    return Sequences.reluctantQuantifierOnAnyCharAndLiteralString(min, Integer.MAX_VALUE, ls.cs);
                 }
 
                 return super.concat(that);
@@ -1925,12 +1915,12 @@ class Sequences {
      * @param max The "maximum count" of the quantifier (may be {@link Integer#MAX_VALUE})
      */
     public static Sequence
-    greedyQuantifierOnAnyCharAndLiteralString(final int min, final int max, final String s) {
+    greedyQuantifierOnAnyCharAndLiteralString(final int min, final int max, final CharSequence ls) {
 
-        return new CompositeSequence(min * s.length(), Sequences.mul(max, s.length())) {
+        return new CompositeSequence(min * ls.length(), Sequences.mul(max, ls.length())) {
 
-            final IndexOf indexOf     = StringUtil.indexOf(s);
-            final int     infixLength = s.length();
+            final IndexOf indexOf     = StringUtil.indexOf(ls);
+            final int     infixLength = ls.length();
 
             @Override public boolean
             matches(MatcherImpl matcher) {
@@ -2041,35 +2031,5 @@ class Sequences {
     static int
     mul(int op1, int op2) {
         return (op1 == Integer.MAX_VALUE || op2 == Integer.MAX_VALUE) ? Integer.MAX_VALUE : op1 * op2;
-    }
-
-    static char[]
-    cat(char[] ca1, char[] ca2) {
-
-        int ca1l = ca1.length;
-        int ca2l = ca2.length;
-
-        char[] result = new char[ca1l + ca2l];
-
-        System.arraycopy(ca1, 0, result, 0,    ca1l);
-        System.arraycopy(ca2, 0, result, ca1l, ca2l);
-
-        return result;
-    }
-
-    private static char[][]
-    mirror(char[][] a) {
-        
-        int n1 = a.length, n2 = a[0].length;
-        
-        char[][] result = new char[n2][n1];
-        for (int i = 0; i < n1; i++) {
-            assert a[i].length == n2;
-            for (int j = 0; j < n2; j++) {
-                result[j][i] = a[i][j];
-            }
-        }
-        
-        return result;
     }
 }

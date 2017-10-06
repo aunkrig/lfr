@@ -51,7 +51,7 @@ class CharacterClass extends CompositeSequence {
         super(minMatchLengthWithoutNext, maxMatchLengthWithoutNext);
     }
 
-    @Override public final boolean
+    @Override public boolean
     matches(MatcherImpl matcher) {
 
         int o = matcher.offset;
