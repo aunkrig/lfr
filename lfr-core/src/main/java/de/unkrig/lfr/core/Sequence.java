@@ -91,27 +91,26 @@ class Sequence {
 
     /**
      * Searches for the <var>next</var> match, starting at the current {@link MatcherImpl#offset}, and, iff it finds
-     * one, updates {@code groups[0]} and {@code groups[1]}, and returns {@code true}.
+     * one, updates {@link MatcherImpl#offset} to point <em>behind</em> the match, and returns the index of the
+     * <em>start</em> of the match.
      * <p>
      *   Derived classes may override this method if there is a faster implementation.
      * </p>
+     *
+     * @return {@code -1} iff there is no match
      */
-    public boolean
+    public int
     find(MatcherImpl matcher) {
 
         final int re = matcher.regionEnd;
 
         for (int o = matcher.offset;;) {
 
-            if (this.matches(matcher)) {
-                matcher.groups[0] = o;
-                matcher.groups[1] = matcher.offset;
-                return true;
-            }
+            if (this.matches(matcher)) return o;
 
             if (o >= re) {
                 matcher.hitEnd = true;
-                return false;
+                return -1;
             }
 
             if (

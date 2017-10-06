@@ -57,7 +57,7 @@ class MultivalentCharClass extends MultivalentCharacterClass {
     /**
      * Optimized version of {@link #find(MatcherImpl)}
      */
-    @Override public boolean
+    @Override public int
     find(MatcherImpl matcher) {
 
         int o = matcher.offset;
@@ -73,18 +73,14 @@ class MultivalentCharClass extends MultivalentCharacterClass {
 
             // See if the rest of the pattern matches.
             matcher.offset = o + 1;
-            if (this.next.matches(matcher)) {
-                matcher.groups[0] = o;
-                matcher.groups[1] = matcher.offset;
-                return true;
-            }
+            if (this.next.matches(matcher)) return o;
 
             // Rest of pattern didn't match; continue right behind the character match.
             o++;
         }
 
         matcher.hitEnd = true;
-        return false;
+        return -1;
     }
 
     @Override public int sizeBound()  { return 1; }

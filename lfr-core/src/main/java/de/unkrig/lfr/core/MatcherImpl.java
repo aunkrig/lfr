@@ -404,12 +404,15 @@ class MatcherImpl implements Matcher {
             return false;
         }
 
-        if (!this.pattern.sequence.find(this)) {
+        int matchStart = this.pattern.sequence.find(this);
+        if (matchStart < 0) {
             this.endOfPreviousMatch = -1;
             return false;
         }
 
-        this.endOfPreviousMatch = this.groups[1];
+        this.groups[0] = matchStart;
+        this.groups[1] = (this.endOfPreviousMatch = this.offset);
+
         return true;
     }
 

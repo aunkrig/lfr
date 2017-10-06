@@ -160,7 +160,7 @@ class Sequences {
                     return true;
                 }
 
-                @Override public boolean
+                @Override public int
                 find(MatcherImpl matcher) {
 
                     final int maxIndex = matcher.regionEnd - needle.length;
@@ -170,15 +170,11 @@ class Sequences {
                         o = this.indexOf.indexOf(matcher.subject, o, maxIndex);
                         if (o == -1) {
                             matcher.hitEnd = true;
-                            return false;
+                            return -1;
                         }
 
                         matcher.offset = o;
-                        if (this.matches(matcher)) {
-                            matcher.groups[0] = o;
-                            matcher.groups[1] = matcher.offset;
-                            return true;
-                        }
+                        if (this.matches(matcher)) return o;
 
                         o++;
                     }
@@ -686,7 +682,7 @@ class Sequences {
             return matcher.peekRead(this.cs) && this.next.matches(matcher);
         }
 
-        @Override public boolean
+        @Override public int
         find(MatcherImpl matcher) {
 
             int o = matcher.offset;
@@ -699,18 +695,14 @@ class Sequences {
 
                 // See if the rest of the pattern matches.
                 matcher.offset = o + this.cs.length();
-                if (this.next.matches(matcher)) {
-                    matcher.groups[0] = o;
-                    matcher.groups[1] = matcher.offset;
-                    return true;
-                }
+                if (this.next.matches(matcher)) return o;
 
                 // Rest of pattern didn't match; continue at the second character of the literal string match.
                 o++;
             }
 
             matcher.hitEnd = true;
-            return false;
+            return -1;
         }
 
         @Override public String
@@ -1008,19 +1000,15 @@ class Sequences {
             }
 
             // Override "AbstractSequence.find()" such that we give the match only one shot.
-            @Override public boolean
+            @Override public int
             find(MatcherImpl matcher) {
 
                 matcher.hitEnd = false;
                 int savedOffset = matcher.offset;
 
-                if (this.matches(matcher)) {
-                    matcher.groups[0] = savedOffset;
-                    matcher.groups[1] = matcher.offset;
-                    return true;
-                }
+                if (this.matches(matcher)) return savedOffset;
 
-                return false;
+                return -1;
             }
 
             @Override public String
@@ -1507,7 +1495,7 @@ class Sequences {
                         matcher.regionEnd   = savedOffset;
                         matcher.offset      = start;
 
-                        if (!op.find(matcher)) return false;
+                        if (op.find(matcher) < 0) return false;
                     } finally {
                         matcher.end         = savedEnd;
                         matcher.hitEnd      = savedHitEnd;

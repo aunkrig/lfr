@@ -54,7 +54,7 @@ class CharacterClasses {
     FAIL = new CharacterClass(Integer.MAX_VALUE, -1) {
 
         @Override public boolean   matches(int c)                { return false;  }
-        @Override public boolean   find(MatcherImpl matcherImpl) { return false;  }
+        @Override public int       find(MatcherImpl matcherImpl) { return -1;     }
         @Override public Sequence  concat(Sequence that)         { return this;   }
         @Override public String    toString()                    { return "fail"; }
         @Override protected String toStringWithoutNext()         { return "???";  }
