@@ -100,8 +100,11 @@ class MatcherImpl implements Matcher {
 
     /**
      * The counters for the currently executing iterations.
+     * <p>
+     *   This field cannot be FINAL only because of {@link #usePattern(de.unkrig.ref4j.Pattern)}.
+     * </p>
      */
-    int[] counters; // Cannot be FINAL because of "usePattern()".
+    int[] counters;
 
     /**
      * Whether an attempt was made to peek at or behind the {@link #regionEnd}.
