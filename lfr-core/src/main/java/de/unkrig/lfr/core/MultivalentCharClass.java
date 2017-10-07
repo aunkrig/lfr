@@ -32,9 +32,20 @@ import java.util.Set;
  * A specialization of {@link MultivalentCharacterClass} that is slightly faster because it saves the overhead of
  * decoding surrogate pairs, but works only for <em>BMP</em> (one-char) code points.
  */
-class MultivalentCharClass extends MultivalentCharacterClass {
+class MultivalentCharClass extends MultivalentCharacterClass implements MultivalentSequence {
 
     MultivalentCharClass(Set<Integer> codePoints) { super(codePoints); }
+
+    @Override public char[][]
+    getNeedle() {
+
+        char[][] result = new char[1][this.codePoints.size()];
+
+        int i = 0;
+        for (int cp : this.codePoints) result[0][i++] = (char) cp;
+
+        return result;
+    }
 
     @Override public boolean
     matches(MatcherImpl matcher) {

@@ -35,6 +35,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Set;
 
+import de.unkrig.commons.lang.CharSequences;
 import de.unkrig.commons.lang.Characters;
 import de.unkrig.commons.lang.PrettyPrinter;
 import de.unkrig.commons.lang.protocol.Predicate;
@@ -77,6 +78,9 @@ class CharacterClasses {
             super(Collections.singleton((int) c));
             this.c = c;
         }
+
+        @Override public char[][]
+        getNeedle() { return new char[][] { { (char) this.c } }; }
 
         @Override public boolean
         matches(int subject) { return subject == this.c; }
@@ -138,22 +142,42 @@ class CharacterClasses {
     }
 
     /**
-     * Checks whether a code point equals the given <var>codePoint</var>
+     * Checks whether a code point equals the given <var>codePoint</var>. Implements various optimizations, e.g.
+     * when the code point is in the BMP.
      */
     public static CharacterClass
     literalCharacter(final int codePoint) {
 
-        // Optimize for non-supplementary code points.
-        if (!Character.isSupplementaryCodePoint(codePoint)) return new LiteralChar((char) codePoint);
+        int cc = Character.charCount(codePoint);
 
-        return new CharacterClass(Character.charCount(codePoint)) {
+        // Optimize for BMP (one-char) code point.
+        if (cc == 1) return new LiteralChar((char) codePoint);
+
+        assert cc == 2;
+
+        class LiteralSupplementaryCodePoint extends CharacterClass implements MultivalentSequence {
+
+            final char[]       chars = Character.toChars(codePoint);
+            final CharSequence cs    = CharSequences.from(this.chars);
+
+            @Override public char[][]
+            getNeedle() { return new char[][] { this.chars }; }
+
+            /**
+             * Override {@link CharacterClass#matches(MatcherImpl)} with an optimized version (saves the decoding of
+             * surrogate pairs).
+             */
+            @Override public boolean
+            matches(MatcherImpl matcher) { return matcher.peekRead(this.cs) && this.next.matches(matcher); }
 
             @Override public boolean
             matches(int c) { return c == codePoint; }
 
             @Override protected String
             toStringWithoutNext() { return "\\x{" + Integer.toHexString(codePoint) + "}"; }
-        };
+        }
+
+        return new LiteralSupplementaryCodePoint();
     }
 
     /**
@@ -261,23 +285,64 @@ class CharacterClasses {
     public static CharacterClass
     oneOfManyCodePoints(final HashSet<Integer> codePoints) {
 
-        NO_SUPPLEMENTARIES: {
-            for (int cp : codePoints) {
-                if (Character.isSupplementaryCodePoint(cp)) break NO_SUPPLEMENTARIES;
-            }
+        // Optimize some special cases.
+        int size = codePoints.size();
+        if (size == 0) return CharacterClasses.FAIL;
+        if (size == 1) return CharacterClasses.literalCharacter(codePoints.iterator().next());
+        if (size == 2) {
+            Iterator<Integer> it = codePoints.iterator();
+            return oneOfTwoCodePoints(it.next(), it.next());
+        }
+        if (size == 3) {
+            Iterator<Integer> it = codePoints.iterator();
+            return oneOfThreeCodePoints(it.next(), it.next(), it.next());
+        }
 
+        int minCc = Integer.MAX_VALUE, maxCc = 0;
+        for (int cp : codePoints) {
+            int cc = Character.charCount(cp);
+            if (cc < minCc) minCc = cc;
+            if (cc > maxCc) maxCc = cc;
+        }
+
+        if (maxCc == 1) {
+
+            // All code points have length 1.
             return CharacterClasses.oneOfManyChars(codePoints);
         }
 
-        Iterator<Integer> it = codePoints.iterator();
-        switch (codePoints.size()) {
+        if (minCc == 2) {
 
-        case 0:  return CharacterClasses.FAIL;
-        case 1:  return CharacterClasses.literalCharacter(codePoints.iterator().next());
-        case 2:  return oneOfTwoCodePoints(it.next(), it.next());
-        case 3:  return oneOfThreeCodePoints(it.next(), it.next(), it.next());
-        default: return new MultivalentCharacterClass(codePoints);
+            // All code points have length 2, so the result is not only a character class, but also a multivalent
+            // sequence, which gives opportunities for later optimization!
+            class MultivalentCharacterClassAndSequence
+            extends MultivalentCharacterClass
+            implements MultivalentSequence {
+
+                MultivalentCharacterClassAndSequence(Set<Integer> codePoints) { super(codePoints); }
+
+                @Override public char[][]
+                getNeedle() {
+
+                    char[][] result = new char[2][this.codePoints.size()];
+
+                    int i = 0;
+                    for (int cp : this.codePoints) {
+                        char[] chars = Character.toChars(cp);
+                        result[0][i] = chars[0];
+                        result[1][i] = chars[1];
+                        i++;
+                    }
+
+                    return result;
+                }
+            }
+
+            return new MultivalentCharacterClassAndSequence(codePoints);
         }
+
+        // The lengths of the code points are partly 1 and partly 2, so this is no multivalent sequence.
+        return new MultivalentCharacterClass(codePoints);
     }
 
     /**

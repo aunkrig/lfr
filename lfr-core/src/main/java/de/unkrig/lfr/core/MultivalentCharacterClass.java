@@ -87,18 +87,6 @@ class MultivalentCharacterClass extends CharacterClass {
             }
         }
 
-        if (this.minMatchLength == this.maxMatchLength && this.next instanceof Sequences.MultivalentSequence) {
-            Sequences.MultivalentSequence next2 = (Sequences.MultivalentSequence) this.next;
-
-            List<char[]> chars = new ArrayList<char[]>();
-            for (int cp : this.codePoints) chars.add(Character.toChars(cp));
-
-            return Sequences.multivalentSequence(ArrayUtil.append(
-                ArrayUtil.mirror(chars.toArray(new char[chars.size()][])),
-                next2.getNeedle()
-            )).concat(next2.next);
-        }
-
         return this;
     }
 

@@ -26,6 +26,8 @@
 
 package de.unkrig.lfr.core;
 
+import de.unkrig.commons.util.ArrayUtil;
+
 /**
  * An {@link Sequence} that implements {@link #concat(Sequence)} by setting up a linked list of {@link Sequence}es.
  * <p>
@@ -66,6 +68,22 @@ class CompositeSequence extends Sequence {
 
         this.minMatchLength = Sequences.add(this.minMatchLengthWithoutNext, this.next.minMatchLength);
         this.maxMatchLength = Sequences.add(this.maxMatchLengthWithoutNext, this.next.maxMatchLength);
+
+        // Join adjacent MultivalentSequences.
+        if (this instanceof MultivalentSequence) {
+            MultivalentSequence ms1 = (MultivalentSequence) this;
+            CompositeSequence   cs1 = (CompositeSequence)   this;
+
+            if (cs1.next instanceof MultivalentSequence) {
+                MultivalentSequence ms2 = (MultivalentSequence) cs1.next;
+                CompositeSequence   cs2 = (CompositeSequence)   cs1.next;
+
+                return Sequences.multivalentSequence(ArrayUtil.append(
+                    ms1.getNeedle(),
+                    ms2.getNeedle()
+                )).concat(cs2.next);
+            }
+        }
 
         return this;
     }

@@ -26,9 +26,7 @@
 
 package de.unkrig.lfr.core;
 
-import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 
 import de.unkrig.commons.lang.CharSequences;
@@ -75,51 +73,10 @@ class Sequences {
      * @see #getNeedle()
      */
     abstract static
-    class MultivalentSequence extends CompositeSequence {
+    class AbstractMultivalentSequence extends CompositeSequence implements MultivalentSequence {
 
-        MultivalentSequence(int matchLengthWithoutNext) {
+        AbstractMultivalentSequence(int matchLengthWithoutNext) {
             super(matchLengthWithoutNext);
-        }
-
-        /**
-         * @return The character sets that represent a match, e.g. "<code>{ { 'a', 'A' }, { 'b', 'B' }, { 'c', 'C' }
-         *         }</code>"
-         */
-        public abstract char[][]
-        getNeedle();
-
-        @Override public Sequence
-        concat(Sequence that) {
-
-            Sequence result = super.concat(that);
-            if (result != this) return result;
-
-            if (this.next instanceof Sequences.MultivalentSequence) {
-                Sequences.MultivalentSequence next2 = (Sequences.MultivalentSequence) this.next;
-
-                return Sequences.multivalentSequence(ArrayUtil.append(
-                    this.getNeedle(),
-                    next2.getNeedle()
-                )).concat(next2.next);
-            }
-
-            if (this.next instanceof MultivalentCharacterClass) {
-                MultivalentCharacterClass
-                next2 = (MultivalentCharacterClass) this.next;
-
-                if (next2.minMatchLength == next2.maxMatchLength) {
-
-                    List<char[]> chars = new ArrayList<char[]>();
-                    for (int cp : next2.codePoints) chars.add(Character.toChars(cp));
-
-                    return Sequences.multivalentSequence(ArrayUtil.append(
-                        this.getNeedle(),
-                        ArrayUtil.mirror(chars.toArray(new char[chars.size()][]))
-                    )).concat(next2.next);
-                }
-            }
-
-            return this;
         }
     }
 
@@ -132,62 +89,94 @@ class Sequences {
         if (needle.length == 0) return Sequences.TERMINAL;
 
         if (needle.length == 1) {
+
             Set<Integer> chars = new HashSet<Integer>(needle[0].length);
             for (char c : needle[0]) chars.add((int) c);
+
             return CharacterClasses.oneOfManyChars(chars);
         }
 
-        for (char[] n : needle) {
-            if (n.length != 1) return new MultivalentSequence(needle.length) {
+        // Optimize the special case where all "needle[n].length == 1".
+        UNIVALENT: {
+            for (char[] n : needle) {
+                if (n.length != 1) break UNIVALENT;
+            }
 
-                final StringUtil.IndexOf indexOf = StringUtil.indexOf(needle);
-
-                @Override public char[][]
-                getNeedle() { return needle; }
-
-                @Override boolean
-                matches(MatcherImpl matcher) {
-                    if (matcher.offset + needle.length > matcher.regionEnd) return false;
-                    for (char[] n : needle) {
-                        char c = matcher.subject.charAt(matcher.offset++);
-                        NC: {
-                            for (char nc : n) {
-                                if (c == nc) break NC;
-                            }
-                            return false;
-                        }
-                    }
-                    return true;
-                }
-
-                @Override public int
-                find(MatcherImpl matcher) {
-
-                    final int maxIndex = matcher.regionEnd - needle.length;
-
-                    for (int o = matcher.offset;;) {
-
-                        o = this.indexOf.indexOf(matcher.subject, o, maxIndex);
-                        if (o == -1) {
-                            matcher.hitEnd = true;
-                            return -1;
-                        }
-
-                        matcher.offset = o;
-                        if (this.matches(matcher)) return o;
-
-                        o++;
-                    }
-                }
-
-                @Override protected String
-                toStringWithoutNext() { return this.indexOf.toString(); }
-            };
+            return new LiteralString(new String(ArrayUtil.mirror(needle)[0]));
         }
 
-        // All elements of "needle" are arrays of length 1.
+        // Now we have the general case where "needle[n].length" are different.
 
-        return new LiteralString(new String(ArrayUtil.mirror(needle)[0]));
+        class MyMultivalentSequence extends CompositeSequence implements MultivalentSequence {
+
+            final StringUtil.IndexOf indexOf = StringUtil.indexOf(needle);
+
+            MyMultivalentSequence() { super(needle.length); }
+
+            @Override public char[][]
+            getNeedle() { return needle; }
+
+            @Override boolean
+            matches(MatcherImpl matcher) {
+                if (matcher.offset + needle.length > matcher.regionEnd) return false;
+                for (char[] n : needle) {
+                    char c = matcher.subject.charAt(matcher.offset++);
+                    NC: {
+                        for (char nc : n) {
+                            if (c == nc) break NC;
+                        }
+                        return false;
+                    }
+                }
+                return true;
+            }
+
+            @Override public int
+            find(MatcherImpl matcher) {
+
+                final int maxIndex = matcher.regionEnd - needle.length;
+
+                for (int o = matcher.offset;;) {
+
+                    o = this.indexOf.indexOf(matcher.subject, o, maxIndex);
+                    if (o == -1) {
+                        matcher.hitEnd = true;
+                        return -1;
+                    }
+
+                    matcher.offset = o;
+                    if (this.matches(matcher)) return o;
+
+                    o++;
+                }
+            }
+
+            @Override protected String
+            toStringWithoutNext() { return this.indexOf.toString(); }
+        }
+
+        return new MyMultivalentSequence();
+    }
+
+    public static Sequence
+    optimize(Sequence s) {
+
+        if (s instanceof MultivalentSequence) {
+            MultivalentSequence ms1 = (MultivalentSequence) s;
+            CompositeSequence   cs1 = (CompositeSequence)   s;
+
+            if (cs1.next instanceof MultivalentSequence) {
+                MultivalentSequence ms2 = (MultivalentSequence) cs1.next;
+                CompositeSequence   cs2 = (CompositeSequence)   cs1.next;
+
+                s = Sequences.multivalentSequence(ArrayUtil.append(
+                    ms1.getNeedle(),
+                    ms2.getNeedle()
+                )).concat(cs2.next);
+            }
+        }
+
+        return s;
     }
 
     /**
@@ -660,7 +649,7 @@ class Sequences {
      * Representation of a sequence of literal, case-sensitive characters.
      */
     public static
-    class LiteralString extends MultivalentSequence {
+    class LiteralString extends CompositeSequence implements MultivalentSequence {
 
         final CharSequence               cs;
         private final StringUtil.IndexOf indexOf;
