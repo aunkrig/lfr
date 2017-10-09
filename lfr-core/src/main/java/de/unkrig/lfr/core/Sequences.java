@@ -105,7 +105,7 @@ class Sequences {
             return new LiteralString(new String(ArrayUtil.mirror(needle)[0]));
         }
 
-        // Now we have the general case where "needle[n].length" are different.
+        // Now we have the general case where "needle[n]" have ANY length.
 
         class MyMultivalentSequence extends CompositeSequence implements MultivalentSequence {
 
@@ -140,12 +140,12 @@ class Sequences {
 
                     o = this.indexOf.indexOf(matcher.subject, o, maxIndex);
                     if (o == -1) {
-                        matcher.hitEnd = true;
+                        matcher.hitEnd = true; // TODO incorrect!
                         return -1;
                     }
 
-                    matcher.offset = o;
-                    if (this.matches(matcher)) return o;
+                    matcher.offset = o + needle.length;
+                    if (this.next.matches(matcher)) return o;
 
                     o++;
                 }
@@ -156,27 +156,6 @@ class Sequences {
         }
 
         return new MyMultivalentSequence();
-    }
-
-    public static Sequence
-    optimize(Sequence s) {
-
-        if (s instanceof MultivalentSequence) {
-            MultivalentSequence ms1 = (MultivalentSequence) s;
-            CompositeSequence   cs1 = (CompositeSequence)   s;
-
-            if (cs1.next instanceof MultivalentSequence) {
-                MultivalentSequence ms2 = (MultivalentSequence) cs1.next;
-                CompositeSequence   cs2 = (CompositeSequence)   cs1.next;
-
-                s = Sequences.multivalentSequence(ArrayUtil.append(
-                    ms1.getNeedle(),
-                    ms2.getNeedle()
-                )).concat(cs2.next);
-            }
-        }
-
-        return s;
     }
 
     /**
@@ -281,12 +260,14 @@ class Sequences {
                 @Override public boolean
                 matches(MatcherImpl matcher) {
 
-                    // Optimize:
+                    // Optimize: TODO: Probably this optimization is not possible
                     if (matcher.regionEnd - matcher.offset < this.next.minMatchLength) return false;
 
-                    if (greedy) {
+                    int savedOffset = matcher.offset;
 
-                        int savedOffset = matcher.offset;
+                    if (savedOffset == matcher.regionEnd) matcher.hitEnd = true;
+
+                    if (greedy) {
 
                         if (operand2[0].matches(matcher)) return true;
 
@@ -294,8 +275,6 @@ class Sequences {
 
                         return this.next.matches(matcher);
                     } else {
-
-                        int savedOffset = matcher.offset;
 
                         if (this.next.matches(matcher)) return true;
 
@@ -377,22 +356,24 @@ class Sequences {
 
                 if (greedy) {
 
-                    // Optimize:
-                    if (matcher.regionEnd - matcher.offset < this.next.minMatchLength) return false;
+//                    // Optimize: TODO: Probably not correct
+//                    if (matcher.regionEnd - matcher.offset < this.next.minMatchLength) return false;
 
                     int ic = matcher.counters[counterIndex];
 
                     if (ic == max) return this.next.matches(matcher);
 
                     matcher.counters[counterIndex] = ic + 1;
+                    {
+                        if (ic < min) return operand2[0].matches(matcher);
 
-                    if (ic < min) return operand2[0].matches(matcher);
-
-                    int savedOffset = matcher.offset;
-
-                    if (operand2[0].matches(matcher)) return true;
-
-                    matcher.offset = savedOffset;
+                        int savedOffset = matcher.offset;
+                        {
+                            if (operand2[0].matches(matcher)) return true;
+                        }
+                        matcher.offset = savedOffset;
+                    }
+                    matcher.counters[counterIndex] = ic;
 
                     return this.next.matches(matcher);
                 } else {
@@ -400,15 +381,21 @@ class Sequences {
 
                     if (ic >= min) {
                         int savedOffset = matcher.offset;
-                        if (this.next.matches(matcher)) return true;
+                        {
+                            if (this.next.matches(matcher)) return true;
+                        }
                         matcher.offset = savedOffset;
                     }
 
-                    if (++ic > max) return false;
+                    if (ic >= max) return false;
+
+                    matcher.counters[counterIndex] = ic + 1;
+                    {
+                        if (operand2[0].matches(matcher)) return true;
+                    }
 
                     matcher.counters[counterIndex] = ic;
-
-                    return operand2[0].matches(matcher);
+                    return false;
                 }
             }
 
@@ -721,16 +708,16 @@ class Sequences {
                 final int             savedOffset = matcher.offset;
                 final MatcherImpl.End savedEnd    = matcher.end;
 
-                matcher.end = MatcherImpl.End.ANY;
-
                 for (int i = 0; i < alternatives.length; i++) {
 
-                    if (alternatives[i].matches(matcher) && this.next.matches(matcher)) return true;
+                    matcher.end = MatcherImpl.End.ANY;
+                    boolean am = alternatives[i].matches(matcher);
+                    matcher.end = savedEnd;
+
+                    if (am && this.next.matches(matcher)) return true;
 
                     matcher.offset = savedOffset;
                 }
-
-                matcher.end = savedEnd;
 
                 return false;
             }
@@ -796,13 +783,17 @@ class Sequences {
 
                 int[] gs              = matcher.groups;
                 int   idx             = 2 * groupNumber;
-                int   savedGroupStart = gs[idx];
+
+                final int savedGroupStart = gs[idx];
+                final int savedGroupEnd   = gs[idx + 1];
                 gs[idx] = matcher.offset;
+
 
                 // The following logic is (not only a bit...) strange, but that's how JUR's capturing groups
                 // behave:
                 if (!this.next.matches(matcher)) {
-                    gs[idx] = savedGroupStart;
+                    gs[idx]     = savedGroupStart;
+                    gs[idx + 1] = savedGroupEnd;
                     return false;
                 }
 
@@ -992,7 +983,6 @@ class Sequences {
             @Override public int
             find(MatcherImpl matcher) {
 
-                matcher.hitEnd = false;
                 int savedOffset = matcher.offset;
 
                 if (this.matches(matcher)) return savedOffset;
@@ -1475,20 +1465,23 @@ class Sequences {
                 if (opmaxml < savedOffset - start) start = savedOffset - opmaxml;
 
                 {
-                    final MatcherImpl.End savedEnd         = matcher.end;
-                    final boolean         savedHitEnd      = matcher.hitEnd;
-                    final int             savedRegionEnd   = matcher.regionEnd;
+                    final MatcherImpl.End savedEnd                  = matcher.end;
+                    final boolean         savedHitEnd               = matcher.hitEnd;
+                    final int             savedRegionEnd            = matcher.regionEnd;
+                    final boolean         savedHasTransparentBounds = matcher.hasTransparentBounds;
                     try {
 
                         matcher.end         = MatcherImpl.End.END_OF_REGION;
                         matcher.regionEnd   = savedOffset;
                         matcher.offset      = start;
+                        matcher.useTransparentBounds(true);
 
                         if (op.find(matcher) < 0) return false;
                     } finally {
-                        matcher.end         = savedEnd;
-                        matcher.hitEnd      = savedHitEnd;
-                        matcher.regionEnd   = savedRegionEnd;
+                        matcher.end                  = savedEnd;
+                        matcher.hitEnd               = savedHitEnd;
+                        matcher.regionEnd            = savedRegionEnd;
+                        matcher.hasTransparentBounds = savedHasTransparentBounds;
                     }
                 }
 
@@ -1528,7 +1521,7 @@ class Sequences {
 
                 int o = matcher.offset;
 
-                int limit = matcher.regionEnd - this.next.minMatchLength;
+                int limit = matcher.regionEnd; // TODO - this.next.minMatchLength;
 
                 // The operand MUST match (min) times;
                 int i;
@@ -1652,13 +1645,11 @@ class Sequences {
 
                 int o = matcher.offset;
 
-                int limit = matcher.regionEnd - this.next.minMatchLength;
-
                 // The char MUST match (min) times;
                 int i;
                 for (i = 0; i < min; i++) {
 
-                    if (o >= limit) {
+                    if (o >= matcher.regionEnd) {
                         matcher.hitEnd = true;
                         return false;
                     }
@@ -1672,7 +1663,7 @@ class Sequences {
                 // Now try to match the char (max-min) more times.
                 for (; i < max; i++) {
 
-                    if (o >= limit) {
+                    if (o >= matcher.regionEnd) {
                         matcher.hitEnd = true;
                         break;
                     }
@@ -1742,43 +1733,48 @@ class Sequences {
                         return false;
                     }
 
-                    int c = matcher.subject.charAt(o++);
+                    int cp = matcher.subject.charAt(o++);
 
                     // Special handling for UTF-16 surrogates.
-                    if (Character.isHighSurrogate((char) c) && o < matcher.regionEnd) {
+                    if (Character.isHighSurrogate((char) cp) && o < matcher.regionEnd) {
                         char c2 = matcher.subject.charAt(o);
                         if (Character.isLowSurrogate(c2)) {
-                            c = Character.toCodePoint((char) c, c2);
+                            cp = Character.toCodePoint((char) cp, c2);
                             o++;
                         }
                     }
 
                     matcher.offset = o;
-                    if (!operand.matches(c)) return false;
+                    if (!operand.matches(cp)) return false;
                 }
 
                 // Now try to match the operand (max-min) more times.
                 for (;; i++) {
+
+                    if (this.next.matches(matcher)) return true;
+
+                    if (i == max) return false;
 
                     if (o >= matcher.regionEnd) {
                         matcher.hitEnd = true;
                         return false;
                     }
 
-                    if (this.next.matches(matcher)) return true;
-
-                    if (i == max) break;
-
+                    int cp = matcher.subject.charAt(o++);
                     if (
-                        Character.isLowSurrogate(matcher.subject.charAt(o++))
+                        Character.isHighSurrogate((char) cp)
                         && o < matcher.regionEnd
-                        && Character.isHighSurrogate(matcher.subject.charAt(o))
-                    ) o++;
+                    ) {
+                        char c2 = matcher.subject.charAt(o);
+                        if (Character.isLowSurrogate(c2)) {
+                            cp = Character.toCodePoint((char) cp, c2);
+                            o++;
+                        }
+                    }
 
                     matcher.offset = o;
+                    if (!operand.matches(cp)) return false;
                 }
-
-                return false;
             }
 
             @Override public Sequence

@@ -39,6 +39,7 @@ import de.unkrig.commons.lang.CharSequences;
 import de.unkrig.commons.lang.Characters;
 import de.unkrig.commons.lang.PrettyPrinter;
 import de.unkrig.commons.lang.protocol.Predicate;
+import de.unkrig.commons.util.ArrayUtil;
 import de.unkrig.commons.util.collections.CollectionUtil;
 import de.unkrig.commons.util.collections.Sets;
 
@@ -148,20 +149,32 @@ class CharacterClasses {
     public static CharacterClass
     literalCharacter(final int codePoint) {
 
-        int cc = Character.charCount(codePoint);
-
         // Optimize for BMP (one-char) code point.
-        if (cc == 1) return new LiteralChar((char) codePoint);
-
-        assert cc == 2;
+        if (!Character.isSupplementaryCodePoint(codePoint)) {
+            if (Character.isHighSurrogate((char) codePoint)) {
+                return new CharacterClass() {
+                    @Override public boolean   matches(int cp)       { return cp == codePoint; }
+                    @Override protected String toStringWithoutNext() { return "bareHighSurrogate(0x" + Integer.toHexString(codePoint) + ")"; } // SUPPRESS CHECKSTYLE LineLength
+                };
+            }
+            if (Character.isLowSurrogate((char) codePoint)) {
+                return new CharacterClass() {
+                    @Override public boolean   matches(int cp)       { return cp == codePoint; }
+                    @Override protected String toStringWithoutNext() { return "bareLowSurrogate(0x" + Integer.toHexString(codePoint) + ")"; } // SUPPRESS CHECKSTYLE LineLength
+                };
+            }
+            return new LiteralChar((char) codePoint);
+        }
 
         class LiteralSupplementaryCodePoint extends CharacterClass implements MultivalentSequence {
 
             final char[]       chars = Character.toChars(codePoint);
             final CharSequence cs    = CharSequences.from(this.chars);
 
+            LiteralSupplementaryCodePoint() { super(2); }
+
             @Override public char[][]
-            getNeedle() { return new char[][] { this.chars }; }
+            getNeedle() { return ArrayUtil.mirror(new char[][] { this.chars }); }
 
             /**
              * Override {@link CharacterClass#matches(MatcherImpl)} with an optimized version (saves the decoding of
@@ -233,7 +246,7 @@ class CharacterClasses {
 
                 @Override public String
                 toStringWithoutNext() {
-                    return "oneOfThreeCodePoints(" + PrettyPrinter.codePointToString(cp1) + ", " + PrettyPrinter.codePointToString(cp2) + ", " + PrettyPrinter.codePointToString(cp3) + ")"; // SUPPRESS CHECKSTYLE LineLength
+                    return "oneOfThreeCodePoints(" + PrettyPrinter.codePointToJavaLiteral(cp1) + ", " + PrettyPrinter.codePointToJavaLiteral(cp2) + ", " + PrettyPrinter.codePointToJavaLiteral(cp3) + ")"; // SUPPRESS CHECKSTYLE LineLength
                 }
             } :
             new MultivalentCharClass(Sets.of(cp1, cp2, cp3)) {
@@ -243,7 +256,7 @@ class CharacterClasses {
 
                 @Override public String
                 toStringWithoutNext() {
-                    return "oneOfThreeChars(" + PrettyPrinter.codePointToString(cp1) + ", " + PrettyPrinter.codePointToString(cp2) + ", " + PrettyPrinter.codePointToString(cp3) + ")"; // SUPPRESS CHECKSTYLE LineLength
+                    return "oneOfThreeChars(" + PrettyPrinter.codePointToJavaLiteral(cp1) + ", " + PrettyPrinter.codePointToJavaLiteral(cp2) + ", " + PrettyPrinter.codePointToJavaLiteral(cp3) + ")"; // SUPPRESS CHECKSTYLE LineLength
                 }
             }
         );
@@ -291,11 +304,11 @@ class CharacterClasses {
         if (size == 1) return CharacterClasses.literalCharacter(codePoints.iterator().next());
         if (size == 2) {
             Iterator<Integer> it = codePoints.iterator();
-            return oneOfTwoCodePoints(it.next(), it.next());
+            return CharacterClasses.oneOfTwoCodePoints(it.next(), it.next());
         }
         if (size == 3) {
             Iterator<Integer> it = codePoints.iterator();
-            return oneOfThreeCodePoints(it.next(), it.next(), it.next());
+            return CharacterClasses.oneOfThreeCodePoints(it.next(), it.next(), it.next());
         }
 
         int minCc = Integer.MAX_VALUE, maxCc = 0;
@@ -394,7 +407,7 @@ class CharacterClasses {
     public static CharacterClass
     caseInsensitiveLiteralCharacter(final int c) {
         if (c >= 'A' && c <= 'Z') return CharacterClasses.oneOfTwoCodePoints(c, c + 32);
-        if (c >= 'a' && c <= 'z') return CharacterClasses.oneOfTwoCodePoints(c, c - 32);
+        if (c >= 'a' && c <= 'z') return CharacterClasses.oneOfTwoCodePoints(c - 32, c);
         return CharacterClasses.literalCharacter(c);
     }
 
@@ -426,7 +439,7 @@ class CharacterClasses {
             MultivalentCharacterClass lhs2 = (MultivalentCharacterClass) lhs;
             MultivalentCharacterClass rhs2 = (MultivalentCharacterClass) rhs;
 
-            return oneOfManyCodePoints(Sets.union(lhs2.codePoints, rhs2.codePoints));
+            return CharacterClasses.oneOfManyCodePoints(Sets.union(lhs2.codePoints, rhs2.codePoints));
         }
 
         final int lb = Math.min(lhs.lowerBound(), rhs.lowerBound());
@@ -586,7 +599,7 @@ class CharacterClasses {
             MultivalentCharacterClass lhs2 = (MultivalentCharacterClass) lhs;
             MultivalentCharacterClass rhs2 = (MultivalentCharacterClass) rhs;
 
-            return oneOfManyCodePoints(Sets.intersection(lhs2.codePoints, rhs2.codePoints));
+            return CharacterClasses.oneOfManyCodePoints(Sets.intersection(lhs2.codePoints, rhs2.codePoints));
         }
 
         final int lb = Math.max(lhs.lowerBound(), rhs.lowerBound());
@@ -775,7 +788,7 @@ class CharacterClasses {
     public static CharacterClass
     lineBreakCharacter() {
 
-        return new MultivalentCharClass(LINE_BREAK_CHARACTERS) {
+        return new MultivalentCharClass(CharacterClasses.LINE_BREAK_CHARACTERS) {
 
             @Override public boolean
             matches(int c) { return (c <= 0x0d && c >= 0x0a) || c == 0x85 || (c >= 0x2028 && c <= 0x2029); }
@@ -820,39 +833,5 @@ class CharacterClasses {
             @Override protected String
             toStringWithoutNext() { return "anyCharButLineBreak"; }
         };
-    }
-
-    static int
-    min(Set<Integer> set) {
-        int result = Integer.MAX_VALUE;
-        for (int i : set) {
-            if (i < result) result = i;
-        }
-        return result;
-    }
-
-    static int
-    max(Set<Integer> set) {
-        int result = Integer.MIN_VALUE;
-        for (int i : set) {
-            if (i > result) result = i;
-        }
-        return result;
-    }
-
-    static int
-    minCharCountOf(Set<Integer> codePoints) {
-        for (int cp : codePoints) {
-            if (Character.charCount(cp) == 1) return 1;
-        }
-        return 2;
-    }
-
-    static int
-    maxCharCountOf(Set<Integer> codePoints) {
-        for (int cp : codePoints) {
-            if (Character.charCount(cp) == 2) return 2;
-        }
-        return 1;
     }
 }

@@ -168,7 +168,7 @@ class Pattern implements de.unkrig.ref4j.Pattern, Serializable {
         LITERAL_HEXADECIMAL1,
         /** <code>&#92;u</code><var>hhhh</var> */
         LITERAL_HEXADECIMAL2,
-        /** <code>&#92;u{</code><var>h...h</var><code>}</code> */
+        /** <code>&#92;x{</code><var>h...h</var><code>}</code> */
         LITERAL_HEXADECIMAL3,
         /** {@code \t \n \r \f \a \e} */
         LITERAL_CONTROL1,

@@ -35,6 +35,7 @@ import java.util.regex.PatternSyntaxException;
 
 import org.junit.Assert;
 
+import de.unkrig.commons.lang.PrettyPrinter;
 import de.unkrig.commons.nullanalysis.NotNullByDefault;
 import de.unkrig.ref4j.Matcher;
 import de.unkrig.ref4j.Pattern;
@@ -142,14 +143,21 @@ class FunctionalityEquivalencePatternFactory extends PatternFactory {
                                 subjectException = re;
                             }
 
-                            Throwable t = referenceException != null ? referenceException : subjectException;
-                            if (t != null) {
+                            if (referenceException != null) {
+                                if (subjectException == null) {
+                                    Error e = new AssertionError("Expected a " + referenceException.getClass());
+                                    e.initCause(referenceException);
+                                    throw e;
+                                }
                                 Assert.assertEquals(
                                     method.toString(),
-                                    referenceException == null ? null : referenceException.getClass(),
-                                    subjectException   == null ? null : subjectException.getClass()
+                                    referenceException.getClass(),
+                                    subjectException.getClass()
                                 );
-                                throw t;
+                                throw subjectException;
+                            }
+                            if (subjectException != null) {
+                                throw subjectException;
                             }
 
                             if (referenceResult instanceof Matcher && subjectResult instanceof Matcher) return proxy;
@@ -171,7 +179,18 @@ class FunctionalityEquivalencePatternFactory extends PatternFactory {
                                     subjectResult.toString()
                                 );
                             } else {
-                                Assert.assertEquals(method.toString(), referenceResult, subjectResult);
+                                Assert.assertEquals(
+                                    (
+                                        "regex="
+                                        + PrettyPrinter.toJavaStringLiteral(regex)
+                                        + ", subject="
+                                        + PrettyPrinter.toJavaStringLiteral(subject)
+                                        + ", method="
+                                        + method.toString()
+                                    ),
+                                    referenceResult,
+                                    subjectResult
+                                );
                             }
 
                             this.assertEqualState(
@@ -216,7 +235,6 @@ class FunctionalityEquivalencePatternFactory extends PatternFactory {
                                 subjectGroupThrowsException
                             );
 
-
                             Assert.assertEquals(message + ": group()", referenceGroup, subjectGroup);
 
                             if (referenceGroup != null) {
@@ -228,22 +246,32 @@ class FunctionalityEquivalencePatternFactory extends PatternFactory {
                                 );
 
                                 for (int i = 0; i <= referenceMatcher.groupCount(); i++) {
-                                    Assert.assertEquals(message + ": start(" + i + ")", referenceMatcher.start(i), subjectMatcher.start(i)); // SUPPRESS CHECKSTYLE LineLength:3
-                                    Assert.assertEquals(message + ": end("   + i + ")", referenceMatcher.end(i),   subjectMatcher.end(i));
-                                    Assert.assertEquals(message + ": group(" + i + ")", referenceMatcher.group(i), subjectMatcher.group(i));
+                                    Assert.assertEquals(
+                                        message + ": group #" + i,
+                                        "start=" + referenceMatcher.start(i) + ", end=" + referenceMatcher.end(i),
+                                        "start=" + subjectMatcher.start(i)   + ", end=" + subjectMatcher.end(i)
+                                    );
                                 }
 
-                                Assert.assertEquals(
-                                    message + ": requireEnd()",
+                                // Check the return value of "requireEnd()".
+                                // JUR's "requireEnd()" method is notoriously buggy... test cases may set a system
+                                // property "FIX_REQUIRE_END" to work around these bugs.
+                                FunctionalityEquivalencePatternFactory.assertEqual(
+                                    message + " requireEnd(): ",
                                     referenceMatcher.requireEnd(),
-                                    subjectMatcher.requireEnd()
+                                    subjectMatcher.requireEnd(),
+                                    "FIX_REQUIRE_END"
                                 );
                             }
 
-                            Assert.assertEquals(
-                                message + ": hitEnd()",
+                            // Check the return value of "hitEnd()".
+                            // JUR's "hitEnd()" method is notoriously buggy... test cases may set a system
+                            // property "FIX_HIT_END" to work around these bugs.
+                            FunctionalityEquivalencePatternFactory.assertEqual(
+                                message + " hitEnd(): ",
                                 referenceMatcher.hitEnd(),
-                                subjectMatcher.hitEnd()
+                                subjectMatcher.hitEnd(),
+                                "FIX_HIT_END"
                             );
                         }
                     }
@@ -298,5 +326,35 @@ class FunctionalityEquivalencePatternFactory extends PatternFactory {
         for (int i = 0; i < groupCount; i++) {
             Assert.assertEquals(expected.group(i), actual.group(i));
         }
+    }
+
+    public static void
+    assertEqual(String message, boolean expected, boolean actual, String propertyName) {
+
+        String pv = System.getProperty(propertyName);
+        if (pv == null) {
+            Assert.assertEquals(
+                message + " CONSIDER SETTING THE SYSTEM PROPERTY \"" + propertyName + "\"",
+                expected,
+                actual
+            );
+            return;
+        }
+
+        final boolean ev = pv.charAt(0) == 't';
+        final boolean av = pv.charAt(1) == 't';
+
+        int i;
+        for (i = 2; i < pv.length() && Character.isWhitespace(pv.charAt(i)); i++);
+
+        if (i == pv.length()) {
+            System.clearProperty(propertyName);
+        } else {
+            System.setProperty(propertyName, pv.substring(i));
+        }
+
+        String msg = message + pv + " " + expected + "/" + actual;
+        Assert.assertEquals(msg, ev, expected);
+        Assert.assertEquals(msg, av, actual);
     }
 }

@@ -26,6 +26,7 @@
 
 package de.unkrig.lfr.core;
 
+import java.util.Arrays;
 import java.util.Set;
 
 /**
@@ -43,6 +44,8 @@ class MultivalentCharClass extends MultivalentCharacterClass implements Multival
 
         int i = 0;
         for (int cp : this.codePoints) result[0][i++] = (char) cp;
+
+        Arrays.sort(result[0]);
 
         return result;
     }

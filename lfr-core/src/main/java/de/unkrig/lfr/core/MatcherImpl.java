@@ -73,7 +73,7 @@ class MatcherImpl implements Matcher {
 
     private Pattern pattern; // Cannot be FINAL because of "usePattern()".
 
-    private boolean hasTransparentBounds;
+    boolean         hasTransparentBounds;
     private boolean hasAnchoringBounds = true;
 
     /**
@@ -385,8 +385,8 @@ class MatcherImpl implements Matcher {
 
             // The previous match is a zero-length match. To prevent an endless series of these matches, advance
             // the start position by one.
-            if (start >= this.regionEnd) {
                 this.endOfPreviousMatch = -2;
+                if (start >= this.regionEnd) {
                 this.hitEnd             = true;
                 return false;
             }
@@ -397,12 +397,14 @@ class MatcherImpl implements Matcher {
         this.offset = start;
         this.end    = MatcherImpl.End.ANY;
 
-        // Optimization: Test whether there are enough chars left so that the sequence can possibly match.
-        if (this.pattern.sequence.minMatchLength > this.regionEnd - start) {
-            this.endOfPreviousMatch = -1;
-            this.hitEnd             = true;
-            return false;
-        }
+        // The following optimization is not possible because iff there are NOT enough chars left, we STILL must
+        // attempt the match, because otherwise we cannot tell whether "hitEnd" should be set or not.
+//        // Optimization: Test whether there are enough chars left so that the sequence can possibly match.
+//        if (this.pattern.sequence.minMatchLength > this.regionEnd - start) {
+//            this.endOfPreviousMatch = -1;
+//            this.hitEnd             = true;
+//            return false;
+//        }
 
         int matchStart = this.pattern.sequence.find(this);
         if (matchStart < 0) {
@@ -716,14 +718,21 @@ class MatcherImpl implements Matcher {
 
         int o = this.offset;
 
-        if (o + end - start > this.regionEnd) {
-
-            // Not enough chars left.
-            this.hitEnd = true;
-            return false;
-        }
+        // The following optimization is not possible, because it is impossible to tell whether "hitEnd" should
+        // be set without attempting the actual match.
+        // Not enough chars left.
+//        if (o + end - start > this.regionEnd) {
+//            this.hitEnd = true;
+//            return false;
+//        }
 
         for (int i = start; i < end; i++, o++) {
+
+            if (o >= this.regionEnd) {
+                this.hitEnd = true;
+                return false;
+            }
+
             if (this.subject.charAt(o) != cs.charAt(i)) return false;
         }
 

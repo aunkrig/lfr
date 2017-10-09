@@ -44,11 +44,14 @@ class MultivalentCharacterClass extends CharacterClass {
      * @param codePoints The set of code points that designate a positive match e.g. "<code>{ 'a', 'A' }</code>"
      */
     MultivalentCharacterClass(Set<Integer> codePoints) {
-        super(CharacterClasses.minCharCountOf(codePoints), CharacterClasses.maxCharCountOf(codePoints));
+        super(
+            MultivalentCharacterClass.minCharCountOf(codePoints),
+            MultivalentCharacterClass.maxCharCountOf(codePoints)
+        );
         this.codePoints = codePoints;
 
-        this.lowerBound = CharacterClasses.min(codePoints);
-        this.upperBound = CharacterClasses.max(codePoints) + 1;
+        this.lowerBound = MultivalentCharacterClass.min(codePoints);
+        this.upperBound = MultivalentCharacterClass.max(codePoints) + 1;
         this.sizeBound  = codePoints.size();
     }
 
@@ -92,4 +95,38 @@ class MultivalentCharacterClass extends CharacterClass {
 
     @Override protected String
     toStringWithoutNext() { return "oneOfManyCodePoints(" + this.codePoints + ")"; }
+
+    private static int
+    min(Set<Integer> set) {
+        int result = Integer.MAX_VALUE;
+        for (int i : set) {
+            if (i < result) result = i;
+        }
+        return result;
+    }
+
+    private static int
+    max(Set<Integer> set) {
+        int result = Integer.MIN_VALUE;
+        for (int i : set) {
+            if (i > result) result = i;
+        }
+        return result;
+    }
+
+    private static int
+    minCharCountOf(Set<Integer> codePoints) {
+        for (int cp : codePoints) {
+            if (Character.charCount(cp) == 1) return 1;
+        }
+        return 2;
+    }
+
+    private static int
+    maxCharCountOf(Set<Integer> codePoints) {
+        for (int cp : codePoints) {
+            if (Character.charCount(cp) == 2) return 2;
+        }
+        return 1;
+    }
 }

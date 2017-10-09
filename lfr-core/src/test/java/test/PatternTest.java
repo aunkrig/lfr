@@ -156,13 +156,13 @@ class PatternTest {
 
     @Test public void
     testCaseInsensitive6() {
-        PatternTest.assertSequenceToString("naiveIndexOf([[a, A], [b, B]])", "ab", Pattern.CASE_INSENSITIVE);
+        PatternTest.assertSequenceToString("naiveIndexOf(char[2][] { char[2] 'Aa', char[2] 'Bb' })", "ab", Pattern.CASE_INSENSITIVE); // SUPPRESS CHECKSTYLE LineLength
     }
 
     @Test public void
     testCaseInsensitive7() {
         PatternTest.assertSequenceToString(
-            "boyerMooreHorspool([[a, A], [b, B], [c, C]])",
+            "boyerMooreHorspool(char[3][] { char[2] 'Aa', char[2] 'Bb', char[2] 'Cc' })",
             "abc",
             Pattern.CASE_INSENSITIVE
         );
@@ -171,7 +171,7 @@ class PatternTest {
     @Test public void
     testCaseInsensitive8() {
         PatternTest.assertSequenceToString(
-            "boyerMooreHorspool([[a, A], [b, B], [c, C], [d, D], [e, E], [f, F], [g, G], [h, H], [i, I], [j, J], [k, K], [l, L], [m, M], [n, N], [o, O], [p, P], [q, Q], [r, R], [s, S], [t, T], [u, U], [v, V], [w, W], [x, X], [y, Y], [z, Z]])", // SUPPRESS CHECKSTYLE LineLength
+            "boyerMooreHorspool(char[26][] { char[2] 'Aa', char[2] 'Bb', char[2] 'Cc', char[2] 'Dd', char[2] 'Ee', char[2] 'Ff', char[2] 'Gg', char[2] 'Hh', char[2] 'Ii', char[2] 'Jj', ... })", // SUPPRESS CHECKSTYLE LineLength
             "abcdefghijklmnopqrstuvwxyz",
             Pattern.CASE_INSENSITIVE
         );
@@ -180,7 +180,7 @@ class PatternTest {
     @Test public void
     testBoyerMooreHorspool1() {
         PatternTest.assertSequenceToString(
-            "boyerMooreHorspool([[a, k], [,], [ä, Ö]])",
+            "boyerMooreHorspool(char[3][] { char[2] 'ak', char[1] ',', char[2] 'Öä' })",
             "[ak][,,,,,][äÖ]"
         );
     }
@@ -188,7 +188,7 @@ class PatternTest {
     @Test public void
     testBoyerMooreHorspool2() {
         PatternTest.assertSequenceToString(
-            "boyerMooreHorspool([[a, k], [a, b, c], [ä, Ö]])",
+            "boyerMooreHorspool(char[3][] { char[2] 'ak', char[3] 'abc', char[2] 'Öä' })",
             "[ak][abc][äÖ]"
         );
     }
@@ -239,7 +239,7 @@ class PatternTest {
     @Test public void
     testMatchFlagsNonCapturingGroup() {
         String regex = "a(?i:b)c";
-        assertSequenceToString("boyerMooreHorspool([[a], [b, B], [c]])", regex);
+        PatternTest.assertSequenceToString("boyerMooreHorspool(char[3][] { char[1] 'a', char[2] 'Bb', char[1] 'c' })", regex); // SUPPRESS CHECKSTYLE LineLength
         OracleEssentials.harnessFull(regex, " abc abC aBc aBC Abc AbC ABc ABC ");
     }
 
