@@ -385,8 +385,8 @@ class MatcherImpl implements Matcher {
 
             // The previous match is a zero-length match. To prevent an endless series of these matches, advance
             // the start position by one.
+            if (start >= this.regionEnd) {
                 this.endOfPreviousMatch = -2;
-                if (start >= this.regionEnd) {
                 this.hitEnd             = true;
                 return false;
             }

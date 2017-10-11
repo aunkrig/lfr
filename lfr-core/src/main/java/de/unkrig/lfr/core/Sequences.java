@@ -26,6 +26,7 @@
 
 package de.unkrig.lfr.core;
 
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -686,15 +687,17 @@ class Sequences {
     }
 
     /**
-     * Creates and returns {@link Sequence} that returns the first match of one <var>alternatives</var> plus
+     * Creates and returns {@link Sequence} that returns the <em>first</em> match of one <var>alternatives</var> plus
      * <em>this</em> sequence's successor.
      * For example, {@code "a(b|bb)c"} will match both {@code "abc"} and {@code "abbc"}. (In the second case, matching
      * {@code "abc"} fails, but matching {@code "abbc"} eventually succeeds.)
      *
-     * @see #independentNonCapturingGroup(Sequence[])
+     * @param firstSubsequentGroup The number of the first capturing group that starts <em>within</em> or
+     *                             <em>after</em> the alternatives
+     * @see                        #independentNonCapturingGroup(Sequence[])
      */
     public static Sequence
-    alternatives(final Sequence[] alternatives) {
+    alternatives(final Sequence[] alternatives, final int firstSubsequentGroup) {
 
         if (alternatives.length == 0) return Sequences.TERMINAL;
 
@@ -716,7 +719,9 @@ class Sequences {
 
                     if (am && this.next.matches(matcher)) return true;
 
+                    // Restore offset and captured groups.
                     matcher.offset = savedOffset;
+                    Arrays.fill(matcher.groups, 2 * firstSubsequentGroup, matcher.groups.length, -1);
                 }
 
                 return false;
@@ -1394,7 +1399,7 @@ class Sequences {
 
                 // The documentation of java.util.regex is totally unclear about the following case, but this seems to
                 // be how it works:
-                if (matcher.endOfPreviousMatch == -1) return this.next.matches(matcher);
+                if (matcher.endOfPreviousMatch < 0) return this.next.matches(matcher);
 //                if (matcher.endOfPreviousMatch == -1) return -1;
 
                 return matcher.offset == matcher.endOfPreviousMatch && this.next.matches(matcher);

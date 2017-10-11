@@ -244,9 +244,19 @@ class PatternTest {
     }
 
     @Test public void
-    testAlternatives() {
+    testAlternatives1() {
         OracleEssentials.harnessFull("a|b",        " a b c ");
         OracleEssentials.harnessFull("a(?:b|bb)c", " ac abc abbc abbbc ");
+    }
+    
+    @Test public void
+    testAlternatives2() {
+        OracleEssentials.harnessFull("a|aa|aaa", " aaaa ");
+        OracleEssentials.harnessFull("a|aaa|aa", " aaaa ");
+        OracleEssentials.harnessFull("aa|a|aaa", " aaaa ");
+        OracleEssentials.harnessFull("aa|aaa|a", " aaaa ");
+        OracleEssentials.harnessFull("aaa|a|aa", " aaaa ");
+        OracleEssentials.harnessFull("aaa|aa|a", " aaaa ");
     }
 
     @Test public void
