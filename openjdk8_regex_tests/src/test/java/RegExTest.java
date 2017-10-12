@@ -1349,7 +1349,6 @@ public class RegExTest {
         Matcher matcher = serializedPattern.matcher("b");
         Assert.assertTrue(matcher.matches());
         Assert.assertEquals(1, matcher.groupCount());
-        Assert.assertEquals(1, matcher.groupCount());
     }
 
     @Test public void
