@@ -120,8 +120,24 @@ class Sequences {
             @Override boolean
             matches(MatcherImpl matcher) {
 
-                // TODO This optimization is not allowed.
-                if (matcher.offset + needle.length > matcher.regionEnd) return false;
+                if (matcher.offset + needle.length > matcher.regionEnd) {
+
+                    // There are not enough characters left in the region for a match; check whether there is a
+                    // _partial_ patch, and, if so, set "hitEnd" before returning FALSE.
+                    for (int o = matcher.offset, i = 0; o < matcher.regionEnd; o++, i++) {
+                        char   c = matcher.subject.charAt(o);
+                        char[] n = needle[i];
+
+                        NC: {
+                            for (char nc : n) {
+                                if (c == nc) break NC;
+                            }
+                            return false;
+                        }
+                    }
+                    matcher.hitEnd = true;
+                    return false;
+                }
 
                 for (char[] n : needle) {
                     char c = matcher.subject.charAt(matcher.offset++);
