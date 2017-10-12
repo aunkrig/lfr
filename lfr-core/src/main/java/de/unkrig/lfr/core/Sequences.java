@@ -31,9 +31,9 @@ import java.util.HashSet;
 import java.util.Set;
 
 import de.unkrig.commons.lang.CharSequences;
-import de.unkrig.commons.lang.Characters;
 import de.unkrig.commons.lang.StringUtil;
 import de.unkrig.commons.lang.StringUtil.IndexOf;
+import de.unkrig.commons.lang.protocol.NoException;
 import de.unkrig.commons.lang.protocol.Predicate;
 import de.unkrig.commons.nullanalysis.Nullable;
 import de.unkrig.commons.util.ArrayUtil;
@@ -1286,7 +1286,10 @@ class Sequences {
 
                 int o = matcher.offset;
 
-                if (o >= matcher.regionEnd) return false;
+                if (o >= matcher.regionEnd) {
+                    matcher.hitEnd = true;
+                    return false;
+                }
 
                 char c = matcher.subject.charAt(o);
 
@@ -1321,15 +1324,23 @@ class Sequences {
 
     /**
      * Implements {@code "\b"}, and, negated, {@code "\B"}.
+     * <p>
+     *   Notice that, for compatibility with JUR, this is independant of the {@link
+     *   de.unkrig.ref4j.Pattern#UNICODE_CHARACTER_CLASS}flag!
+     * </p>
      */
     public static Sequence
-    wordBoundary() { return Sequences.wordBoundary(Characters.IS_WORD, "wordBoundary"); }
+    wordBoundary() { return Sequences.wordBoundary(BACKSLASH_B_WORD, "wordBoundary"); }
 
     /**
-     * Implements {@code "\b"}, and, negated, {@code "\B"}.
+     * The predicate for word boundary detection.
      */
-    public static Sequence
-    unicodeWordBoundary() { return Sequences.wordBoundary(Characters.IS_UNICODE_WORD, "unicodeWordBoundary"); }
+    private static final Predicate<Integer>
+    BACKSLASH_B_WORD = new Predicate<Integer>() {
+
+        @Override public boolean
+        evaluate(Integer cp) throws NoException { return Character.isLetterOrDigit(cp) || cp == '_'; }
+    };
 
     /**
      * Implements {@code "\b"}, and, negated, {@code "\B"}.

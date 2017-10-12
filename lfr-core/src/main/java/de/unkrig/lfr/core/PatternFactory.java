@@ -200,6 +200,8 @@ class PatternFactory extends de.unkrig.ref4j.PatternFactory {
             private Sequence
             parseAlternatives() throws ParseException {
 
+                int firstSubsequentGroup = rs.groupCount + 1;
+
                 Sequence op1 = this.parseSequence();
                 if (!this.peekRead("|")) return op1;
 
@@ -207,9 +209,10 @@ class PatternFactory extends de.unkrig.ref4j.PatternFactory {
                 alternatives.add(op1);
                 alternatives.add(this.parseSequence());
                 while (this.peekRead(EITHER_OR) != null) alternatives.add(this.parseSequence());
+
                 return Sequences.alternatives(
                     alternatives.toArray(new Sequence[alternatives.size()]),
-                    rs.groupCount + 1
+                    firstSubsequentGroup
                 );
             }
 
@@ -419,11 +422,11 @@ class PatternFactory extends de.unkrig.ref4j.PatternFactory {
                 }
 
                 if (this.peekRead(TokenType.WORD_BOUNDARY) != null) {
-                    return this.wordBoundary();
+                    return Sequences.wordBoundary();
                 }
 
                 if (this.peekRead(TokenType.NON_WORD_BOUNDARY) != null) {
-                    return Sequences.negate(this.wordBoundary());
+                    return Sequences.negate(Sequences.wordBoundary());
                 }
 
                 if (this.peekRead(TokenType.BEGINNING_OF_INPUT) != null) {
@@ -535,19 +538,6 @@ class PatternFactory extends de.unkrig.ref4j.PatternFactory {
                 : (this.currentFlags & de.unkrig.ref4j.Pattern.UNICODE_CASE) == 0
                 ? Sequences.caseInsensitiveCapturingGroupBackReference(groupNumber)
                 : Sequences.unicodeCaseInsensitiveCapturingGroupBackReference(groupNumber);
-            }
-
-            /**
-             * @return A word boundary, based on the currently effective {@link
-             *         de.unkrig.ref4j.Pattern#UNICODE_CHARACTER_CLASS} flag
-             */
-            private Sequence
-            wordBoundary() {
-                return (
-                    (this.currentFlags & de.unkrig.ref4j.Pattern.UNICODE_CHARACTER_CLASS) == 0
-                    ? Sequences.wordBoundary()
-                    : Sequences.unicodeWordBoundary()
-                );
             }
 
             /**
