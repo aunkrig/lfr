@@ -1331,20 +1331,25 @@ public class RegExTest {
 
     @Test public void
     serializeTest() throws Exception {
-        String patternStr = "(b)";
-        String matchStr = "b";
-        Pattern pattern = RegExTest.PF.compile(patternStr);
+
+        de.unkrig.lfr.core.Pattern pattern = de.unkrig.lfr.core.PatternFactory.INSTANCE.compile("(b)");
+        String ss = "capturingGroupStart(1) . 'b' . capturingGroupEnd(1)";
+        Assert.assertEquals(ss, pattern.sequenceToString());
+
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        ObjectOutputStream oos = new ObjectOutputStream(baos);
+        ObjectOutputStream    oos  = new ObjectOutputStream(baos);
         oos.writeObject(pattern);
         oos.close();
-        ObjectInputStream ois = new ObjectInputStream(
-            new ByteArrayInputStream(baos.toByteArray()));
-        Pattern serializedPattern = (Pattern)ois.readObject();
+
+        ObjectInputStream ois = new ObjectInputStream(new ByteArrayInputStream(baos.toByteArray()));
+        de.unkrig.lfr.core.Pattern serializedPattern = (de.unkrig.lfr.core.Pattern) ois.readObject();
         ois.close();
-        Matcher matcher = serializedPattern.matcher(matchStr);
+
+        Assert.assertEquals(ss, serializedPattern.sequenceToString());
+        Matcher matcher = serializedPattern.matcher("b");
         Assert.assertTrue(matcher.matches());
-        Assert.assertFalse(matcher.groupCount() != 1);
+        Assert.assertEquals(1, matcher.groupCount());
+        Assert.assertEquals(1, matcher.groupCount());
     }
 
     @Test public void
