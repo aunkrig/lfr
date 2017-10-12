@@ -776,7 +776,12 @@ class CharacterClasses {
     public static CharacterClass
     verticalWhitespace() { return CharacterClasses.oneOfManyCodePoints("\r\n\u000B\f\u0085\u2028\u2029"); }
 
-    /**  A word character: [a-zA-Z_0-9] */
+    /**
+     * A word character: [a-zA-Z_0-9].
+     *
+     * @see Characters#isWordCharacter(int)
+     * @see Characters#isUnicodeWord(int)
+     */
     public static CharacterClass
     word(final boolean unicode) {
         return CharacterClasses.characterClass(unicode ? Characters.IS_UNICODE_WORD : Characters.IS_WORD);
