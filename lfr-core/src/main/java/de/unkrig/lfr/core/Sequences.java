@@ -119,7 +119,10 @@ class Sequences {
 
             @Override boolean
             matches(MatcherImpl matcher) {
+
+                // TODO This optimization is not allowed.
                 if (matcher.offset + needle.length > matcher.regionEnd) return false;
+
                 for (char[] n : needle) {
                     char c = matcher.subject.charAt(matcher.offset++);
                     NC: {
