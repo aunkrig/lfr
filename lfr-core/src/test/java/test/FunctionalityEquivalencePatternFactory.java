@@ -35,6 +35,7 @@ import java.util.regex.PatternSyntaxException;
 
 import org.junit.Assert;
 
+import de.unkrig.commons.lang.ObjectUtil;
 import de.unkrig.commons.lang.PrettyPrinter;
 import de.unkrig.commons.nullanalysis.NotNullByDefault;
 import de.unkrig.ref4j.Matcher;
@@ -179,24 +180,28 @@ class FunctionalityEquivalencePatternFactory extends PatternFactory {
                                     subjectResult.toString()
                                 );
                             } else {
-                                Assert.assertEquals(
-                                    (
-                                        "regex="
-                                        + PrettyPrinter.toJavaStringLiteral(regex)
-                                        + ", subject="
-                                        + PrettyPrinter.toJavaStringLiteral(subject)
-                                        + ", method="
-                                        + method.toString()
-                                    ),
-                                    referenceResult,
-                                    subjectResult
-                                );
+                                if (!ObjectUtil.equals(referenceResult, subjectResult)) {
+                                    Assert.assertEquals(
+                                        (
+                                            "regex="
+                                            + PrettyPrinter.toJavaStringLiteral(regex)
+                                            + ", subject="
+                                            + PrettyPrinter.toJavaStringLiteral(subject)
+                                            + ", method="
+                                            + method.toString()
+                                        ),
+                                        referenceResult,
+                                        subjectResult
+                                    );
+                                }
                             }
 
                             this.assertEqualState(
                                 "Pattern \""
                                 + pattern
-                                + "\", subject \""
+                                + "\", "
+                                + (flags == 0 ? "" : "flags=" + flags + ", ")
+                                + "subject \""
                                 + subject
                                 + "\", "
                                 + method.getName()
