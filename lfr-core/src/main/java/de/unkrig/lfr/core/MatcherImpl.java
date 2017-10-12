@@ -367,21 +367,22 @@ class MatcherImpl implements Matcher {
 
     @Override public boolean
     find() {
-        return (
-            this.endOfPreviousMatch != -2
-            && this.find(this.endOfPreviousMatch == -1 ? this.regionStart : this.groups[1])
-        );
-    }
 
-    @Override public boolean
-    find(int start) {
+        if (this.endOfPreviousMatch == -2) {
 
-        if (start < 0 || start > this.regionEnd) throw new IndexOutOfBoundsException(Integer.toString(start));
+            // The preceding invocation had returned FALSE.
+            return false;
+        }
 
-        this.hitEnd     = false;
-        this.requireEnd = false;
+        if (this.endOfPreviousMatch == -1) {
 
-        if (this.endOfPreviousMatch >= 0 && start == this.groups[0]) {
+            // First invocation (since the last reset); start at the region start.
+            return this.find(this.regionStart);
+        }
+
+        int start = this.groups[1];
+
+        if (start == this.groups[0]) {
 
             // The previous match is a zero-length match. To prevent an endless series of these matches, advance
             // the start position by one.
@@ -392,6 +393,17 @@ class MatcherImpl implements Matcher {
             }
             start++;
         }
+
+        return this.find(start);
+    }
+
+    @Override public boolean
+    find(int start) {
+
+        if (start < 0 || start > this.regionEnd) throw new IndexOutOfBoundsException(Integer.toString(start));
+
+        this.hitEnd     = false;
+        this.requireEnd = false;
 
         Arrays.fill(this.groups, -1);
         this.offset = start;
