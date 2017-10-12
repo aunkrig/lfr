@@ -366,12 +366,11 @@ public class RegExTest {
         Pattern p = RegExTest.PF.compile("\\b");
         Matcher m = p.matcher(testString);
         int position = 0;
-        int start = 0;
 
         int count = 1;
         try {
             for (; m.find(position); count++) {
-                start = m.start();
+            	int start = m.start();
                 if (start == testString.length()) break;
                 if (m.find(start + 1)) {
                     position = m.start();
@@ -445,9 +444,8 @@ public class RegExTest {
         RegExTest.twoFindIndexes(spaces + nsm + wordChar + wordChar + nsm + spaces, matcher, 3, 6);
     }
 
-    private static void twoFindIndexes(String input, Matcher matcher, int a,
-                                       int b) throws Exception
-    {
+    private static void
+    twoFindIndexes(String input, Matcher matcher, int a, int b) throws Exception {
         matcher.reset(input);
 
         Assert.assertTrue(matcher.find());
@@ -4092,12 +4090,13 @@ public class RegExTest {
 
     @Test public void
     unicodePropertiesTest2() throws Exception {
-        Matcher common  = RegExTest.PF.compile("\\p{script=Common}").matcher("");
+
+    	Matcher common  = RegExTest.PF.compile("\\p{script=Common}").matcher("");
         Matcher lastSM  = common;
         Matcher unknown = RegExTest.PF.compile("\\p{IsUnknown}").matcher("");
         Character.UnicodeScript lastScript = Character.UnicodeScript.of(0);
 
-        for (int cp = 1; cp < Character.MAX_CODE_POINT; cp++) {
+        for (int cp = 1; cp < Character.MAX_CODE_POINT; cp += cp < 3000 ? 1 : 100) {
             if (cp >= 0x30000 && (cp & 0x70) == 0){
                 continue;  // only pick couple code points, they are the same
             }
@@ -4133,7 +4132,7 @@ public class RegExTest {
 
         Character.UnicodeBlock lastBlock = Character.UnicodeBlock.of(0);
         Matcher                lastBM    = latin;
-        for (int cp = 1; cp < Character.MAX_CODE_POINT; cp++) {
+        for (int cp = 1; cp < Character.MAX_CODE_POINT; cp += cp < 3000 ? 1 : 100) {
             if (cp >= 0x30000 && (cp & 0x70) == 0){
                 continue;  // only pick couple code points, they are the same
             }
@@ -4271,7 +4270,7 @@ public class RegExTest {
         Matcher alphaJ  = RegExTest.PF.compile("\\p{javaAlphabetic}").matcher("");
         Matcher ideogJ  = RegExTest.PF.compile("\\p{javaIdeographic}").matcher("");
 
-        for (int cp = 1; cp < 0x30000; cp++) {
+        for (int cp = 1; cp < 0x30000; cp += cp <= 1000 ? 1 : 100) {
 
             String str  = new String(Character.toChars(cp));
             int    type = Character.getType(cp);
@@ -4327,34 +4326,68 @@ public class RegExTest {
             Assert.assertEquals(PrettyPrinter.codePointToJavaLiteral(cp), POSIX_Unicode.isWord(cp), wordU.reset(str).matches());
             Assert.assertEquals(PrettyPrinter.codePointToJavaLiteral(cp), POSIX_Unicode.isWord(cp), wordEU.reset(str).matches());
             // bwordb
-            Assert.assertEquals(PrettyPrinter.codePointToJavaLiteral(cp), POSIX_ASCII.isWord(cp), bwb.reset(str).matches());
+            Assert.assertEquals(PrettyPrinter.codePointToJavaLiteral(cp), POSIX_ASCII.isWord(cp),   bwb.reset(str).matches());
             Assert.assertEquals(PrettyPrinter.codePointToJavaLiteral(cp), POSIX_Unicode.isWord(cp), bwbU.reset(str).matches());
             // properties
-            Assert.assertEquals(PrettyPrinter.codePointToJavaLiteral(cp), Character.isTitleCase(cp), titleP.reset(str).matches());
-            Assert.assertEquals(PrettyPrinter.codePointToJavaLiteral(cp), Character.isLetter(cp),    letterP.reset(str).matches());
-            Assert.assertEquals(PrettyPrinter.codePointToJavaLiteral(cp), Character.isIdeographic(cp), ideogP.reset(str).matches());
-            Assert.assertEquals(PrettyPrinter.codePointToJavaLiteral(cp), Character.isIdeographic(cp), ideogJ.reset(str).matches());
-            Assert.assertNotEquals(PrettyPrinter.codePointToJavaLiteral(cp), Character.UNASSIGNED == type, definedP.reset(str).matches());
-            Assert.assertEquals(PrettyPrinter.codePointToJavaLiteral(cp), POSIX_Unicode.isNoncharacterCodePoint(cp), nonCCPP.reset(str).matches());
-            Assert.assertEquals(PrettyPrinter.codePointToJavaLiteral(cp), POSIX_Unicode.isJoinControl(cp), joinCrtl.reset(str).matches());
+            Assert.assertEquals(PrettyPrinter.codePointToJavaLiteral(cp),    Character.isTitleCase(cp),                 titleP.reset(str).matches());
+            Assert.assertEquals(PrettyPrinter.codePointToJavaLiteral(cp),    Character.isLetter(cp),                    letterP.reset(str).matches());
+            Assert.assertEquals(PrettyPrinter.codePointToJavaLiteral(cp),    Character.isIdeographic(cp),               ideogP.reset(str).matches());
+            Assert.assertEquals(PrettyPrinter.codePointToJavaLiteral(cp),    Character.isIdeographic(cp),               ideogJ.reset(str).matches());
+            Assert.assertNotEquals(PrettyPrinter.codePointToJavaLiteral(cp), Character.UNASSIGNED == type,              definedP.reset(str).matches());
+            Assert.assertEquals(PrettyPrinter.codePointToJavaLiteral(cp),    POSIX_Unicode.isNoncharacterCodePoint(cp), nonCCPP.reset(str).matches());
+            Assert.assertEquals(PrettyPrinter.codePointToJavaLiteral(cp),    POSIX_Unicode.isJoinControl(cp),           joinCrtl.reset(str).matches());
         }
     }
 
+    // bounds/word align
     @Test public void
     unicodeClassesTest2() throws Exception {
 
-        // bounds/word align
-        Matcher bound = RegExTest.PF.compile("\\b").matcher("");
-        Matcher bwbU  = RegExTest.PF.compile("\\b\\w++\\b",     Pattern.UNICODE_CHARACTER_CLASS).matcher("");
-        Matcher bwbEU = RegExTest.PF.compile("(?U)\\b\\w++\\b", Pattern.UNICODE_CHARACTER_CLASS).matcher("");
+        // 0x0180 == "LATIN SMALL LETTER B WITH STROKE"
+        // 0x0400 == "CYRILLIV CAPITAL LETTER IE WITH GRAVE"
+        RegExTest.twoFindIndexes(" \u0180sherman\u0400 ", RegExTest.PF.compile("\\b").matcher(""), 1, 10);
+    }
 
-        RegExTest.twoFindIndexes(" \u0180sherman\u0400 ", bound, 1, 10);
-        Assert.assertTrue(bwbU.reset("\u0180sherman\u0400").matches());
-        RegExTest.twoFindIndexes(" \u0180sh\u0345erman\u0400 ", bound, 1, 11);
+    // bounds/word align
+    @Test public void
+    unicodeClassesTest3() throws Exception {
+
+    	// 0x0180 == "LATIN SMALL LETTER B WITH STROKE"
+        // 0x0345 == "COMBINING GREEK YPOGEGRAMMENI"
+    	// 0x0400 == "CYRILLIV CAPITAL LETTER IE WITH GRAVE"
+        RegExTest.twoFindIndexes(" \u0180sh\u0345erman\u0400 ", RegExTest.PF.compile("\\b").matcher(""), 1, 11);
+    }
+
+    // bounds/word align
+    @Test public void
+    unicodeClassesTest4() throws Exception {
+
+        // 0x0724 == "SYRIAC LETTER FINAL SEMKATH"
+        // 0x0739 == "SYRIAC DOTTED ZLEMA ANGULAR"
+        RegExTest.twoFindIndexes(" \u0724\u0739\u0724 ", RegExTest.PF.compile("\\b").matcher(""), 1,  4);
+    }
+
+    @Test public void
+    unicodeClassesTest5() throws Exception {
+
+        Matcher bwbU  = RegExTest.PF.compile("\\b\\w++\\b", Pattern.UNICODE_CHARACTER_CLASS).matcher("");
+
+        Assert.assertTrue(bwbU.reset("\u0180sherman\u0400"      ).matches());
         Assert.assertTrue(bwbU.reset("\u0180sh\u0345erman\u0400").matches());
-        RegExTest.twoFindIndexes(" \u0724\u0739\u0724 ", bound, 1, 4);
-        Assert.assertTrue(bwbU.reset("\u0724\u0739\u0724").matches());
-        Assert.assertTrue(bwbEU.reset("\u0724\u0739\u0724").matches());
+    }
+
+    @Test public void
+    unicodeClassesTest6() throws Exception {
+
+    	Matcher bwbU = RegExTest.PF.compile("\\b\\w++\\b",     Pattern.UNICODE_CHARACTER_CLASS).matcher("");
+    	Assert.assertTrue(bwbU.reset("\u0724\u0739\u0724").matches());
+    }
+
+    @Test public void
+    unicodeClassesTest7() throws Exception {
+
+    	Matcher bwbEU = RegExTest.PF.compile("(?U)\\b\\w++\\b", Pattern.UNICODE_CHARACTER_CLASS).matcher("");
+    	Assert.assertTrue(bwbEU.reset("\u0724\u0739\u0724").matches());
     }
 
     @Test public void
