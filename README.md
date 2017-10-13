@@ -1,8 +1,8 @@
 # Lightning-fast Regular Expressions
 
-Lightning-fast Regular Expressions ("LFR") is a 99.9%-complete reimplementation of `java.util.regex` ("JUR") with better `match()` and `find()` performance. Yet the design is much cleaner and easier to understand and extend (only 5,300 LOC compared to 7,850 in JRE 8).
+Lightning-fast Regular Expressions ("LFR") is a 99.9%-complete reimplementation of `java.util.regex` ("JUR") with better `match()` and `find()` performance. Yet the design is much cleaner and easier to understand and extend.
 
-LFR is (successfully) tested against the OpenJDK 8 regex regression test suite.
+LFR is (successfully) tested against the official OpenJDK 8 regex regression test suite.
 
 ## Differences between LFR and JUR
   
@@ -14,15 +14,21 @@ Minus:
 
 * `Pattern.CANON_EQ` (a really obscure, hopefully rarely used feature) is not implemented. You get an `IllegalArgumentException` when you invoke LFR `Pattern.compile()` with this flag.
 
-* In a few, obscure cases, LFR `Matcher.hitEnd()` produces different results; to me it seems that the JUR implementation is buggy.
-
 Plus:
 
 * Lookbehinds are no longer limited to fixed-length expressions.
 
+* LFR's `Matcher.replaceFirst/All()` methods can not only replace with numered group (`$1`) or named group (`${name}`), but also with a Java-like expression (`${m.groupCount()}`); e.g.
+
+  &nbsp;&nbsp;&nbsp;`PatternFactory.INSTANCE.compile("(?<grp>a)").matcher("abc").replaceAll("${3 + 4 + grp + m.groupCount()}")`
+
+  returns
+
+  &nbsp;&nbsp;&nbsp;`" 7a1bc "`
+
 ### API DIFFERENCES
 
-The classes `Pattern` and `Matcher` were duplicated from JUR (package `java.util.regex` to LFR (package `de.unkrig.lfr.core`) with identical fields and methods.
+The classes `Pattern` and `Matcher` were duplicated from JUR (package `java.util.regex`) to LFR (package `de.unkrig.lfr.core`) with identical fields and methods.
 
 The JUR `MatchResult` and `PatternSyntaxException` were re-used instead of being duplicated.
 
@@ -33,8 +39,6 @@ Analogously, the static method `Matcher.quoteReplacement()` was also moved to th
 There are the following differences in the API:
 
 Plus:
-
-* The LFR `Matcher` interface has additional methods `hitStart()` and `requireStart()`, as counterparts for the `hit/requireEnd()` methods (useful for regexes with lookbehinds).
 
 * The LFR `Pattern` class has an additional method `matches(CharSequence subject, int offset)`, which is particularly fast because it does not expose the `Matcher` and can thus save some overhead.
 
