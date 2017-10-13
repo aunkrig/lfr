@@ -248,7 +248,7 @@ class PatternTest {
         OracleEssentials.harnessFull("a|b",        " a b c ");
         OracleEssentials.harnessFull("a(?:b|bb)c", " ac abc abbc abbbc ");
     }
-    
+
     @Test public void
     testAlternatives2() {
         OracleEssentials.harnessFull("a|aa|aaa", " aaaa ");
@@ -400,50 +400,17 @@ class PatternTest {
         if (!PatternTest.JRE6) PatternTest.assertPatternSyntaxException("(?<first>\\w)\\k<bla>");
     }
 
-    @Test public void
-    testPositiveLookahead1() {
-        OracleEssentials.harnessFull("a(?=b)",   " a aba abba a");
-    }
+    @Test public void testPositiveLookahead1() { OracleEssentials.harnessFull("a(?=b)",   " a aba abba a"); }
+    @Test public void testPositiveLookahead2() { OracleEssentials.harnessFull("a(?=(b))", " a aba abba a"); }
 
-    @Test public void
-    testPositiveLookahead2() {
-        OracleEssentials.harnessFull("a(?=(b))", " a aba abba a");
-    }
+    @Test public void testNegativeLookahead1() { OracleEssentials.harnessFull("a(?!b)",   " a aba abba a"); }
+    @Test public void testNegativeLookahead2() { OracleEssentials.harnessFull("a(?!(b))", " a aba abba a"); }
 
-    @Test public void
-    testNegativeLookahead1() {
-        OracleEssentials.harnessFull("a(?!b)",   " a aba abba a");
-    }
-
-    @Test public void
-    testNegativeLookahead2() {
-        OracleEssentials.harnessFull("a(?!(b))", " a aba abba a");
-    }
-
-    @Test public void
-    testPositiveLookbehind1() {
-        OracleEssentials.harnessFull("(?<=b)a",    " a aba abba a");
-    }
-
-    @Test public void
-    testPositiveLookbehind2() {
-        OracleEssentials.harnessFull("(?<=(b))a",  " a aba abba a");
-    }
-
-    @Test public void
-    testPositiveLookbehind3() {
-        if (!PatternTest.JRE6) OracleEssentials.harnessFull("(?<=\\R )a", " \r\n a ");
-    }
-
-    @Test public void
-    testPositiveLookbehind4() {
-        if (!PatternTest.JRE6) OracleEssentials.harnessFull("(?<=\\R )a", " \r a ");
-    }
-
-    @Test public void
-    testPositiveLookbehind5() {
-        if (!PatternTest.JRE6) OracleEssentials.harnessFull("(?<=\\R )a", " \n a ");
-    }
+    @Test public void testPositiveLookbehind1() {                        OracleEssentials.harnessFull("(?<=b)a",     " a aba abba a"); }
+    @Test public void testPositiveLookbehind2() {                        OracleEssentials.harnessFull("(?<=(b))a",   " a aba abba a"); }
+    @Test public void testPositiveLookbehind3() { if (!PatternTest.JRE6) OracleEssentials.harnessFull("(?<=\\R )a",  " \r\n a ");      }
+    @Test public void testPositiveLookbehind4() { if (!PatternTest.JRE6) OracleEssentials.harnessFull("(?<=\\R )a",  " \r a ");        }
+    @Test public void testPositiveLookbehind5() { if (!PatternTest.JRE6) OracleEssentials.harnessFull("(?<=\\R )a",  " \n a ");        }
 
     @Test public void
     testPositiveLookbehind6() {
@@ -455,165 +422,57 @@ class PatternTest {
         PatternTest.PF.compile("(?<=^\\s*)    ").matcher("        public static void main()").replaceAll("\t");
     }
 
-    @Test public void
-    testNegativeLookbehind1() {
-        OracleEssentials.harnessFull("(?<!b)a",   " a aba abba a");
-    }
+    @Test public void testNegativeLookbehind1() { OracleEssentials.harnessFull("(?<!b)a",     " a aba abba a"); }
+    @Test public void testNegativeLookbehind2() { OracleEssentials.harnessFull("(?<!(b))a",   " a aba abba a"); }
+    @Test public void testNegativeLookbehind3() { OracleEssentials.harnessFull("(?<!(?:b))a", " a aba abba a"); }
+    @Test public void testNegativeLookbehind4() { OracleEssentials.harnessFull("(?<!b)a",     " a aba abba a"); }
 
-    @Test public void
-    testNegativeLookbehind2() {
-        OracleEssentials.harnessFull("(?<!(b))a", " a aba abba a");
-    }
+    @Test public void testRegion1() { OracleEssentials.harnessFull("a", "__a__ a aba abba __a__", 0, 5, 17);               }
+    @Test public void testRegion2() { OracleEssentials.harnessFull("^", "__a__ a aba abba __a__", 0, 5, 17);               }
+    @Test public void testRegion3() { OracleEssentials.harnessFull("^", "__a__ a aba abba __a__", 0, 5, 17, false, false); }
+    @Test public void testRegion4() { OracleEssentials.harnessFull("^", "__a__ a aba abba __a__", 0, 5, 17, false, true);  }
+    @Test public void testRegion5() { OracleEssentials.harnessFull("^", "__a__ a aba abba __a__", 0, 5, 17, true,  false); }
+    @Test public void testRegion6() { OracleEssentials.harnessFull("^", "__a__ a aba abba __a__", 0, 5, 17, true,  true);  }
 
-    @Test public void
-    testNegativeLookbehind3() {
-        OracleEssentials.harnessFull("(?<!(?:b))a", " a aba abba a");
-    }
+    @Test public void testTransparentBounds1() { OracleEssentials.harnessFull("\\b",     "__a__ a aba abba __a__", 0, 5, 17, true); }
 
-    @Test public void
-    testNegativeLookbehind4() {
-        OracleEssentials.harnessFull("(?<!b)a", " a aba abba a");
-    }
+    // Lookahead.
+    @Test public void testTransparentBounds2() { OracleEssentials.harnessFull(" (?=_)",  "__a__ a aba abba __a__", 0, 5, 17, true); }
+    @Test public void testTransparentBounds3() { OracleEssentials.harnessFull(" (?!_)",  "__a__ a aba abba __a__", 0, 5, 17, true); }
 
-    @Test public void
-    testRegion1() {
-        OracleEssentials.harnessFull("a", "__a__ a aba abba __a__", 0, 5, 17);
-    }
+    // Lookbehind.
+    @Test public void testTransparentBounds4() { OracleEssentials.harnessFull("(?<=_) ", "__a__ a aba abba __a__", 0, 5, 17, true); }
+    @Test public void testTransparentBounds5() { OracleEssentials.harnessFull("(?<!_) ", "__a__ a aba abba __a__", 0, 5, 17, true); }
 
-    @Test public void
-    testRegion2() {
-        OracleEssentials.harnessFull("^", "__a__ a aba abba __a__", 0, 5, 17);
-    }
+    @Test public void testAnchoringBounds1() { OracleEssentials.harnessFull("^",  "__a__ a aba abba __a__", 0, 5, 17, null, false); }
+    @Test public void testAnchoringBounds2() { OracleEssentials.harnessFull("$",  "__a__ a aba abba __a__", 0, 5, 17, null, false); }
 
-    @Test public void
-    testRegion3() {
-        OracleEssentials.harnessFull("^", "__a__ a aba abba __a__", 0, 5, 17, false, false);
-    }
+    @Test public void testUnixLines1() { if (!PatternTest.JRE6) OracleEssentials.harnessFull("\\R",  "  \n  \r\n \u2028 "); }
+    @Test public void testUnixLines2() { if (!PatternTest.JRE6) OracleEssentials.harnessFull("\\R",  "  \n  \r\n \u2028 ", Pattern.UNIX_LINES); }
+    @Test public void testUnixLines3() {                        OracleEssentials.harnessFull("^",    "  \n  \r\n \u2028 "); }
+    @Test public void testUnixLines4() {                        OracleEssentials.harnessFull("^",    "  \n  \r\n \u2028 ", Pattern.UNIX_LINES); }
 
-    @Test public void
-    testRegion4() {
-        OracleEssentials.harnessFull("^", "__a__ a aba abba __a__", 0, 5, 17, false, true);
-    }
-
-    @Test public void
-    testRegion5() {
-        OracleEssentials.harnessFull("^", "__a__ a aba abba __a__", 0, 5, 17, true,  false);
-    }
-
-    @Test public void
-    testRegion6() {
-        OracleEssentials.harnessFull("^", "__a__ a aba abba __a__", 0, 5, 17, true,  true);
-    }
-
-    @Test public void
-    testTransparentBounds1() {
-
-        // The for the nineth, failed, match, jur returns "false" for "hitEnd()"!?
-//        harness("\\b",     "__a__ a aba abba __a__", 0, 5, 17, true);
-    }
-
-    @Test public void
-    testTransparentBounds2() {
-
-        // Lookahead.
-        OracleEssentials.harnessFull(" (?=_)",  "__a__ a aba abba __a__", 0, 5, 17, true);
-    }
-
-    @Test public void
-    testTransparentBounds3() {
-        OracleEssentials.harnessFull(" (?!_)",  "__a__ a aba abba __a__", 0, 5, 17, true);
-    }
-
-    @Test public void
-    testTransparentBounds4() {
-
-        // Lookbehind.
-        OracleEssentials.harnessFull("(?<=_) ", "__a__ a aba abba __a__", 0, 5, 17, true);
-    }
-
-    @Test public void
-    testTransparentBounds5() {
-        OracleEssentials.harnessFull("(?<!_) ", "__a__ a aba abba __a__", 0, 5, 17, true);
-    }
-
-    @Test public void
-    testAnchoringBounds1() {
-        OracleEssentials.harnessFull("^",  "__a__ a aba abba __a__", 0, 5, 17, null, false);
-    }
-
-    @Test public void
-    testAnchoringBounds2() {
-        OracleEssentials.harnessFull("$",  "__a__ a aba abba __a__", 0, 5, 17, null, false);
-    }
-
-    @Test public void
-    testUnixLines1() {
-        if (!PatternTest.JRE6) OracleEssentials.harnessFull("\\R",  "  \n  \r\n \u2028 ");
-    }
-
-    @Test public void
-    testUnixLines2() {
-        if (!PatternTest.JRE6) OracleEssentials.harnessFull("\\R",  "  \n  \r\n \u2028 ", Pattern.UNIX_LINES);
-    }
-
-    @Test public void
-    testUnixLines3() {
-        OracleEssentials.harnessFull("^",    "  \n  \r\n \u2028 ");
-    }
-
-    @Test public void
-    testUnixLines4() {
-        OracleEssentials.harnessFull("^",    "  \n  \r\n \u2028 ", Pattern.UNIX_LINES);
-    }
-
-    @Test public void
-    testQuantifiers1() {
-        OracleEssentials.harnessFull("a?",  " aaa ");
-//        OracleEssentials.harnessFull("a??", " aaa "); // JRE says !hitEnd after the 7th, failed, match!?
-        OracleEssentials.harnessFull("a?+", " aaa ");
-    }
-
-    @Test public void
-    testQuantifiers2() {
-        OracleEssentials.harnessFull("a*",  " aaa ");
-//        OracleEssentials.harnessFull("a*?", " aaa "); // JRE says !hitEnd after the 7th, failed, match!?
-        OracleEssentials.harnessFull("a*+", " aaa ");
-    }
-
-    @Test public void
-    testQuantifiers3() {
-        OracleEssentials.harnessFull("a+",  " aaa ");
-        OracleEssentials.harnessFull("a+?", " aaa ");
-        OracleEssentials.harnessFull("a++", " aaa ");
-    }
-
-    @Test public void
-    testQuantifiers4() {
-//        OracleEssentials.harnessFull("a{0}",  " aaa "); // JRE says !hitEnd after the 7th, failed, match!?
-//        OracleEssentials.harnessFull("a{0}?", " aaa "); // JRE says !hitEnd after the 7th, failed, match!?
-//        OracleEssentials.harnessFull("a{0}+", " aaa "); // JRE says !hitEnd after the 7th, failed, match!?
-    }
-
-    @Test public void
-    testQuantifiers5() {
-        OracleEssentials.harnessFull("a{1}",  " aaa ");
-        OracleEssentials.harnessFull("a{1}?", " aaa ");
-        OracleEssentials.harnessFull("a{1}+", " aaa ");
-    }
-
-    @Test public void
-    testQuantifiers6() {
-        OracleEssentials.harnessFull("a{2}",  " aaa ");
-        OracleEssentials.harnessFull("a{2}?", " aaa ");
-        OracleEssentials.harnessFull("a{2}+", " aaa ");
-    }
-
-    @Test public void
-    testQuantifiers7() {
-        OracleEssentials.harnessFull("a{0,}",  " aaa ");
-//        OracleEssentials.harnessFull("a{0,}?", " aaa "); // JRE says !hitEnd after the 7th, failed, match!?
-        OracleEssentials.harnessFull("a{0,}+", " aaa ");
-    }
+    @Test public void testQuantifiers1a() { OracleEssentials.harnessFull("a?",     " aaa "); }
+    @Test public void testQuantifiers1b() { OracleEssentials.harnessFull("a??",    " aaa "); }
+    @Test public void testQuantifiers1c() { OracleEssentials.harnessFull("a?+",    " aaa "); }
+    @Test public void testQuantifiers2a() { OracleEssentials.harnessFull("a*",     " aaa "); }
+    @Test public void testQuantifiers2b() { OracleEssentials.harnessFull("a*?",    " aaa "); }
+    @Test public void testQuantifiers2c() { OracleEssentials.harnessFull("a*+",    " aaa "); }
+    @Test public void testQuantifiers3a() { OracleEssentials.harnessFull("a+",     " aaa "); }
+    @Test public void testQuantifiers3b() { OracleEssentials.harnessFull("a+?",    " aaa "); }
+    @Test public void testQuantifiers3c() { OracleEssentials.harnessFull("a++",    " aaa "); }
+    @Test public void testQuantifiers4a() { OracleEssentials.harnessFull("a{0}",   " aaa "); }
+    @Test public void testQuantifiers4b() { OracleEssentials.harnessFull("a{0}?",  " aaa "); }
+    @Test public void testQuantifiers4c() { OracleEssentials.harnessFull("a{0}+",  " aaa "); }
+    @Test public void testQuantifiers5a() { OracleEssentials.harnessFull("a{1}",   " aaa "); }
+    @Test public void testQuantifiers5b() { OracleEssentials.harnessFull("a{1}?",  " aaa "); }
+    @Test public void testQuantifiers5c() { OracleEssentials.harnessFull("a{1}+",  " aaa "); }
+    @Test public void testQuantifiers6a() { OracleEssentials.harnessFull("a{2}",   " aaa "); }
+    @Test public void testQuantifiers6b() { OracleEssentials.harnessFull("a{2}?",  " aaa "); }
+    @Test public void testQuantifiers6c() { OracleEssentials.harnessFull("a{2}+",  " aaa "); }
+    @Test public void testQuantifiers7a() { OracleEssentials.harnessFull("a{0,}",  " aaa "); }
+    @Test public void testQuantifiers7b() { OracleEssentials.harnessFull("a{0,}?", " aaa "); }
+    @Test public void testQuantifiers7c() { OracleEssentials.harnessFull("a{0,}+", " aaa "); }
 
     @Test public void
     testLongLiteralString() {
@@ -734,168 +593,43 @@ class PatternTest {
         );
     }
 
-    @Test public void
-    testAtomicGroups1() {
-        OracleEssentials.harnessFull("^a(bc|b)c$",   "abc");
-    }
-
-    @Test public void
-    testAtomicGroups2() {
-        OracleEssentials.harnessFull("^a(bc|b)c$",   "abcc");
-    }
-
-    @Test public void
-    testAtomicGroups3() {
-        OracleEssentials.harnessFull("^a(?>bc|b)c$", "abc");
-    }
-
-    @Test public void
-    testAtomicGroups4() {
-        OracleEssentials.harnessFull("^a(?>bc|b)c$", "abcc");
-    }
+    @Test public void testAtomicGroups1() { OracleEssentials.harnessFull("^a(bc|b)c$",   "abc");  }
+    @Test public void testAtomicGroups2() { OracleEssentials.harnessFull("^a(bc|b)c$",   "abcc"); }
+    @Test public void testAtomicGroups3() { OracleEssentials.harnessFull("^a(?>bc|b)c$", "abc");  }
+    @Test public void testAtomicGroups4() { OracleEssentials.harnessFull("^a(?>bc|b)c$", "abcc"); }
 
     /**
      * @see <a href="http://stackoverflow.com/questions/17618812">Clarification about requireEnd Matcher's method</a>
      */
-    @Test public void
-    testRequireEnd1() {
-        OracleEssentials.harnessFull("cat$", "I have a cat");
-    }
+    @Test public void testRequireEnd1() { OracleEssentials.harnessFull("cat$",           "I have a cat");     }
+    @Test public void testRequireEnd2() { OracleEssentials.harnessFull("cat$",           "I have a catflap"); }
+    @Test public void testRequireEnd3() { OracleEssentials.harnessFull("cat",            "I have a cat");     }
+    @Test public void testRequireEnd4() { OracleEssentials.harnessFull("cat",            "I have a catflap"); }
+    @Test public void testRequireEnd5() { OracleEssentials.harnessFull("\\d+\\b|[><]=?", "1234");             }
+    @Test public void testRequireEnd6() { OracleEssentials.harnessFull("\\d+\\b|[><]=?", ">=");               }
+    @Test public void testRequireEnd7() { OracleEssentials.harnessFull("\\d+\\b|[><]=?", "<");                }
 
-    @Test public void
-    testRequireEnd2() {
-        OracleEssentials.harnessFull("cat$", "I have a catflap");
-    }
-
-    @Test public void
-    testRequireEnd3() {
-        OracleEssentials.harnessFull("cat",  "I have a cat");
-    }
-
-    @Test public void
-    testRequireEnd4() {
-        OracleEssentials.harnessFull("cat",  "I have a catflap");
-    }
-
-    @Test public void
-    testRequireEnd5() {
-        OracleEssentials.harnessFull("\\d+\\b|[><]=?", "1234");
-    }
-
-    @Test public void
-    testRequireEnd6() {
-        OracleEssentials.harnessFull("\\d+\\b|[><]=?", ">=");
-    }
-
-    @Test public void
-    testRequireEnd7() {
-        OracleEssentials.harnessFull("\\d+\\b|[><]=?", "<");
-    }
-
-    @Test public void
-    testComments1() {
-        OracleEssentials.harnessFull(" a# comment \nb ",    " ab a# comment \nb", Pattern.COMMENTS);
-    }
-
-    @Test public void
-    testComments2() {
-        OracleEssentials.harnessFull("(?x)  a  ",           " a ");
-    }
-
-    @Test public void
-    testComments3() {
-        OracleEssentials.harnessFull("(?x)  a  (?-x) b",    " ab ");
-    }
-
-    @Test public void
-    testComments4() {
-        OracleEssentials.harnessFull("(?x)  a  (?-x) b",    " a b ");
-    }
-
-    @Test public void
-    testComments5() {
-        OracleEssentials.harnessFull("(?x)  a#\n  (?-x) b", " ab ");
-    }
-
-    @Test public void
-    testComments6() {
-        OracleEssentials.harnessFull("(?x)  a#\n  (?-x) b", " a b ");
-    }
-
-    @Test public void
-    testComments7() {
-        OracleEssentials.harnessFull("(?x)  (a)", " a b ");
-    }
-
-    @Test public void
-    testComments8() {
-        OracleEssentials.harnessFull("(?x)  (?:a)", " a b ");
-    }
-
-    @Test public void
-    testComments9() {
-        OracleEssentials.harnessFull("(?x)  ( ?:a)", " a b ");
-    }
-
-    @Test public void
-    testComments10() {
-        OracleEssentials.harnessFull("(?x)  (?: a)", " a b ");
-    }
-
-    @Test public void
-    testComments11() {
-        OracleEssentials.harnessFull("(?x)  (? : a)", " a b ");
-    }
-
-    @Test public void
-    testComments12() {
-        OracleEssentials.harnessFull("(?x)  ( ? :a)", " a b ");
-    }
-
-    @Test public void
-    testComments13() {
-        OracleEssentials.harnessFull("(?x)  ( ?: a)", " a b ");
-    }
-
-    @Test public void
-    testComments14() {
-        OracleEssentials.harnessFull("(?x)  ( ? : a)", " a b ");
-    }
-
-    @Test public void
-    testComments15() {
-        if (!PatternTest.JRE6) OracleEssentials.harnessFull("(?x)  (?<name>a)", " a b ");
-    }
-
-    @Test public void
-    testComments16() {
-        if (!PatternTest.JRE6) OracleEssentials.harnessFull("(?x)  ( ?<name>a)", " a b ");
-    }
-
-    @Test public void
-    testComments17() {
-        if (!PatternTest.JRE6) PatternTest.assertPatternSyntaxException("(?x)  (? <name>a)");
-    }
-
-    @Test public void
-    testComments18() {
-        if (!PatternTest.JRE6) OracleEssentials.harnessFull("(?x)  (?< name>a)", " a b ");
-    }
-
-    @Test public void
-    testComments19() {
-        if (!PatternTest.JRE6) PatternTest.assertPatternSyntaxException("(?x)  (? < name>a)");
-    }
-
-    @Test public void
-    testComments20() {
-        if (!PatternTest.JRE6) OracleEssentials.harnessFull("(?x)  ( ?< name>a)", " a b ");
-    }
-
-    @Test public void
-    testComments21() {
-        if (!PatternTest.JRE6) PatternTest.assertPatternSyntaxException("(?x)  ( ? < name>a)");
-    }
+    @Test public void testComments1()  {                        OracleEssentials.harnessFull(" a# comment \nb ",    " ab a# comment \nb", Pattern.COMMENTS); }
+    @Test public void testComments2()  {                        OracleEssentials.harnessFull("(?x)  a  ",           " a ");   }
+    @Test public void testComments3()  {                        OracleEssentials.harnessFull("(?x)  a  (?-x) b",    " ab ");  }
+    @Test public void testComments4()  {                        OracleEssentials.harnessFull("(?x)  a  (?-x) b",    " a b "); }
+    @Test public void testComments5()  {                        OracleEssentials.harnessFull("(?x)  a#\n  (?-x) b", " ab ");  }
+    @Test public void testComments6()  {                        OracleEssentials.harnessFull("(?x)  a#\n  (?-x) b", " a b "); }
+    @Test public void testComments7()  {                        OracleEssentials.harnessFull("(?x)  (a)", " a b ");           }
+    @Test public void testComments8()  {                        OracleEssentials.harnessFull("(?x)  (?:a)", " a b ");         }
+    @Test public void testComments9()  {                        OracleEssentials.harnessFull("(?x)  ( ?:a)", " a b ");        }
+    @Test public void testComments10() {                        OracleEssentials.harnessFull("(?x)  (?: a)", " a b ");        }
+    @Test public void testComments11() {                        OracleEssentials.harnessFull("(?x)  (? : a)", " a b ");       }
+    @Test public void testComments12() {                        OracleEssentials.harnessFull("(?x)  ( ? :a)", " a b ");       }
+    @Test public void testComments13() {                        OracleEssentials.harnessFull("(?x)  ( ?: a)", " a b ");       }
+    @Test public void testComments14() {                        OracleEssentials.harnessFull("(?x)  ( ? : a)", " a b ");      }
+    @Test public void testComments15() { if (!PatternTest.JRE6) OracleEssentials.harnessFull("(?x)  (?<name>a)", " a b ");    }
+    @Test public void testComments16() { if (!PatternTest.JRE6) OracleEssentials.harnessFull("(?x)  ( ?<name>a)", " a b ");   }
+    @Test public void testComments17() { if (!PatternTest.JRE6) PatternTest.assertPatternSyntaxException("(?x)  (? <name>a)"); }
+    @Test public void testComments18() { if (!PatternTest.JRE6) OracleEssentials.harnessFull("(?x)  (?< name>a)", " a b ");   }
+    @Test public void testComments19() { if (!PatternTest.JRE6) PatternTest.assertPatternSyntaxException("(?x)  (? < name>a)"); }
+    @Test public void testComments20() { if (!PatternTest.JRE6) OracleEssentials.harnessFull("(?x)  ( ?< name>a)", " a b ");  }
+    @Test public void testComments21() { if (!PatternTest.JRE6) PatternTest.assertPatternSyntaxException("(?x)  ( ? < name>a)"); }
 
     @Test public void
     testReplaceAll1() {
