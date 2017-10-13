@@ -71,25 +71,25 @@ class PatternTest {
 
         String jsv = System.getProperty("java.specification.version");
 
-        java.util.regex.Matcher m = java.util.regex.Pattern.compile("1\\.(\\d+)").matcher(jsv);
+        java.util.regex.Matcher m = PatternTest.jurpc("1\\.(\\d+)").matcher(jsv);
         if (!m.matches()) throw new AssertionError(jsv);
 
         JRE_VERSION = Integer.parseInt(m.group(1));
     }
 
-    @Test public void testMatches1() { PatternTest.PF.compile("abc", 0).matcher("abc").matches(); }
-    @Test public void testMatches2() { PatternTest.PF.compile("abc", 0).matcher("abcxx").matches(); }
-    @Test public void testMatches3() { PatternTest.PF.compile("abc", 0).matcher("xxabc").matches(); }
-    @Test public void testMatches4() { PatternTest.PF.compile("a.c", 0).matcher("aBc").matches(); }
-    @Test public void testMatches5() { PatternTest.PF.compile("a.c", 0).matcher("aBcxx").matches(); }
-    @Test public void testMatches6() { PatternTest.PF.compile("a.*c", 0).matcher("axxxc").matches(); }
+    @Test public void testMatches1() { PatternTest.PF.compile("abc", 0).matcher("abc").matches();        }
+    @Test public void testMatches2() { PatternTest.PF.compile("abc", 0).matcher("abcxx").matches();      }
+    @Test public void testMatches3() { PatternTest.PF.compile("abc", 0).matcher("xxabc").matches();      }
+    @Test public void testMatches4() { PatternTest.PF.compile("a.c", 0).matcher("aBc").matches();        }
+    @Test public void testMatches5() { PatternTest.PF.compile("a.c", 0).matcher("aBcxx").matches();      }
+    @Test public void testMatches6() { PatternTest.PF.compile("a.*c", 0).matcher("axxxc").matches();     }
     @Test public void testMatches7() { PatternTest.PF.compile("a.*c", 0).matcher("axxxcxxxc").matches(); }
-    @Test public void testMatches8() { PatternTest.PF.compile("a.*c", 0).matcher("axxx").matches(); }
+    @Test public void testMatches8() { PatternTest.PF.compile("a.*c", 0).matcher("axxx").matches();      }
 
-    @Test public void testLiteralOctals1() { PatternTest.PF.compile("\\00xx", 0).matcher("\0xx").matches(); }
-    @Test public void testLiteralOctals2() { PatternTest.PF.compile("\\01xx", 0).matcher("\01xx").matches(); }
-    @Test public void testLiteralOctals3() { PatternTest.PF.compile("\\011xx", 0).matcher("\011xx").matches(); }
-    @Test public void testLiteralOctals4() { PatternTest.PF.compile("\\0101xx", 0).matcher("Axx").matches(); }
+    @Test public void testLiteralOctals1() { PatternTest.PF.compile("\\00xx",   0).matcher("\0xx").matches();    }
+    @Test public void testLiteralOctals2() { PatternTest.PF.compile("\\01xx",   0).matcher("\01xx").matches();   }
+    @Test public void testLiteralOctals3() { PatternTest.PF.compile("\\011xx",  0).matcher("\011xx").matches();  }
+    @Test public void testLiteralOctals4() { PatternTest.PF.compile("\\0101xx", 0).matcher("Axx").matches();     }
     @Test public void testLiteralOctals5() { PatternTest.PF.compile("\\0111xx", 0).matcher("\0111xx").matches(); }
 
     @Test public void
@@ -145,10 +145,10 @@ class PatternTest {
         };
     }
 
-    @Test public void testFind1() { OracleEssentials.harnessFull("abc",   "abc"); }
-    @Test public void testFind2() { OracleEssentials.harnessFull("abc",   "xxabcxx"); }
-    @Test public void testFind3() { OracleEssentials.harnessFull("abc",   "xxaBcxx"); }
-    @Test public void testFind4() { OracleEssentials.harnessFull("a.c",   "xxabcxx"); }
+    @Test public void testFind1() { OracleEssentials.harnessFull("abc",   "abc");            }
+    @Test public void testFind2() { OracleEssentials.harnessFull("abc",   "xxabcxx");        }
+    @Test public void testFind3() { OracleEssentials.harnessFull("abc",   "xxaBcxx");        }
+    @Test public void testFind4() { OracleEssentials.harnessFull("a.c",   "xxabcxx");        }
     @Test public void testFind5() { OracleEssentials.harnessFull("a.*b",  "xxaxxbxxbxxbxx"); }
     @Test public void testFind6() { OracleEssentials.harnessFull("a.*?b", "xxaxxbxxbxxbxx"); }
     @Test public void testFind7() { OracleEssentials.harnessFull("a.*+b", "xxaxxbxxbxxbxx"); }
@@ -160,7 +160,7 @@ class PatternTest {
     @Test public void testCaseInsensitive1() { OracleEssentials.harnessFull("(?i)A", "xxxAxxx"); }
     @Test public void testCaseInsensitive2() { OracleEssentials.harnessFull("(?i)A", "xxxaxxx"); }
     @Test public void testCaseInsensitive3() { OracleEssentials.harnessFull("(?i)Ä", "xxxäxxx"); }
-    @Test public void testCaseInsensitive4() { Assert.assertTrue(OracleEssentials.LFR.matches("(?i)Ä", "Ä")); }
+    @Test public void testCaseInsensitive4() { Assert.assertTrue(OracleEssentials.LFR.matches("(?i)Ä",  "Ä")); }
     @Test public void testCaseInsensitive5() { Assert.assertFalse(OracleEssentials.LFR.matches("(?i)Ä", "ä")); }
 
     @Test public void
@@ -208,31 +208,31 @@ class PatternTest {
     @Test public void testUnicodeCaseInsensitive4() { Assert.assertTrue(OracleEssentials.LFR.matches("(?ui)Ä", "Ä")); }
     @Test public void testUnicodeCaseInsensitive5() { Assert.assertTrue(OracleEssentials.LFR.matches("(?ui)Ä", "ä")); }
 
-    @Test public void testDotall1() { OracleEssentials.harnessFull(".",     " \r  "); }
+    @Test public void testDotall1() { OracleEssentials.harnessFull(".",     " \r  ");                 }
     @Test public void testDotall2() { OracleEssentials.harnessFull(".",     " \r  ", Pattern.DOTALL); }
-    @Test public void testDotall3() { OracleEssentials.harnessFull("(?s).", " \r  "); }
+    @Test public void testDotall3() { OracleEssentials.harnessFull("(?s).", " \r  ");                 }
 
-    @Test public void testLiteralRegex1() { OracleEssentials.harnessFull("$\\*", "$\\*xxx$\\*xxx", Pattern.LITERAL); }
-    @Test public void testLiteralRegex2() { OracleEssentials.harnessFull("a\\", "a\\xxxA\\xxx",    Pattern.LITERAL | Pattern.CASE_INSENSITIVE); } // SUPPRESS CHECKSTYLE LineLength
-    @Test public void testLiteralRegex3() { OracleEssentials.harnessFull(".\\Q.\\E.", " ___ "); }
-    @Test public void testLiteralRegex4() { OracleEssentials.harnessFull(".\\Q.\\E.", " _._ "); }
+    @Test public void testLiteralRegex1() { OracleEssentials.harnessFull("$\\*",      "$\\*xxx$\\*xxx", Pattern.LITERAL);                            } // SUPPRESS CHECKSTYLE LineLength:3
+    @Test public void testLiteralRegex2() { OracleEssentials.harnessFull("a\\",       "a\\xxxA\\xxx",   Pattern.LITERAL | Pattern.CASE_INSENSITIVE); }
+    @Test public void testLiteralRegex3() { OracleEssentials.harnessFull(".\\Q.\\E.", " ___ ");                                                      }
+    @Test public void testLiteralRegex4() { OracleEssentials.harnessFull(".\\Q.\\E.", " _._ ");                                                      }
 
-    @Test public void testBoundaries1()  { OracleEssentials.harnessFull("^.", "___\r___\r\n___\u2028___"); }
-    @Test public void testBoundaries2()  { OracleEssentials.harnessFull(".$", "___\r___\r\n___\u2028___"); }
-    @Test public void testBoundaries3()  { OracleEssentials.harnessFull("^.", "___\r___\r\n___\u2028___", Pattern.MULTILINE); } // SUPPRESS CHECKSTYLE LineLength:2
-    @Test public void testBoundaries4()  { OracleEssentials.harnessFull(".$", "___\r___\r\n___\u2028___", Pattern.MULTILINE); }
-    @Test public void testBoundaries5()  { OracleEssentials.harnessFull("\\b",  " a b c"); }
-    @Test public void testBoundaries6()  { OracleEssentials.harnessFull("\\B",  " a b c"); }
-    @Test public void testBoundaries7()  { OracleEssentials.harnessFull("\\A",  "bla\rbla"); }
-    @Test public void testBoundaries8()  { OracleEssentials.harnessFull("\\Ga", "aaabbb"); }
-    @Test public void testBoundaries9()  { OracleEssentials.harnessFull(".\\Z", "abc"); }
-    @Test public void testBoundaries10() { OracleEssentials.harnessFull(".\\Z", "abc\n"); }
-    @Test public void testBoundaries11() { OracleEssentials.harnessFull(".\\Z", "abc\r\nd"); }
-    @Test public void testBoundaries12() { OracleEssentials.harnessFull(".\\z", "abc\n"); }
-    //@Test public void testBoundaries13() { OracleEssentials.harnessFull(".\\z", "abc\r\nd"); } JRE says !requireEnd !?
-    @Test public void testBoundaries14() { OracleEssentials.harnessFull(".", "abc",      Pattern.MULTILINE); }
-    @Test public void testBoundaries15() { OracleEssentials.harnessFull(".", "abc\n",    Pattern.MULTILINE); }
-    @Test public void testBoundaries16() { OracleEssentials.harnessFull(".", "abc\r\nd", Pattern.MULTILINE); }
+    @Test public void testBoundaries1()  { OracleEssentials.harnessFull("^.",   "___\r___\r\n___\u2028___");                    } // SUPPRESS CHECKSTYLE LineLength:15
+    @Test public void testBoundaries2()  { OracleEssentials.harnessFull(".$",   "___\r___\r\n___\u2028___");                    }
+    @Test public void testBoundaries3()  { OracleEssentials.harnessFull("^.",   "___\r___\r\n___\u2028___", Pattern.MULTILINE); }
+    @Test public void testBoundaries4()  { OracleEssentials.harnessFull(".$",   "___\r___\r\n___\u2028___", Pattern.MULTILINE); }
+    @Test public void testBoundaries5()  { OracleEssentials.harnessFull("\\b",  " a b c");                                      }
+    @Test public void testBoundaries6()  { OracleEssentials.harnessFull("\\B",  " a b c");                                      }
+    @Test public void testBoundaries7()  { OracleEssentials.harnessFull("\\A",  "bla\rbla");                                    }
+    @Test public void testBoundaries8()  { OracleEssentials.harnessFull("\\Ga", "aaabbb");                                      }
+    @Test public void testBoundaries9()  { OracleEssentials.harnessFull(".\\Z", "abc");                                         }
+    @Test public void testBoundaries10() { OracleEssentials.harnessFull(".\\Z", "abc\n");                                       }
+    @Test public void testBoundaries11() { OracleEssentials.harnessFull(".\\Z", "abc\r\nd");                                    }
+    @Test public void testBoundaries12() { OracleEssentials.harnessFull(".\\z", "abc\n");                                       }
+    //@Test public void testBoundaries13() { OracleEssentials.harnessFull(".\\z", "abc\r\nd");                                    } JRE says !requireEnd !?
+    @Test public void testBoundaries14() { OracleEssentials.harnessFull(".",    "abc",                      Pattern.MULTILINE); }
+    @Test public void testBoundaries15() { OracleEssentials.harnessFull(".",    "abc\n",                    Pattern.MULTILINE); }
+    @Test public void testBoundaries16() { OracleEssentials.harnessFull(".",    "abc\r\nd",                 Pattern.MULTILINE); }
 
     @Test public void
     testMatchFlagsGroup() {
@@ -305,63 +305,23 @@ class PatternTest {
         PatternTest.assertPatternSyntaxException("\\P{IsJavaLowerCase}");
     }
 
-    @Test public void
-    testUnicodeCharacterClasses1() {
+    // By "UNICODE script":
+    @Test public void testUnicodeCharacterClasses1() {  if (PatternTest.JRE_VERSION >= 7) OracleEssentials.harnessFull("\\p{IsLatin}",       " a B c ä Ä "); } // SUPPRESS CHECKSTYLE LineLength
 
-        // By "UNICODE script":
-        if (PatternTest.JRE_VERSION >= 7) OracleEssentials.harnessFull("\\p{IsLatin}",       " a B c ä Ä ");
-    }
+    // By "UNICODE block":
+    @Test public void testUnicodeCharacterClasses2() { OracleEssentials.harnessFull("\\p{InGreek}",       " \u03b1 ");    } // SUPPRESS CHECKSTYLE LineLength:2
+    @Test public void testUnicodeCharacterClasses3() { OracleEssentials.harnessFull("\\p{InBasicLatin}",  " a B c ä Ä "); }
+    @Test public void testUnicodeCharacterClasses4() { OracleEssentials.harnessFull("\\P{InBasicLatin}",  " a B c ä Ä "); }
 
-    @Test public void
-    testUnicodeCharacterClasses2() {
+    // By "UNICODE category":
+    @Test public void testUnicodeCharacterClasses5() { OracleEssentials.harnessFull("\\p{Lu}",            " a B c ä Ä "); } // SUPPRESS CHECKSTYLE LineLength:3
+    @Test public void testUnicodeCharacterClasses6() { OracleEssentials.harnessFull("\\P{Lu}",            " a B c ä Ä "); }
+    @Test public void testUnicodeCharacterClasses7() { OracleEssentials.harnessFull("\\p{Sc}",            " a $ ");       }
+    @Test public void testUnicodeCharacterClasses8() { OracleEssentials.harnessFull("\\P{Sc}",            " a $ ");       }
 
-        // By "UNICODE block":
-        OracleEssentials.harnessFull("\\p{InGreek}",       " \u03b1 ");
-    }
-
-    @Test public void
-    testUnicodeCharacterClasses3() {
-        OracleEssentials.harnessFull("\\p{InBasicLatin}",  " a B c ä Ä ");
-    }
-
-    @Test public void
-    testUnicodeCharacterClasses4() {
-        OracleEssentials.harnessFull("\\P{InBasicLatin}",  " a B c ä Ä ");
-    }
-
-    @Test public void
-    testUnicodeCharacterClasses5() {
-
-        // By "UNICODE category":
-        OracleEssentials.harnessFull("\\p{Lu}",            " a B c ä Ä ");
-    }
-
-    @Test public void
-    testUnicodeCharacterClasses6() {
-        OracleEssentials.harnessFull("\\P{Lu}",            " a B c ä Ä ");
-    }
-
-    @Test public void
-    testUnicodeCharacterClasses7() {
-        OracleEssentials.harnessFull("\\p{Sc}",            " a $ ");
-    }
-
-    @Test public void
-    testUnicodeCharacterClasses8() {
-        OracleEssentials.harnessFull("\\P{Sc}",            " a $ ");
-    }
-
-    @Test public void
-    testUnicodeCharacterClasses9() {
-
-        // By "UNICODE property":
-        if (PatternTest.JRE_VERSION >= 7) OracleEssentials.harnessFull("\\p{IsLowerCASE}",  " abc äöü ");
-    }
-
-    @Test public void
-    testUnicodeCharacterClasses10() {
-        if (PatternTest.JRE_VERSION >= 7) OracleEssentials.harnessFull("\\p{IsAlphabetic}", " abc äöü ");
-    }
+    // By "UNICODE property":
+    @Test public void testUnicodeCharacterClasses9()  { if (PatternTest.JRE_VERSION >= 7) OracleEssentials.harnessFull("\\p{IsLowerCASE}",  " abc äöü "); } // SUPPRESS CHECKSTYLE LineLength:1
+    @Test public void testUnicodeCharacterClasses10() { if (PatternTest.JRE_VERSION >= 7) OracleEssentials.harnessFull("\\p{IsAlphabetic}", " abc äöü "); }
 
     // ======================================== END OF CHARACTER CLASSES ========================================
 
@@ -403,7 +363,6 @@ class PatternTest {
 
     @Test public void
     testNamedCapturingGroupsBackreference1() {
-
         if (PatternTest.JRE_VERSION >= 7) OracleEssentials.harnessFull("(?<first>\\w)\\k<first>", " a aa aaa");
     }
 
@@ -728,91 +687,30 @@ class PatternTest {
         Assert.assertEquals("== Hello bar and foo!", sb.toString());
     }
 
-    @Test public void
-    testCharacterClassOptimizations1() {
-        PatternTest.assertSequenceToString("'A'",                                            "[A]");
-    }
+    @Test public void testCharacterClassOptimizations1() { PatternTest.assertSequenceToString("'A'",                                            "[A]"); }
+    @Test public void testCharacterClassOptimizations2() { PatternTest.assertSequenceToString("oneOfTwoChars('A', 'B')",                        "[AB]"); }
+    @Test public void testCharacterClassOptimizations3() { PatternTest.assertSequenceToString("oneOfTwoChars('A', 'K')",                        "[AK]"); }
+    @Test public void testCharacterClassOptimizations4() { PatternTest.assertSequenceToString("bitSet('A', 'C', 'E', 'G', 'I', 'K')",           "[ACEGIK]"); }
+    @Test public void testCharacterClassOptimizations5() { PatternTest.assertSequenceToString("range('A' - 'E')",                               "[A-E]"); }
+    @Test public void testCharacterClassOptimizations6() { PatternTest.assertSequenceToString("bitSet('D', 'E', 'F', 'G', 'H', 'I', 'J', 'K')", "[A-K&&D-Z]"); }
+    @Test public void testCharacterClassOptimizations7() { PatternTest.assertSequenceToString(PatternTest.jurpc("set\\('.'(?:, '.'){63}\\)"),   "[A-Za-z0-9_\u0400]"); }
+
+    @Test public void testQuantifierOptimizations1()  { PatternTest.assertSequenceToString("'A'",                                                                                                      "A");                      }
+    @Test public void testQuantifierOptimizations2()  { PatternTest.assertSequenceToString("'A' . greedyQuantifierOnCharacterClass(operand=anyCharButLineBreak, min=0, max=infinite) . 'B'",           "A.*B");                   }
+    @Test public void testQuantifierOptimizations3()  { PatternTest.assertSequenceToString("'A' . greedyQuantifierOnCharacterClass(operand=anyCharButLineBreak, min=0, max=infinite) . naive(\"BC\")", "A.*BC");                  }
+    @Test public void testQuantifierOptimizations4()  { PatternTest.assertSequenceToString("'A' . greedyQuantifierOnAnyCharAndLiteralString(min=0, max=infinite, ls=naive(\"BC\"))",                   "A.*BC",  Pattern.DOTALL); }
+    @Test public void testQuantifierOptimizations5()  { PatternTest.assertSequenceToString("'A' . reluctantQuantifierOnAnyCharAndLiteralString(min=0, max=infinite, ls=naive(\"BC\"))",                "A.*?BC", Pattern.DOTALL); }
+    @Test public void testQuantifierOptimizations6()  { PatternTest.assertSequenceToString("'A' . possessiveQuantifierOnAnyChar(min=0, max=infinite) . naive(\"BC\")",                                 "A.*+BC", Pattern.DOTALL); }
+    @Test public void testQuantifierOptimizations7()  { PatternTest.assertSequenceToString("naive(\"aaa\")",                                                                                           "a{3}");                   }
+    @Test public void testQuantifierOptimizations8()  { PatternTest.assertSequenceToString("naive(\"aaa\") . greedyQuantifierOnChar(operand='a', min=0, max=2)",                                       "a{3,5}");                 }
+    @Test public void testQuantifierOptimizations9()  { PatternTest.assertSequenceToString("naive(\"aaa\") . reluctantQuantifierOnCharacterClass(operand='a', min=0, max=2)",                          "a{3,5}?");                }
+    @Test public void testQuantifierOptimizations10() { PatternTest.assertSequenceToString("naive(\"aaa\") . possessiveQuantifier(operand='a', min=0, max=2)",                                         "a{3,5}+");                }
+    @Test public void testQuantifierOptimizations11() { PatternTest.assertSequenceToString("naive(\"abcabcabc\") . greedyQuantifier(operand=naive(\"abc\"), min=0, max=2)",                            "(?:abc){3,5}");           }
+    @Test public void testQuantifierOptimizations12() { PatternTest.assertSequenceToString("naive(\"abcabcabc\") . reluctantQuantifier(operand=naive(\"abc\"), min=0, max=2)",                         "(?:abc){3,5}?");          }
+    @Test public void testQuantifierOptimizations13() { PatternTest.assertSequenceToString("naive(\"abcabcabc\") . possessiveQuantifier(operand=naive(\"abc\"), min=0, max=2)",                        "(?:abc){3,5}+");          }
 
     @Test public void
-    testCharacterClassOptimizations2() {
-        PatternTest.assertSequenceToString("oneOfTwoChars('A', 'B')",                        "[AB]");
-    }
-
-    @Test public void
-    testCharacterClassOptimizations3() {
-        PatternTest.assertSequenceToString("oneOfTwoChars('A', 'K')",                        "[AK]");
-    }
-
-    @Test public void
-    testCharacterClassOptimizations4() {
-        PatternTest.assertSequenceToString("bitSet('A', 'C', 'E', 'G', 'I', 'K')",           "[ACEGIK]");
-    }
-
-    @Test public void
-    testCharacterClassOptimizations5() {
-        PatternTest.assertSequenceToString("range('A' - 'E')",                               "[A-E]");
-    }
-
-    @Test public void
-    testCharacterClassOptimizations6() {
-        PatternTest.assertSequenceToString("bitSet('D', 'E', 'F', 'G', 'H', 'I', 'J', 'K')", "[A-K&&D-Z]");
-    }
-
-    @Test public void
-    testCharacterClassOptimizations7() {
-        PatternTest.assertSequenceToString(PatternTest.jurpc("set\\('.'(?:, '.'){63}\\)"),   "[A-Za-z0-9_\u0400]");
-    }
-
-    @Test public void
-    testQuantifierOptimizations1() {
-        PatternTest.assertSequenceToString("'A'", "A");
-    }
-
-    @Test public void
-    testQuantifierOptimizations2() {
-        PatternTest.assertSequenceToString(
-            "'A' . greedyQuantifierOnCharacterClass(operand=anyCharButLineBreak, min=0, max=infinite) . 'B'",
-            "A.*B"
-        );
-    }
-
-    @Test public void
-    testQuantifierOptimizations3() {
-        PatternTest.assertSequenceToString(
-            "'A' . greedyQuantifierOnCharacterClass(operand=anyCharButLineBreak, min=0, max=infinite) . naive(\"BC\")",
-            "A.*BC"
-        );
-    }
-
-    @Test public void
-    testQuantifierOptimizations4() {
-        PatternTest.assertSequenceToString(
-            "'A' . greedyQuantifierOnAnyCharAndLiteralString(min=0, max=infinite, ls=naive(\"BC\"))",
-            "A.*BC",
-            Pattern.DOTALL
-        );
-    }
-
-    @Test public void
-    testQuantifierOptimizations5() {
-        PatternTest.assertSequenceToString(
-            "'A' . reluctantQuantifierOnAnyCharAndLiteralString(min=0, max=infinite, ls=naive(\"BC\"))",
-            "A.*?BC",
-            Pattern.DOTALL
-        );
-    }
-
-    @Test public void
-    testQuantifierOptimizations6() {
-        PatternTest.assertSequenceToString(
-            "'A' . possessiveQuantifierOnAnyChar(min=0, max=infinite) . naive(\"BC\")",
-            "A.*+BC",
-            Pattern.DOTALL
-        );
-    }
-
-    @Test public void
-    testQuantifierOptimizations7() {
+    testQuantifierOptimizations14() {
 
         // Naive string search, because the string literal is only 14 characters long.
         PatternTest.assertSequenceToString(
@@ -823,7 +721,7 @@ class PatternTest {
     }
 
     @Test public void
-    testQuantifierOptimizations8() {
+    testQuantifierOptimizations15() {
 
         // Boyer-Moore-Horspool string search, because the string literal is 15 characters long.
         PatternTest.assertSequenceToString(
@@ -838,59 +736,6 @@ class PatternTest {
             ),
             "A.*abcdefghijklmnop",
             Pattern.DOTALL
-        );
-    }
-
-    @Test public void
-    testQuantifierOptimizations9() {
-        PatternTest.assertSequenceToString("naive(\"aaa\")", "a{3}");
-    }
-
-    @Test public void
-    testQuantifierOptimizations10() {
-        PatternTest.assertSequenceToString(
-            "naive(\"aaa\") . greedyQuantifierOnChar(operand='a', min=0, max=2)",
-            "a{3,5}"
-        );
-    }
-
-    @Test public void
-    testQuantifierOptimizations11() {
-        PatternTest.assertSequenceToString(
-            "naive(\"aaa\") . reluctantQuantifierOnCharacterClass(operand='a', min=0, max=2)",
-            "a{3,5}?"
-        );
-    }
-
-    @Test public void
-    testQuantifierOptimizations12() {
-        PatternTest.assertSequenceToString(
-            "naive(\"aaa\") . possessiveQuantifier(operand='a', min=0, max=2)",
-            "a{3,5}+"
-        );
-    }
-
-    @Test public void
-    testQuantifierOptimizations13() {
-        PatternTest.assertSequenceToString(
-            "naive(\"abcabcabc\") . greedyQuantifier(operand=naive(\"abc\"), min=0, max=2)",
-            "(?:abc){3,5}"
-        );
-    }
-
-    @Test public void
-    testQuantifierOptimizations14() {
-        PatternTest.assertSequenceToString(
-            "naive(\"abcabcabc\") . reluctantQuantifier(operand=naive(\"abc\"), min=0, max=2)",
-            "(?:abc){3,5}?"
-        );
-    }
-
-    @Test public void
-    testQuantifierOptimizations15() {
-        PatternTest.assertSequenceToString(
-            "naive(\"abcabcabc\") . possessiveQuantifier(operand=naive(\"abc\"), min=0, max=2)",
-            "(?:abc){3,5}+"
         );
     }
 
@@ -919,6 +764,8 @@ class PatternTest {
 
         System.out.printf(Locale.US, "Took %,d ms%n",  end - start);
     }
+
+    // ========================================================================================================
 
     private static void
     assertSequenceToString(String expected, String regex) {
