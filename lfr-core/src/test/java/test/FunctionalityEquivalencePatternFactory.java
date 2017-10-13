@@ -45,6 +45,10 @@ import de.unkrig.ref4j.PatternFactory;
 /**
  * A {@link PatternFactory} that verifies that all operations on a pattern (and its matcher) produce identical
  * results for two different {@link PatternFactory}s.
+ * <p>
+ *   This class honors two system properties, {@code "FIX_HIT_END"} and {@code "FIX_REQUIRE_END"} to work around the
+ *   many bugs in JUR's {@link java.util.regex.Matcher#hitEnd()} and {@link java.util.regex.Matcher#hitEnd()}.
+ * </p>
  */
 public
 class FunctionalityEquivalencePatternFactory extends PatternFactory {
