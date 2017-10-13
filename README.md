@@ -18,7 +18,7 @@ Plus:
 
 * Lookbehinds are no longer limited to fixed-length expressions.
 
-* LFR's `Matcher.replaceFirst/All()` methods can not only replace with numered group (`$1`) or named group (`${name}`), but also with a Java-like expression (`${m.groupCount()}`); e.g.
+* LFR's `Matcher.replaceFirst/All()` methods can not only replace with numered group (`$1`) or named group (`${name}`), but also with a Java-like expression; e.g.
 
   &nbsp;&nbsp;&nbsp;`PatternFactory.INSTANCE.compile("(?<grp>a)").matcher("abc").replaceAll("${3 + 4 + grp + m.groupCount()}")`
 
