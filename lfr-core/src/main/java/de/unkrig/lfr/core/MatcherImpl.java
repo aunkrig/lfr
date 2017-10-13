@@ -388,7 +388,10 @@ class MatcherImpl implements Matcher {
             // the start position by one.
             if (start >= this.regionEnd) {
                 this.endOfPreviousMatch = -2;
-                this.hitEnd             = true;
+
+                // Actually, we should set "hitEnd", but for compatibility with JRE we don't.
+                //this.hitEnd = true;
+
                 return false;
             }
             start++;
