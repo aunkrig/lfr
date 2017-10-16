@@ -54,9 +54,11 @@ import java.util.regex.PatternSyntaxException;
 
 import org.junit.Assert;
 import org.junit.Test;
+import org.junit.internal.ArrayComparisonFailure;
 
 import de.unkrig.commons.lang.ExceptionUtil;
 import de.unkrig.commons.lang.PrettyPrinter;
+import de.unkrig.commons.nullanalysis.Nullable;
 import de.unkrig.ref4j.Matcher;
 import de.unkrig.ref4j.Pattern;
 import de.unkrig.ref4j.PatternFactory;
@@ -68,24 +70,16 @@ import test.FunctionalityEquivalencePatternFactory;
  */
 public class RegExTest {
 
-//    private static final PatternFactory PF = de.unkrig.lfr.core.PatternFactory.INSTANCE;
+    private static final PatternFactory PF = de.unkrig.lfr.core.PatternFactory.INSTANCE;
 //    private static final PatternFactory PF = de.unkrig.ref4j.jur.PatternFactory.INSTANCE;
-    private static final PatternFactory PF = new FunctionalityEquivalencePatternFactory(
-        de.unkrig.ref4j.jur.PatternFactory.INSTANCE,
-        de.unkrig.lfr.core.PatternFactory.INSTANCE
-    );
-
-    private static final boolean
-    JUR = RegExTest.PF.getClass().getName().indexOf(".jur.") != -1;
-
-    /** Whether we're running JRE 1.6 */
-    private static final boolean
-    JRE6 = System.getProperty("java.specification.version").equals("1.6");
+//    private static final PatternFactory PF = new FunctionalityEquivalencePatternFactory(
+//        de.unkrig.ref4j.jur.PatternFactory.INSTANCE,
+//        de.unkrig.lfr.core.PatternFactory.INSTANCE
+//    );
 
     private static final boolean
     LFR = RegExTest.PF.getClass().getName().indexOf(".lfr.") != -1 || RegExTest.PF.getClass().getSimpleName().equals("FunctionalityEquivalencePatternFactory");
 
-//    private static Random generator = new Random();
     private static Random generator = new Random(222);
 
     @Test public void
@@ -924,15 +918,13 @@ public class RegExTest {
             "\uac00".replaceAll("\uac00", "$");
             Assert.fail();
         } catch (IllegalArgumentException iie) {
-        } catch (Exception e) {
-            Assert.fail();
+            ;
         }
         try {
             "\uac00".replaceAll("\uac00", "\\");
             Assert.fail();
         } catch (IllegalArgumentException iie) {
-        } catch (Exception e) {
-            Assert.fail();
+            ;
         }
     }
 
@@ -1714,7 +1706,7 @@ public class RegExTest {
     }
 
     @Test public void
-    splitTest() {
+    splitTest1() {
 
         Pattern pattern = RegExTest.PF.compile(":");
         String[] result = pattern.split("foo:and:boo", 2);
@@ -1787,70 +1779,70 @@ public class RegExTest {
         result = source.split("e", 0);
         Assert.assertFalse(result.length != 1);
         Assert.assertEquals(source, result[0]);
+    }
+
+    @Test public void
+    splitTest2() {
 
         // Check both split() and splitAsStream(), especially for zero-lenth
         // input and zero-lenth match cases
-        String[][] input = {
-            { " ",           "Abc Efg Hij"  }, // normal non-zero-match
-            { " ",           " Abc Efg Hij" }, // leading empty str for non-zero-match
-            { " ",           "Abc  Efg Hij" }, // non-zero-match in the middle
-            { "(?=\\p{Lu})", "AbcEfgHij"    }, // no leading empty str for zero-match
-            { "(?=\\p{Lu})", "AbcEfg"       },
-            { "(?=\\p{Lu})", "Abc"          },
-            { " ",           ""             }, // zero-length input
-            { ".*",          ""             },
 
-            // some tests from PatternStreamTest.java
-            { "4",        "awgqwefg1fefw4vssv1vvv1"                                    },
-            { "\u00a3a",  "afbfq\u00a3abgwgb\u00a3awngnwggw\u00a3a\u00a3ahjrnhneerh"   },
-            { "1",        "awgqwefg1fefw4vssv1vvv1"                                    },
-            { "1",        "a\u4ebafg1fefw\u4eba4\u9f9cvssv\u9f9c1v\u672c\u672cvv"      },
-            { "\u56da",   "1\u56da23\u56da456\u56da7890"                               },
-            { "\u56da",   "1\u56da23\u9f9c\u672c\u672c\u56da456\u56da\u9f9c\u672c7890" },
-            { "\u56da",   ""                                                           },
-            { "[ \t,:.]", "This is,testing: with\tdifferent separators."               }, //multiple septs
-            { "o",        "boo:and:foo"                                                },
-            { "o",        "booooo:and:fooooo"                                          },
-            { "o",        "fooooo:"                                                    },
-        };
+        // normal non-zero-match
+        this.assertSplit(" ",           "Abc Efg Hij",  "Abc", "Efg", "Hij");
+        // leading empty str for non-zero-match
+        this.assertSplit(" ",           " Abc Efg Hij", "",    "Abc", "Efg", "Hij");
+        // non-zero-match in the middle
+        this.assertSplit(" ",           "Abc  Efg Hij", "Abc", "",    "Efg", "Hij");
 
-        String[][] expected = {
-            { "Abc", "Efg", "Hij"        },
-            { "",    "Abc", "Efg", "Hij" },
-            { "Abc", "",    "Efg", "Hij" },
-            { "Abc", "Efg", "Hij"        },
-            { "Abc", "Efg"               },
-            { "Abc"                      },
-            { ""                         },
-            { ""                         },
+        // no leading empty str for zero-match
+        // This is a JUR8 feature/change/bug fix:
+        // "A zero-width match at the beginning however never produces such empty leading substring."
+        this.assertSplit("(?=\\p{Lu})", "AbcEfgHij",    "Abc", "Efg", "Hij");
+        this.assertSplit("(?=\\p{Lu})", "AbcEfg",       "Abc", "Efg");
+        this.assertSplit("(?=\\p{Lu})", "Abc",          "Abc");
 
-            { "awgqwefg1fefw", "vssv1vvv1"                                   },
-            { "afbfq", "bgwgb", "wngnwggw", "", "hjrnhneerh"                 },
-            { "awgqwefg", "fefw4vssv", "vvv"                                 },
-            { "a\u4ebafg", "fefw\u4eba4\u9f9cvssv\u9f9c", "v\u672c\u672cvv"  },
-            { "1", "23", "456", "7890"                                       },
-            { "1", "23\u9f9c\u672c\u672c", "456", "\u9f9c\u672c7890"         },
-            { ""                                                             },
-            { "This", "is", "testing", "", "with", "different", "separators" },
-            { "b", "", ":and:f"                                              },
-            { "b", "", "", "", "", ":and:f"                                  },
-            { "f", "", "", "", "", ":"                                       },
-        };
-        for (int i = 0; i < input.length; i++) {
-            pattern = RegExTest.PF.compile(input[i][0]);
-            String[] actual = pattern.split(input[i][1]);
+        // zero-length input
+        this.assertSplit(" ",           "",             "");
+        this.assertSplit(".*",          "",             "");
+    }
+
+    @Test public void
+    splitTest3() {
+
+        // some tests from PatternStreamTest.java
+        this.assertSplit("4",        "awgqwefg1fefw4vssv1vvv1",                                    "awgqwefg1fefw", "vssv1vvv1");
+        this.assertSplit("\u00a3a",  "afbfq\u00a3abgwgb\u00a3awngnwggw\u00a3a\u00a3ahjrnhneerh",   "afbfq", "bgwgb", "wngnwggw", "", "hjrnhneerh");
+        this.assertSplit("1",        "awgqwefg1fefw4vssv1vvv1",                                    "awgqwefg", "fefw4vssv", "vvv");
+        this.assertSplit("1",        "a\u4ebafg1fefw\u4eba4\u9f9cvssv\u9f9c1v\u672c\u672cvv",      "a\u4ebafg", "fefw\u4eba4\u9f9cvssv\u9f9c", "v\u672c\u672cvv");
+        this.assertSplit("\u56da",   "1\u56da23\u56da456\u56da7890",                               "1", "23", "456", "7890");
+        this.assertSplit("\u56da",   "1\u56da23\u9f9c\u672c\u672c\u56da456\u56da\u9f9c\u672c7890", "1", "23\u9f9c\u672c\u672c", "456", "\u9f9c\u672c7890");
+        this.assertSplit("\u56da",   "",                                                           "");
+        //multiple septs
+        this.assertSplit("[ \t,:.]", "This is,testing: with\tdifferent separators.",               "This", "is", "testing", "", "with", "different", "separators");
+        this.assertSplit("o",        "boo:and:foo",                                                "b", "", ":and:f");
+        this.assertSplit("o",        "booooo:and:fooooo",                                          "b", "", "", "", "", ":and:f");
+        this.assertSplit("o",        "fooooo:",                                                    "f", "", "", "", "", ":");
+    }
+
+    public void assertSplit(String regex, String input, String... expected) throws ArrayComparisonFailure {
+
+        Pattern pattern = RegExTest.PF.compile(regex);
+
+        {
+            String[] actual = pattern.split(input);
+
             Assert.assertArrayEquals(
-                i + ": " + Arrays.toString(expected[i]) + " / " + Arrays.toString(actual),
-                expected[i],
+                Arrays.toString(expected) + " / " + Arrays.toString(actual),
+                expected,
                 actual
             );
-//            if (input[i][1].length() > 0 &&  // splitAsStream() return empty resulting
-//                                             // array for zero-length input for now
-//                !Arrays.equals(pattern.splitAsStream(input[i][1]).toArray(),
-//                               expected[i])) {
-//                Assert.fail();
-//            }
         }
+
+//        // splitAsStream() return empty resulting array for zero-length input for now (??)
+//        if (input.length() > 0) {
+//
+//            Assert.assertArrayEquals(expected, pattern.splitAsStream(input).toArray());
+//        }
     }
 
     @Test public void
@@ -2283,13 +2275,13 @@ public class RegExTest {
 
     @Test public void
     backRefTest4() throws Exception {
-        Pattern pattern = RegExTest.PF.compile("(abc)(def)\\3"); // TODO
+        Pattern pattern = RegExTest.PF.compile("(abc)(def)\\3");
         RegExTest.checkFind(pattern, "abcdefabc", false);
     }
 
     @Test public void
     backRefTest5() throws Exception {
-        if (RegExTest.JUR) {
+//        if (RegExTest.JUR) {
             try {
                 for (int i = 1; i < 10; i++) {
                     // Make sure backref 1-9 are always accepted
@@ -2300,7 +2292,7 @@ public class RegExTest {
             } catch(PatternSyntaxException e) {
                 Assert.fail();
             }
-        }
+//        }
     }
 
     @Test public void
@@ -3416,26 +3408,6 @@ public class RegExTest {
 
     private static void
     explainFailure(
-        String  resourceName,
-        int     lineNumber,
-        Pattern pattern,
-        String  subject,
-        String  expected,
-        String  actual
-    ) {
-        System.err.println("----------------------------------------");
-        System.err.println(resourceName + ", line " + lineNumber);
-        System.err.println("Pattern:  " + PrettyPrinter.toString(pattern.toString()));
-        if (pattern instanceof de.unkrig.lfr.core.Pattern) {
-            System.err.println("Sequence: " + ((de.unkrig.lfr.core.Pattern) pattern).sequenceToString());
-        }
-        System.err.println("Subject:  " + PrettyPrinter.toString(subject));
-        System.err.println("Expected: " + PrettyPrinter.toString(expected));
-        System.err.println("Actual:   " + PrettyPrinter.toString(actual));
-    }
-
-    private static void
-    explainFailure(
         String    resourceName,
         int       lineNumber,
         Pattern   pattern,
@@ -3545,8 +3517,10 @@ public class RegExTest {
 
                 Assert.assertEquals("result", expectedResult, result.toString());
 
-                Assert.assertNull("Long FIX_HIT_END system property value",     System.getProperty("FIX_HIT_END"));
-                Assert.assertNull("Long FIX_REQUIRE_END system property value", System.getProperty("FIX_REQUIRE_END"));
+                if (RegExTest.PF instanceof FunctionalityEquivalencePatternFactory) {
+                    Assert.assertNull("Long FIX_HIT_END system property value",     System.getProperty("FIX_HIT_END"));
+                    Assert.assertNull("Long FIX_REQUIRE_END system property value", System.getProperty("FIX_REQUIRE_END"));
+                }
             } catch (AssertionError ae) {
                 throw ExceptionUtil.wrap(resourceName + ":" + lnr.getLineNumber(), ae);
             }
@@ -3654,12 +3628,14 @@ public class RegExTest {
     }
 
     private static void check(Pattern p, String s, String g, String expected) {
+
         Matcher m = p.matcher(s);
-        m.find();
-        if (!m.group(g).equals(expected) ||
-            s.charAt(m.start(g)) != expected.charAt(0) ||
-            s.charAt(m.end(g) - 1) != expected.charAt(expected.length() - 1))
-            Assert.fail();
+
+        Assert.assertTrue(m.find());
+
+        Assert.assertEquals(expected,                               m.group(g));
+        Assert.assertEquals(expected.charAt(0),                     s.charAt(m.start(g)));
+        Assert.assertEquals(expected.charAt(expected.length() - 1), s.charAt(m.end(g) - 1));
     }
 
     private static void checkReplaceFirst(String p, String s, String r, String expected)
@@ -3693,7 +3669,6 @@ public class RegExTest {
         try {
             m.group(g);
         } catch (IllegalArgumentException x) {
-            //iae.printStackTrace();
             try {
                 m.start(g);
             } catch (IllegalArgumentException xx) {
@@ -3725,326 +3700,47 @@ public class RegExTest {
         Assert.fail();
     }
 
-    @Test public void
-    namedGroupCaptureTest1() throws Exception {
-
-        if (RegExTest.JUR && RegExTest.JRE6) return; // JUR6 doesn't support named groups.
-
-        RegExTest.check(RegExTest.PF.compile("x+(?<gname>y+)z+"), "xxxyyyzzz", "gname", "yyy");
-    }
-
-    @Test public void
-    namedGroupCaptureTest2() throws Exception {
-
-        if (RegExTest.JUR && RegExTest.JRE6) return; // JUR6 doesn't support named groups.
-
-        RegExTest.check(RegExTest.PF.compile("x+(?<gname8>y+)z+"), "xxxyyyzzz", "gname8", "yyy");
-    }
-
-    @Test public void
-    namedGroupCaptureTest3() throws Exception {
-
-        if (RegExTest.JUR && RegExTest.JRE6) return; // JUR6 doesn't support named groups.
-
-        //backref
-        RegExTest.checkFind(RegExTest.PF.compile("(a*)bc\\1"), "zzzaabcazzz", true);  // found "abca"
-    }
-
-    @Test public void
-    namedGroupCaptureTest4() throws Exception {
-
-        if (RegExTest.JUR && RegExTest.JRE6) return; // JUR6 doesn't support named groups.
-
-        RegExTest.checkFind(RegExTest.PF.compile("(?<gname>a*)bc\\k<gname>"), "zzzaabcaazzz", true);
-    }
-
-    @Test public void
-    namedGroupCaptureTest5() throws Exception {
-
-        if (RegExTest.JUR && RegExTest.JRE6) return; // JUR6 doesn't support named groups.
-
-        RegExTest.checkFind(RegExTest.PF.compile("(?<gname>abc)(def)\\k<gname>"), "abcdefabc", true);
-    }
-
-    @Test public void
-    namedGroupCaptureTest6() throws Exception {
-
-        if (RegExTest.JUR && RegExTest.JRE6) return; // JUR6 doesn't support named groups.
-
-        RegExTest.checkFind(
-            RegExTest.PF.compile("(a)(b)(c)(d)(e)(f)(g)(h)(i)(j)(?<gname>k)\\k<gname>"),
-            "abcdefghijkk",
-            true
-        );
-    }
-
-    @Test public void
-    namedGroupCaptureTest7() throws Exception {
-
-        if (RegExTest.JUR && RegExTest.JRE6) return; // JUR6 doesn't support named groups.
-
-        // Supplementary character tests
-        RegExTest.checkFind(
-            RegExTest.PF.compile("(?<gname>" + RegExTest.toSupplementaries("a*)bc") + "\\k<gname>"),
-            RegExTest.toSupplementaries("zzzaabcazzz"),
-            true
-        );
-    }
-
-    @Test public void
-    namedGroupCaptureTest8() throws Exception {
-
-        if (RegExTest.JUR && RegExTest.JRE6) return; // JUR6 doesn't support named groups.
-
-        RegExTest.checkFind(
-            RegExTest.PF.compile("(?<gname>" + RegExTest.toSupplementaries("a*)bc") + "\\k<gname>"),
-            RegExTest.toSupplementaries("zzzaabcaazzz"),
-            true
-        );
-    }
-
-    @Test public void
-    namedGroupCaptureTest9() throws Exception {
-
-        if (RegExTest.JUR && RegExTest.JRE6) return; // JUR6 doesn't support named groups.
-
-        RegExTest.checkFind(
-            RegExTest.PF.compile("(?<gname>" + RegExTest.toSupplementaries("abc)(def)") + "\\k<gname>"),
-            RegExTest.toSupplementaries("abcdefabc"),
-            true
-        );
-    }
-
-    @Test public void
-    namedGroupCaptureTest10() throws Exception {
-
-        if (RegExTest.JUR && RegExTest.JRE6) return; // JUR6 doesn't support named groups.
-
-        RegExTest.checkFind(
-            RegExTest.PF.compile(
-                RegExTest.toSupplementaries("(a)(b)(c)(d)(e)(f)(g)(h)(i)(j)")
-                + "(?<gname>"
-                + RegExTest.toSupplementaries("k)") + "\\k<gname>"
-            ),
-            RegExTest.toSupplementaries("abcdefghijkk"),
-            true
-        );
-    }
-
-    @Test public void
-    namedGroupCaptureTest11() throws Exception {
-
-        if (RegExTest.JUR && RegExTest.JRE6) return; // JUR6 doesn't support named groups.
-
-        RegExTest.check(RegExTest.PF.compile("x+(?<gname>y+)z+\\k<gname>"), "xxxyyyzzzyyy", "gname", "yyy");
-    }
-
-    @Test public void
-    namedGroupCaptureTest12() throws Exception {
-
-        if (RegExTest.JUR && RegExTest.JRE6) return; // JUR6 doesn't support named groups.
-
-        //replaceFirst/All
-        RegExTest.checkReplaceFirst("(?<gn>ab)(c*)", "abccczzzabcczzzabccc", "${gn}", "abzzzabcczzzabccc");
-    }
-
-    @Test public void
-    namedGroupCaptureTest13() throws Exception {
-
-        if (RegExTest.JUR && RegExTest.JRE6) return; // JUR6 doesn't support named groups.
-
-        RegExTest.checkReplaceAll("(?<gn>ab)(c*)", "abccczzzabcczzzabccc", "${gn}", "abzzzabzzzab");
-    }
-
-    @Test public void
-    namedGroupCaptureTest14() throws Exception {
-
-        if (RegExTest.JUR && RegExTest.JRE6) return; // JUR6 doesn't support named groups.
-
-        RegExTest.checkReplaceFirst("(?<gn>ab)(c*)", "zzzabccczzzabcczzzabccczzz", "${gn}", "zzzabzzzabcczzzabccczzz");
-    }
-
-    @Test public void
-    namedGroupCaptureTest15() throws Exception {
-
-        if (RegExTest.JUR && RegExTest.JRE6) return; // JUR6 doesn't support named groups.
-
-        RegExTest.checkReplaceAll("(?<gn>ab)(c*)", "zzzabccczzzabcczzzabccczzz", "${gn}", "zzzabzzzabzzzabzzz");
-    }
-
-    @Test public void
-    namedGroupCaptureTest16() throws Exception {
-
-        if (RegExTest.JUR && RegExTest.JRE6) return; // JUR6 doesn't support named groups.
-
-        RegExTest.checkReplaceFirst(
-            "(?<gn1>ab)(?<gn2>c*)",
-            "zzzabccczzzabcczzzabccczzz",
-            "${gn2}",
-            "zzzccczzzabcczzzabccczzz"
-        );
-    }
-
-    @Test public void
-    namedGroupCaptureTest17() throws Exception {
-
-        if (RegExTest.JUR && RegExTest.JRE6) return; // JUR6 doesn't support named groups.
-
-        RegExTest.checkReplaceAll(
-            "(?<gn1>ab)(?<gn2>c*)",
-            "zzzabccczzzabcczzzabccczzz",
-            "${gn2}",
-            "zzzccczzzcczzzccczzz"
-        );
-    }
-
-    @Test public void
-    namedGroupCaptureTest18() throws Exception {
-
-        if (RegExTest.JUR && RegExTest.JRE6) return; // JUR6 doesn't support named groups.
-
-        //toSupplementaries("(ab)(c*)"));
-        RegExTest.checkReplaceFirst(
-            "(?<gn1>" + RegExTest.toSupplementaries("ab") + ")(?<gn2>" + RegExTest.toSupplementaries("c") + "*)",
-            RegExTest.toSupplementaries("abccczzzabcczzzabccc"),
-            "${gn1}",
-            RegExTest.toSupplementaries("abzzzabcczzzabccc")
-        );
-    }
-
-    @Test public void
-    namedGroupCaptureTest19() throws Exception {
-
-        if (RegExTest.JUR && RegExTest.JRE6) return; // JUR6 doesn't support named groups.
-
-        RegExTest.checkReplaceAll(
-            "(?<gn1>" + RegExTest.toSupplementaries("ab") + ")(?<gn2>" + RegExTest.toSupplementaries("c") + "*)",
-            RegExTest.toSupplementaries("abccczzzabcczzzabccc"),
-            "${gn1}",
-            RegExTest.toSupplementaries("abzzzabzzzab")
-        );
-    }
-
-    @Test public void
-    namedGroupCaptureTest20() throws Exception {
-
-        if (RegExTest.JUR && RegExTest.JRE6) return; // JUR6 doesn't support named groups.
-
-        RegExTest.checkReplaceFirst(
-            "(?<gn1>" + RegExTest.toSupplementaries("ab") + ")(?<gn2>" + RegExTest.toSupplementaries("c") + "*)",
-            RegExTest.toSupplementaries("abccczzzabcczzzabccc"),
-            "${gn2}",
-            RegExTest.toSupplementaries("ccczzzabcczzzabccc")
-        );
-    }
-
-    @Test public void
-    namedGroupCaptureTest21() throws Exception {
-
-        if (RegExTest.JUR && RegExTest.JRE6) return; // JUR6 doesn't support named groups.
-
-        RegExTest.checkReplaceAll(
-            "(?<gn1>" + RegExTest.toSupplementaries("ab") + ")(?<gn2>" + RegExTest.toSupplementaries("c") + "*)",
-            RegExTest.toSupplementaries("abccczzzabcczzzabccc"),
-            "${gn2}",
-            RegExTest.toSupplementaries("ccczzzcczzzccc")
-        );
-    }
-
-    @Test public void
-    namedGroupCaptureTest22() throws Exception {
-
-        if (RegExTest.JUR && RegExTest.JRE6) return; // JUR6 doesn't support named groups.
-
-        RegExTest.checkReplaceFirst(
-            "(?<dog>Dog)AndCat",
-            "zzzDogAndCatzzzDogAndCatzzz",
-            "${dog}",
-            "zzzDogzzzDogAndCatzzz"
-        );
-    }
-
-    @Test public void
-    namedGroupCaptureTest23() throws Exception {
-
-        if (RegExTest.JUR && RegExTest.JRE6) return; // JUR6 doesn't support named groups.
-
-        RegExTest.checkReplaceAll("(?<dog>Dog)AndCat", "zzzDogAndCatzzzDogAndCatzzz", "${dog}", "zzzDogzzzDogzzz");
-    }
-
-    @Test public void
-    namedGroupCaptureTest24() throws Exception {
-
-        if (RegExTest.JUR && RegExTest.JRE6) return; // JUR6 doesn't support named groups.
-
-        // backref in Matcher & String
-        Assert.assertEquals("abefij", "abcdefghij".replaceFirst("cd(?<gn>ef)gh", "${gn}"));
-    }
-
-    @Test public void
-    namedGroupCaptureTest25() throws Exception {
-
-        if (RegExTest.JUR && RegExTest.JRE6) return; // JUR6 doesn't support named groups.
-
-        Assert.assertEquals("abcdefgh", "abbbcbdbefgh".replaceAll("(?<gn>[a-e])b", "${gn}"));
-    }
-
-    @Test public void
-    namedGroupCaptureTest26() throws Exception {
-
-        if (RegExTest.JUR && RegExTest.JRE6) return; // JUR6 doesn't support named groups.
-
-        // negative
-        RegExTest.expectPatternSyntaxException("(?<groupnamehasnoascii.in>abc)(def)");
-    }
-
-    @Test public void
-    namedGroupCaptureTest27() throws Exception {
-
-        if (RegExTest.JUR && RegExTest.JRE6) return; // JUR6 doesn't support named groups.
-
-        RegExTest.expectPatternSyntaxException("(?<groupnamehasnoascii_in>abc)(def)");
-    }
-
-    @Test public void
-    namedGroupCaptureTest28() throws Exception {
-
-        if (RegExTest.JUR && RegExTest.JRE6) return; // JUR6 doesn't support named groups.
-
-        RegExTest.expectPatternSyntaxException("(?<6groupnamestartswithdigit>abc)(def)");
-    }
-
-    @Test public void
-    namedGroupCaptureTest29() throws Exception {
-
-        if (RegExTest.JUR && RegExTest.JRE6) return; // JUR6 doesn't support named groups.
-
-        RegExTest.expectPatternSyntaxException("(?<gname>abc)(def)\\k<gnameX>");
-    }
-
-    @Test public void
-    namedGroupCaptureTest30() throws Exception {
-
-        if (RegExTest.JUR && RegExTest.JRE6) return; // JUR6 doesn't support named groups.
-
-        RegExTest.expectPatternSyntaxException("(?<gname>abc)(?<gname>def)\\k<gnameX>");
-    }
-
-    @Test public void
-    namedGroupCaptureTest31() throws Exception {
-
-        if (RegExTest.JUR && RegExTest.JRE6) return; // JUR6 doesn't support named groups.
-
-        RegExTest.checkExpectedIAE(RegExTest.PF.compile("(?<gname>abc)(def)").matcher("abcdef"), "gnameX");
-    }
-
-    @Test public void
-    namedGroupCaptureTest32() throws Exception {
-
-        if (RegExTest.JUR && RegExTest.JRE6) return; // JUR6 doesn't support named groups.
-
-        RegExTest.checkExpectedNPE(RegExTest.PF.compile("(?<gname>abc)(def)").matcher("abcdef"));
-    }
+    @Test public void namedGroupCaptureTest1() throws Exception { RegExTest.check(RegExTest.PF.compile("x+(?<gname>y+)z+"),  "xxxyyyzzz", "gname",  "yyy"); }
+    @Test public void namedGroupCaptureTest2() throws Exception { RegExTest.check(RegExTest.PF.compile("x+(?<gname8>y+)z+"), "xxxyyyzzz", "gname8", "yyy"); }
+    //backref
+    @Test public void namedGroupCaptureTest3() throws Exception { RegExTest.checkFind(RegExTest.PF.compile("(a*)bc\\1"),                                           "zzzaabcazzz",  true); }
+    @Test public void namedGroupCaptureTest4() throws Exception { RegExTest.checkFind(RegExTest.PF.compile("(?<gname>a*)bc\\k<gname>"),                            "zzzaabcaazzz", true); }
+    @Test public void namedGroupCaptureTest5() throws Exception { RegExTest.checkFind(RegExTest.PF.compile("(?<gname>abc)(def)\\k<gname>"),                        "abcdefabc",    true); }
+    @Test public void namedGroupCaptureTest6() throws Exception { RegExTest.checkFind(RegExTest.PF.compile("(a)(b)(c)(d)(e)(f)(g)(h)(i)(j)(?<gname>k)\\k<gname>"), "abcdefghijkk", true); }
+
+    // Supplementary character tests
+    @Test public void namedGroupCaptureTest7()  throws Exception { RegExTest.checkFind(RegExTest.PF.compile("(?<gname>" + RegExTest.toSupplementaries("a*)bc") + "\\k<gname>"),                                                              RegExTest.toSupplementaries("zzzaabcazzz"),  true); }
+    @Test public void namedGroupCaptureTest8()  throws Exception { RegExTest.checkFind(RegExTest.PF.compile("(?<gname>" + RegExTest.toSupplementaries("a*)bc") + "\\k<gname>"),                                                              RegExTest.toSupplementaries("zzzaabcaazzz"), true); }
+    @Test public void namedGroupCaptureTest9()  throws Exception { RegExTest.checkFind(RegExTest.PF.compile("(?<gname>" + RegExTest.toSupplementaries("abc)(def)") + "\\k<gname>"),                                                          RegExTest.toSupplementaries("abcdefabc"),    true); }
+    @Test public void namedGroupCaptureTest10() throws Exception { RegExTest.checkFind(RegExTest.PF.compile(RegExTest.toSupplementaries("(a)(b)(c)(d)(e)(f)(g)(h)(i)(j)") + "(?<gname>" + RegExTest.toSupplementaries("k)") + "\\k<gname>"), RegExTest.toSupplementaries("abcdefghijkk"), true); }
+    @Test public void namedGroupCaptureTest11() throws Exception { RegExTest.check    (RegExTest.PF.compile("x+(?<gname>y+)z+\\k<gname>"),                                                                                                   "xxxyyyzzzyyy", "gname", "yyy"); }
+
+    //replaceFirst/All
+    @Test public void namedGroupCaptureTest12() throws Exception { RegExTest.checkReplaceFirst("(?<gn>ab)(c*)",                                                                                      "abccczzzabcczzzabccc",                              "${gn}",  "abzzzabcczzzabccc");                               }
+    @Test public void namedGroupCaptureTest13() throws Exception { RegExTest.checkReplaceAll  ("(?<gn>ab)(c*)",                                                                                      "abccczzzabcczzzabccc",                              "${gn}",  "abzzzabzzzab");                                    }
+    @Test public void namedGroupCaptureTest14() throws Exception { RegExTest.checkReplaceFirst("(?<gn>ab)(c*)",                                                                                      "zzzabccczzzabcczzzabccczzz",                        "${gn}",  "zzzabzzzabcczzzabccczzz");                         }
+    @Test public void namedGroupCaptureTest15() throws Exception { RegExTest.checkReplaceAll  ("(?<gn>ab)(c*)",                                                                                      "zzzabccczzzabcczzzabccczzz",                        "${gn}",  "zzzabzzzabzzzabzzz");                              }
+    @Test public void namedGroupCaptureTest16() throws Exception { RegExTest.checkReplaceFirst("(?<gn1>ab)(?<gn2>c*)",                                                                               "zzzabccczzzabcczzzabccczzz",                        "${gn2}", "zzzccczzzabcczzzabccczzz");                        }
+    @Test public void namedGroupCaptureTest17() throws Exception { RegExTest.checkReplaceAll  ("(?<gn1>ab)(?<gn2>c*)",                                                                               "zzzabccczzzabcczzzabccczzz",                        "${gn2}", "zzzccczzzcczzzccczzz");                            }
+    @Test public void namedGroupCaptureTest18() throws Exception { RegExTest.checkReplaceFirst("(?<gn1>" + RegExTest.toSupplementaries("ab") + ")(?<gn2>" + RegExTest.toSupplementaries("c") + "*)", RegExTest.toSupplementaries("abccczzzabcczzzabccc"), "${gn1}", RegExTest.toSupplementaries("abzzzabcczzzabccc"));  }
+    @Test public void namedGroupCaptureTest19() throws Exception { RegExTest.checkReplaceAll  ("(?<gn1>" + RegExTest.toSupplementaries("ab") + ")(?<gn2>" + RegExTest.toSupplementaries("c") + "*)", RegExTest.toSupplementaries("abccczzzabcczzzabccc"), "${gn1}", RegExTest.toSupplementaries("abzzzabzzzab"));       }
+    @Test public void namedGroupCaptureTest20() throws Exception { RegExTest.checkReplaceFirst("(?<gn1>" + RegExTest.toSupplementaries("ab") + ")(?<gn2>" + RegExTest.toSupplementaries("c") + "*)", RegExTest.toSupplementaries("abccczzzabcczzzabccc"), "${gn2}", RegExTest.toSupplementaries("ccczzzabcczzzabccc")); }
+    @Test public void namedGroupCaptureTest21() throws Exception { RegExTest.checkReplaceAll  ("(?<gn1>" + RegExTest.toSupplementaries("ab") + ")(?<gn2>" + RegExTest.toSupplementaries("c") + "*)", RegExTest.toSupplementaries("abccczzzabcczzzabccc"), "${gn2}", RegExTest.toSupplementaries("ccczzzcczzzccc"));     }
+    @Test public void namedGroupCaptureTest22() throws Exception { RegExTest.checkReplaceFirst("(?<dog>Dog)AndCat",                                                                                  "zzzDogAndCatzzzDogAndCatzzz",                       "${dog}", "zzzDogzzzDogAndCatzzz");                           }
+    @Test public void namedGroupCaptureTest23() throws Exception { RegExTest.checkReplaceAll  ("(?<dog>Dog)AndCat",                                                                                  "zzzDogAndCatzzzDogAndCatzzz",                       "${dog}", "zzzDogzzzDogzzz");                                 }
+
+    // backref in Matcher & String
+    @Test public void namedGroupCaptureTest24() throws Exception { Assert.assertEquals("abefij",   "abcdefghij".replaceFirst("cd(?<gn>ef)gh", "${gn}")); }
+    @Test public void namedGroupCaptureTest25() throws Exception { Assert.assertEquals("abcdefgh", "abbbcbdbefgh".replaceAll("(?<gn>[a-e])b", "${gn}")); }
+
+    // negative
+    @Test public void namedGroupCaptureTest26() throws Exception { RegExTest.expectPatternSyntaxException("(?<groupnamehasnoascii.in>abc)(def)");    }
+    @Test public void namedGroupCaptureTest27() throws Exception { RegExTest.expectPatternSyntaxException("(?<groupnamehasnoascii_in>abc)(def)");    }
+    @Test public void namedGroupCaptureTest28() throws Exception { RegExTest.expectPatternSyntaxException("(?<6groupnamestartswithdigit>abc)(def)"); }
+    @Test public void namedGroupCaptureTest29() throws Exception { RegExTest.expectPatternSyntaxException("(?<gname>abc)(def)\\k<gnameX>");          }
+    @Test public void namedGroupCaptureTest30() throws Exception { RegExTest.expectPatternSyntaxException("(?<gname>abc)(?<gname>def)\\k<gnameX>");  }
+    @Test public void namedGroupCaptureTest31() throws Exception { RegExTest.checkExpectedIAE(RegExTest.PF.compile("(?<gname>abc)(def)").matcher("abcdef"), "gnameX"); }
+    @Test public void namedGroupCaptureTest32() throws Exception { RegExTest.checkExpectedNPE(RegExTest.PF.compile("(?<gname>abc)(def)").matcher("abcdef"));           }
 
     // This is for bug 6969132
     @Test public void
@@ -4073,23 +3769,19 @@ public class RegExTest {
         Assert.assertFalse(m.find() && m.start() == 1);
     }
 
-    @Test public void
-    unicodePropertiesTest1() throws Exception {
-        // different forms
-        Assert.assertTrue(RegExTest.PF.compile("\\p{IsLu}").matcher("A").matches());
-        Assert.assertTrue(RegExTest.PF.compile("\\p{Lu}").matcher("A").matches());
-        Assert.assertTrue(RegExTest.PF.compile("\\p{gc=Lu}").matcher("A").matches());
-        Assert.assertTrue(RegExTest.PF.compile("\\p{general_category=Lu}").matcher("A").matches());
-        Assert.assertTrue(RegExTest.PF.compile("\\p{IsLatin}").matcher("B").matches());
-        Assert.assertTrue(RegExTest.PF.compile("\\p{sc=Latin}").matcher("B").matches());
-        Assert.assertTrue(RegExTest.PF.compile("\\p{script=Latin}").matcher("B").matches());
-        Assert.assertTrue(RegExTest.PF.compile("\\p{InBasicLatin}").matcher("c").matches());
-        Assert.assertTrue(RegExTest.PF.compile("\\p{blk=BasicLatin}").matcher("c").matches());
-        Assert.assertTrue(RegExTest.PF.compile("\\p{block=BasicLatin}").matcher("c").matches());
-    }
+    @Test public void unicodePropertiesTest1()  throws Exception { Assert.assertTrue(RegExTest.PF.compile("\\p{IsLu}"               ).matcher("A").matches()); }
+    @Test public void unicodePropertiesTest2()  throws Exception { Assert.assertTrue(RegExTest.PF.compile("\\p{Lu}"                 ).matcher("A").matches()); }
+    @Test public void unicodePropertiesTest3()  throws Exception { Assert.assertTrue(RegExTest.PF.compile("\\p{gc=Lu}"              ).matcher("A").matches()); }
+    @Test public void unicodePropertiesTest4()  throws Exception { Assert.assertTrue(RegExTest.PF.compile("\\p{general_category=Lu}").matcher("A").matches()); }
+    @Test public void unicodePropertiesTest5()  throws Exception { Assert.assertTrue(RegExTest.PF.compile("\\p{IsLatin}"            ).matcher("B").matches()); }
+    @Test public void unicodePropertiesTest6()  throws Exception { Assert.assertTrue(RegExTest.PF.compile("\\p{sc=Latin}"           ).matcher("B").matches()); }
+    @Test public void unicodePropertiesTest7()  throws Exception { Assert.assertTrue(RegExTest.PF.compile("\\p{script=Latin}"       ).matcher("B").matches()); }
+    @Test public void unicodePropertiesTest8()  throws Exception { Assert.assertTrue(RegExTest.PF.compile("\\p{InBasicLatin}"       ).matcher("c").matches()); }
+    @Test public void unicodePropertiesTest9()  throws Exception { Assert.assertTrue(RegExTest.PF.compile("\\p{blk=BasicLatin}"     ).matcher("c").matches()); }
+    @Test public void unicodePropertiesTest10() throws Exception { Assert.assertTrue(RegExTest.PF.compile("\\p{block=BasicLatin}"   ).matcher("c").matches()); }
 
     @Test public void
-    unicodePropertiesTest2() throws Exception {
+    unicodePropertiesTest11() throws Exception {
 
     	Matcher common  = RegExTest.PF.compile("\\p{script=Common}").matcher("");
         Matcher lastSM  = common;
@@ -4125,7 +3817,7 @@ public class RegExTest {
     }
 
     @Test public void
-    unicodePropertiesTest3() throws Exception {
+    unicodePropertiesTest12() throws Exception {
 
         final Matcher latin  = RegExTest.PF.compile("\\p{block=basic_latin}").matcher("");
         final Matcher greek  = RegExTest.PF.compile("\\p{InGreek}").matcher("");
@@ -4214,54 +3906,55 @@ public class RegExTest {
     @Test public void
     unicodeClassesTest1() throws Exception {
 
-        Matcher lower  = RegExTest.PF.compile("\\p{Lower}").matcher("");
-        Matcher upper  = RegExTest.PF.compile("\\p{Upper}").matcher("");
-        Matcher ASCII  = RegExTest.PF.compile("\\p{ASCII}").matcher("");
-        Matcher alpha  = RegExTest.PF.compile("\\p{Alpha}").matcher("");
-        Matcher digit  = RegExTest.PF.compile("\\p{Digit}").matcher("");
-        Matcher alnum  = RegExTest.PF.compile("\\p{Alnum}").matcher("");
-        Matcher punct  = RegExTest.PF.compile("\\p{Punct}").matcher("");
-        Matcher graph  = RegExTest.PF.compile("\\p{Graph}").matcher("");
-        Matcher print  = RegExTest.PF.compile("\\p{Print}").matcher("");
-        Matcher blank  = RegExTest.PF.compile("\\p{Blank}").matcher("");
-        Matcher cntrl  = RegExTest.PF.compile("\\p{Cntrl}").matcher("");
-        Matcher xdigit = RegExTest.PF.compile("\\p{XDigit}").matcher("");
-        Matcher space  = RegExTest.PF.compile("\\p{Space}").matcher("");
-        Matcher word   = RegExTest.PF.compile("\\w++").matcher("");
+        Matcher lower    = RegExTest.PF.compile("\\p{Lower}").matcher("");
+        Matcher upper    = RegExTest.PF.compile("\\p{Upper}").matcher("");
+        Matcher ASCII    = RegExTest.PF.compile("\\p{ASCII}").matcher("");
+        Matcher alpha    = RegExTest.PF.compile("\\p{Alpha}").matcher("");
+        Matcher digit    = RegExTest.PF.compile("\\p{Digit}").matcher("");
+        Matcher alnum    = RegExTest.PF.compile("\\p{Alnum}").matcher("");
+        Matcher punct    = RegExTest.PF.compile("\\p{Punct}").matcher("");
+        Matcher graph    = RegExTest.PF.compile("\\p{Graph}").matcher("");
+        Matcher print    = RegExTest.PF.compile("\\p{Print}").matcher("");
+        Matcher blank    = RegExTest.PF.compile("\\p{Blank}").matcher("");
+        Matcher cntrl    = RegExTest.PF.compile("\\p{Cntrl}").matcher("");
+        Matcher xdigit   = RegExTest.PF.compile("\\p{XDigit}").matcher("");
+        Matcher space    = RegExTest.PF.compile("\\p{Space}").matcher("");
+        Matcher word     = RegExTest.PF.compile("\\w++").matcher("");
         // UNICODE_CHARACTER_CLASS
-        Matcher lowerU  = RegExTest.PF.compile("\\p{Lower}", Pattern.UNICODE_CHARACTER_CLASS).matcher("");
-        Matcher upperU  = RegExTest.PF.compile("\\p{Upper}", Pattern.UNICODE_CHARACTER_CLASS).matcher("");
-        Matcher ASCIIU  = RegExTest.PF.compile("\\p{ASCII}", Pattern.UNICODE_CHARACTER_CLASS).matcher("");
-        Matcher alphaU  = RegExTest.PF.compile("\\p{Alpha}", Pattern.UNICODE_CHARACTER_CLASS).matcher("");
-        Matcher digitU  = RegExTest.PF.compile("\\p{Digit}", Pattern.UNICODE_CHARACTER_CLASS).matcher("");
-        Matcher alnumU  = RegExTest.PF.compile("\\p{Alnum}", Pattern.UNICODE_CHARACTER_CLASS).matcher("");
-        Matcher punctU  = RegExTest.PF.compile("\\p{Punct}", Pattern.UNICODE_CHARACTER_CLASS).matcher("");
-        Matcher graphU  = RegExTest.PF.compile("\\p{Graph}", Pattern.UNICODE_CHARACTER_CLASS).matcher("");
-        Matcher printU  = RegExTest.PF.compile("\\p{Print}", Pattern.UNICODE_CHARACTER_CLASS).matcher("");
-        Matcher blankU  = RegExTest.PF.compile("\\p{Blank}", Pattern.UNICODE_CHARACTER_CLASS).matcher("");
-        Matcher cntrlU  = RegExTest.PF.compile("\\p{Cntrl}", Pattern.UNICODE_CHARACTER_CLASS).matcher("");
-        Matcher xdigitU = RegExTest.PF.compile("\\p{XDigit}", Pattern.UNICODE_CHARACTER_CLASS).matcher("");
-        Matcher spaceU  = RegExTest.PF.compile("\\p{Space}", Pattern.UNICODE_CHARACTER_CLASS).matcher("");
-        Matcher boundU  = RegExTest.PF.compile("\\b", Pattern.UNICODE_CHARACTER_CLASS).matcher("");
-        Matcher wordU   = RegExTest.PF.compile("\\w", Pattern.UNICODE_CHARACTER_CLASS).matcher("");
+        Matcher lowerU   = RegExTest.PF.compile("\\p{Lower}",  Pattern.UNICODE_CHARACTER_CLASS).matcher("");
+        Matcher upperU   = RegExTest.PF.compile("\\p{Upper}",  Pattern.UNICODE_CHARACTER_CLASS).matcher("");
+        Matcher ASCIIU   = RegExTest.PF.compile("\\p{ASCII}",  Pattern.UNICODE_CHARACTER_CLASS).matcher("");
+        Matcher alphaU   = RegExTest.PF.compile("\\p{Alpha}",  Pattern.UNICODE_CHARACTER_CLASS).matcher("");
+        Matcher digitU   = RegExTest.PF.compile("\\p{Digit}",  Pattern.UNICODE_CHARACTER_CLASS).matcher("");
+        Matcher alnumU   = RegExTest.PF.compile("\\p{Alnum}",  Pattern.UNICODE_CHARACTER_CLASS).matcher("");
+        Matcher punctU   = RegExTest.PF.compile("\\p{Punct}",  Pattern.UNICODE_CHARACTER_CLASS).matcher("");
+        Matcher graphU   = RegExTest.PF.compile("\\p{Graph}",  Pattern.UNICODE_CHARACTER_CLASS).matcher("");
+        Matcher printU   = RegExTest.PF.compile("\\p{Print}",  Pattern.UNICODE_CHARACTER_CLASS).matcher("");
+        Matcher blankU   = RegExTest.PF.compile("\\p{Blank}",  Pattern.UNICODE_CHARACTER_CLASS).matcher("");
+        Matcher cntrlU   = RegExTest.PF.compile("\\p{Cntrl}",  Pattern.UNICODE_CHARACTER_CLASS).matcher("");
+        Matcher xdigitU  = RegExTest.PF.compile("\\p{XDigit}", Pattern.UNICODE_CHARACTER_CLASS).matcher("");
+        Matcher spaceU   = RegExTest.PF.compile("\\p{Space}",  Pattern.UNICODE_CHARACTER_CLASS).matcher("");
+        Matcher boundU   = RegExTest.PF.compile("\\b",         Pattern.UNICODE_CHARACTER_CLASS).matcher("");
+        Matcher wordU    = RegExTest.PF.compile("\\w",         Pattern.UNICODE_CHARACTER_CLASS).matcher("");
         // embedded flag (?U)
         Matcher lowerEU  = RegExTest.PF.compile("(?U)\\p{Lower}", Pattern.UNICODE_CHARACTER_CLASS).matcher("");
         Matcher graphEU  = RegExTest.PF.compile("(?U)\\p{Graph}", Pattern.UNICODE_CHARACTER_CLASS).matcher("");
-        Matcher wordEU   = RegExTest.PF.compile("(?U)\\w", Pattern.UNICODE_CHARACTER_CLASS).matcher("");
+        Matcher wordEU   = RegExTest.PF.compile("(?U)\\w",        Pattern.UNICODE_CHARACTER_CLASS).matcher("");
 
-        Matcher bwb    = RegExTest.PF.compile("\\b\\w\\b"                                       ).matcher("");
-        Matcher bwbU   = RegExTest.PF.compile("\\b\\w++\\b",     Pattern.UNICODE_CHARACTER_CLASS).matcher("");
+        Matcher bwb      = RegExTest.PF.compile("\\b\\w\\b").matcher("");
+        Matcher bwbU     = RegExTest.PF.compile("\\b\\w++\\b",     Pattern.UNICODE_CHARACTER_CLASS).matcher("");
+        Matcher bwbEU    = RegExTest.PF.compile("(?U)\\b\\w++\\b", Pattern.UNICODE_CHARACTER_CLASS).matcher("");
         // properties
-        Matcher lowerP  = RegExTest.PF.compile("\\p{IsLowerCase}").matcher("");
-        Matcher upperP  = RegExTest.PF.compile("\\p{IsUpperCase}").matcher("");
-        Matcher titleP  = RegExTest.PF.compile("\\p{IsTitleCase}").matcher("");
-        Matcher letterP = RegExTest.PF.compile("\\p{IsLetter}").matcher("");
-        Matcher alphaP  = RegExTest.PF.compile("\\p{IsAlphabetic}").matcher("");
-        Matcher ideogP  = RegExTest.PF.compile("\\p{IsIdeographic}").matcher("");
-        Matcher cntrlP  = RegExTest.PF.compile("\\p{IsControl}").matcher("");
-        Matcher spaceP  = RegExTest.PF.compile("\\p{IsWhiteSpace}").matcher("");
+        Matcher lowerP   = RegExTest.PF.compile("\\p{IsLowerCase}").matcher("");
+        Matcher upperP   = RegExTest.PF.compile("\\p{IsUpperCase}").matcher("");
+        Matcher titleP   = RegExTest.PF.compile("\\p{IsTitleCase}").matcher("");
+        Matcher letterP  = RegExTest.PF.compile("\\p{IsLetter}").matcher("");
+        Matcher alphaP   = RegExTest.PF.compile("\\p{IsAlphabetic}").matcher("");
+        Matcher ideogP   = RegExTest.PF.compile("\\p{IsIdeographic}").matcher("");
+        Matcher cntrlP   = RegExTest.PF.compile("\\p{IsControl}").matcher("");
+        Matcher spaceP   = RegExTest.PF.compile("\\p{IsWhiteSpace}").matcher("");
         Matcher definedP = RegExTest.PF.compile("\\p{IsAssigned}").matcher("");
-        Matcher nonCCPP = RegExTest.PF.compile("\\p{IsNoncharacterCodePoint}").matcher("");
+        Matcher nonCCPP  = RegExTest.PF.compile("\\p{IsNoncharacterCodePoint}").matcher("");
         Matcher joinCrtl = RegExTest.PF.compile("\\p{IsJoinControl}").matcher("");
 
         // javaMethod
@@ -4272,71 +3965,79 @@ public class RegExTest {
 
         for (int cp = 1; cp < 0x30000; cp += cp <= 1000 ? 1 : 100) {
 
-            String str  = new String(Character.toChars(cp));
-            int    type = Character.getType(cp);
+            String subject = new String(Character.toChars(cp));
+            int    type    = Character.getType(cp);
+            String message = PrettyPrinter.codePointToJavaLiteral(cp);
 
             // lower
-            Assert.assertEquals(PrettyPrinter.codePointToJavaLiteral(cp), POSIX_ASCII.isLower(cp),   lower.reset(str).matches());
-            Assert.assertEquals(PrettyPrinter.codePointToJavaLiteral(cp), Character.isLowerCase(cp), lowerU.reset(str).matches());
-            Assert.assertEquals(PrettyPrinter.codePointToJavaLiteral(cp), Character.isLowerCase(cp), lowerP.reset(str).matches());
-            Assert.assertEquals(PrettyPrinter.codePointToJavaLiteral(cp), Character.isLowerCase(cp), lowerEU.reset(str).matches());
-            Assert.assertEquals(PrettyPrinter.codePointToJavaLiteral(cp), Character.isLowerCase(cp), lowerJ.reset(str).matches());
+            this.assertMatches(message, POSIX_ASCII.isLower(cp),                   lower,   subject);
+            this.assertMatches(message, Character.isLowerCase(cp),                 lowerU,  subject);
+            this.assertMatches(message, Character.isLowerCase(cp),                 lowerP,  subject);
+            this.assertMatches(message, Character.isLowerCase(cp),                 lowerEU, subject);
+            this.assertMatches(message, Character.isLowerCase(cp),                 lowerJ,  subject);
             // upper
-            Assert.assertEquals(PrettyPrinter.codePointToJavaLiteral(cp), POSIX_ASCII.isUpper(cp),   upper.reset(str).matches());
-            Assert.assertEquals(PrettyPrinter.codePointToJavaLiteral(cp), POSIX_Unicode.isUpper(cp), upperU.reset(str).matches());
-            Assert.assertEquals(PrettyPrinter.codePointToJavaLiteral(cp), Character.isUpperCase(cp), upperP.reset(str).matches());
-            Assert.assertEquals(PrettyPrinter.codePointToJavaLiteral(cp), Character.isUpperCase(cp), upperJ.reset(str).matches());
+            this.assertMatches(message, POSIX_ASCII.isUpper(cp),                   upper,   subject);
+            this.assertMatches(message, POSIX_Unicode.isUpper(cp),                 upperU,  subject);
+            this.assertMatches(message, Character.isUpperCase(cp),                 upperP,  subject);
+            this.assertMatches(message, Character.isUpperCase(cp),                 upperJ,  subject);
             // alpha
-            Assert.assertEquals(PrettyPrinter.codePointToJavaLiteral(cp), POSIX_ASCII.isAlpha(cp),   alpha.reset(str).matches());
-            Assert.assertEquals(Character.getType(cp)+PrettyPrinter.codePointToJavaLiteral(cp), POSIX_Unicode.isAlpha(cp), alphaU.reset(str).matches());
-            Assert.assertEquals(PrettyPrinter.codePointToJavaLiteral(cp), Character.isAlphabetic(cp),alphaP.reset(str).matches());
-            Assert.assertEquals(PrettyPrinter.codePointToJavaLiteral(cp), Character.isAlphabetic(cp),alphaJ.reset(str).matches());
+            this.assertMatches(message, POSIX_ASCII.isAlpha(cp),                   alpha,   subject);
+            this.assertMatches(message, POSIX_Unicode.isAlpha(cp),                 alphaU,  subject);
+            this.assertMatches(message, Character.isAlphabetic(cp),                alphaP,  subject);
+            this.assertMatches(message, Character.isAlphabetic(cp),                alphaJ,  subject);
             // digit
-            Assert.assertEquals(PrettyPrinter.codePointToJavaLiteral(cp), POSIX_ASCII.isDigit(cp),   digit.reset(str).matches());
-            Assert.assertEquals(PrettyPrinter.codePointToJavaLiteral(cp), Character.isDigit(cp),     digitU.reset(str).matches());
+            this.assertMatches(message, POSIX_ASCII.isDigit(cp),                   digit,   subject);
+            this.assertMatches(message, Character.isDigit(cp),                     digitU,  subject);
             // alnum
-            Assert.assertEquals(PrettyPrinter.codePointToJavaLiteral(cp), POSIX_ASCII.isAlnum(cp),   alnum.reset(str).matches());
-            Assert.assertEquals(PrettyPrinter.codePointToJavaLiteral(cp), POSIX_Unicode.isAlnum(cp), alnumU.reset(str).matches());
+            this.assertMatches(message, POSIX_ASCII.isAlnum(cp),                   alnum,   subject);
+            this.assertMatches(message, POSIX_Unicode.isAlnum(cp),                 alnumU,  subject);
             // punct
-            Assert.assertEquals(PrettyPrinter.codePointToJavaLiteral(cp), POSIX_ASCII.isPunct(cp),   punct.reset(str).matches());
-            Assert.assertEquals(PrettyPrinter.codePointToJavaLiteral(cp), POSIX_Unicode.isPunct(cp), punctU.reset(str).matches());
+            this.assertMatches(message, POSIX_ASCII.isPunct(cp),                   punct,   subject);
+            this.assertMatches(message, POSIX_Unicode.isPunct(cp),                 punctU,  subject);
             // graph
-            Assert.assertEquals(PrettyPrinter.codePointToJavaLiteral(cp), POSIX_ASCII.isGraph(cp),   graph.reset(str).matches());
-            Assert.assertEquals(PrettyPrinter.codePointToJavaLiteral(cp), POSIX_Unicode.isGraph(cp), graphU.reset(str).matches());
-            Assert.assertEquals(PrettyPrinter.codePointToJavaLiteral(cp), POSIX_Unicode.isGraph(cp), graphEU.reset(str).matches());
+            this.assertMatches(message, POSIX_ASCII.isGraph(cp),                   graph,   subject);
+            this.assertMatches(message, POSIX_Unicode.isGraph(cp),                 graphU,  subject);
+            this.assertMatches(message, POSIX_Unicode.isGraph(cp),                 graphEU, subject);
             // blank
-            Assert.assertEquals(PrettyPrinter.codePointToJavaLiteral(cp), POSIX_ASCII.isType(cp, POSIX_ASCII.BLANK), blank.reset(str).matches());
-            Assert.assertEquals(PrettyPrinter.codePointToJavaLiteral(cp), POSIX_Unicode.isBlank(cp), blankU.reset(str).matches());
+            this.assertMatches(message, POSIX_ASCII.isType(cp, POSIX_ASCII.BLANK), blank,   subject);
+            this.assertMatches(message, POSIX_Unicode.isBlank(cp),                 blankU,  subject);
             // print
-            Assert.assertEquals(PrettyPrinter.codePointToJavaLiteral(cp), POSIX_ASCII.isPrint(cp),   print.reset(str).matches());
-            Assert.assertEquals(PrettyPrinter.codePointToJavaLiteral(cp), POSIX_Unicode.isPrint(cp), printU.reset(str).matches());
+            this.assertMatches(message, POSIX_ASCII.isPrint(cp),                   print,   subject);
+            this.assertMatches(message, POSIX_Unicode.isPrint(cp),                 printU,  subject);
             // cntrl
-            Assert.assertEquals(PrettyPrinter.codePointToJavaLiteral(cp), POSIX_ASCII.isCntrl(cp),   cntrl.reset(str).matches());
-            Assert.assertEquals(PrettyPrinter.codePointToJavaLiteral(cp), POSIX_Unicode.isCntrl(cp), cntrlU.reset(str).matches());
-            Assert.assertEquals(PrettyPrinter.codePointToJavaLiteral(cp), Character.CONTROL == type, cntrlP.reset(str).matches());
+            this.assertMatches(message, POSIX_ASCII.isCntrl(cp),                   cntrl,    subject);
+            this.assertMatches(message, POSIX_Unicode.isCntrl(cp),                 cntrlU,   subject);
+            this.assertMatches(message, Character.CONTROL == type,                 cntrlP,   subject);
             // hexdigit
-            Assert.assertEquals(PrettyPrinter.codePointToJavaLiteral(cp), POSIX_ASCII.isHexDigit(cp),   xdigit.reset(str).matches());
-            Assert.assertEquals(PrettyPrinter.codePointToJavaLiteral(cp), POSIX_Unicode.isHexDigit(cp), xdigitU.reset(str).matches());
+            this.assertMatches(message, POSIX_ASCII.isHexDigit(cp),                xdigit,   subject);
+            this.assertMatches(message, POSIX_Unicode.isHexDigit(cp),              xdigitU,  subject);
             // space
-            Assert.assertEquals(PrettyPrinter.codePointToJavaLiteral(cp), POSIX_ASCII.isSpace(cp),   space.reset(str).matches());
-            Assert.assertEquals(PrettyPrinter.codePointToJavaLiteral(cp), POSIX_Unicode.isSpace(cp), spaceU.reset(str).matches());
-            Assert.assertEquals(PrettyPrinter.codePointToJavaLiteral(cp), POSIX_Unicode.isSpace(cp), spaceP.reset(str).matches());
+            this.assertMatches(message, POSIX_ASCII.isSpace(cp),                   space,    subject);
+            this.assertMatches(message, POSIX_Unicode.isSpace(cp),                 spaceU,   subject);
+            this.assertMatches(message, POSIX_Unicode.isSpace(cp),                 spaceP,   subject);
             // word
-            Assert.assertEquals(PrettyPrinter.codePointToJavaLiteral(cp), POSIX_ASCII.isWord(cp),   word.reset(str).matches());
-            Assert.assertEquals(PrettyPrinter.codePointToJavaLiteral(cp), POSIX_Unicode.isWord(cp), wordU.reset(str).matches());
-            Assert.assertEquals(PrettyPrinter.codePointToJavaLiteral(cp), POSIX_Unicode.isWord(cp), wordEU.reset(str).matches());
+            this.assertMatches(message, POSIX_ASCII.isWord(cp),                    word,     subject);
+            this.assertMatches(message, POSIX_Unicode.isWord(cp),                  wordU,    subject);
+            this.assertMatches(message, POSIX_Unicode.isWord(cp),                  wordEU,   subject);
             // bwordb
-            Assert.assertEquals(PrettyPrinter.codePointToJavaLiteral(cp), POSIX_ASCII.isWord(cp),   bwb.reset(str).matches());
-            Assert.assertEquals(PrettyPrinter.codePointToJavaLiteral(cp), POSIX_Unicode.isWord(cp), bwbU.reset(str).matches());
+            this.assertMatches(message, POSIX_ASCII.isWord(cp),                    bwb,      subject);
+            this.assertMatches(message, POSIX_Unicode.isWord(cp),                  bwbU,     subject);
             // properties
-            Assert.assertEquals(PrettyPrinter.codePointToJavaLiteral(cp),    Character.isTitleCase(cp),                 titleP.reset(str).matches());
-            Assert.assertEquals(PrettyPrinter.codePointToJavaLiteral(cp),    Character.isLetter(cp),                    letterP.reset(str).matches());
-            Assert.assertEquals(PrettyPrinter.codePointToJavaLiteral(cp),    Character.isIdeographic(cp),               ideogP.reset(str).matches());
-            Assert.assertEquals(PrettyPrinter.codePointToJavaLiteral(cp),    Character.isIdeographic(cp),               ideogJ.reset(str).matches());
-            Assert.assertNotEquals(PrettyPrinter.codePointToJavaLiteral(cp), Character.UNASSIGNED == type,              definedP.reset(str).matches());
-            Assert.assertEquals(PrettyPrinter.codePointToJavaLiteral(cp),    POSIX_Unicode.isNoncharacterCodePoint(cp), nonCCPP.reset(str).matches());
-            Assert.assertEquals(PrettyPrinter.codePointToJavaLiteral(cp),    POSIX_Unicode.isJoinControl(cp),           joinCrtl.reset(str).matches());
+            this.assertMatches(message, Character.isTitleCase(cp),                 titleP,   subject);
+            this.assertMatches(message, Character.isLetter(cp),                    letterP,  subject);
+            this.assertMatches(message, Character.isIdeographic(cp),               ideogP,   subject);
+            this.assertMatches(message, Character.isIdeographic(cp),               ideogJ,   subject);
+            this.assertMatches(message, type != Character.UNASSIGNED,              definedP, subject);
+            this.assertMatches(message, POSIX_Unicode.isNoncharacterCodePoint(cp), nonCCPP,  subject);
+            this.assertMatches(message, POSIX_Unicode.isJoinControl(cp),           joinCrtl, subject);
         }
+    }
+
+    public void assertMatches(String message, boolean expected, @Nullable Matcher matcher, String subject) {
+
+        if (matcher == null) return;
+
+        Assert.assertEquals(message, expected, matcher.reset(subject).matches());
     }
 
     // bounds/word align
@@ -4399,55 +4100,72 @@ public class RegExTest {
         });
         String vws = new String(new char[] { 0x0a, 0x0b, 0x0c, 0x0d, 0x85, 0x2028, 0x2029 });
 
-        Assert.assertTrue(RegExTest.PF.compile("\\h+").matcher(hws).matches());
-        Assert.assertTrue(RegExTest.PF.compile("[\\h]+").matcher(hws).matches());
-        Assert.assertFalse(RegExTest.PF.compile("\\H").matcher(hws).find());
-        Assert.assertFalse(RegExTest.PF.compile("[\\H]").matcher(hws).find());
-        Assert.assertTrue(RegExTest.PF.compile("\\v+").matcher(vws).matches());
-        Assert.assertTrue(RegExTest.PF.compile("[\\v]+").matcher(vws).matches());
-        Assert.assertFalse(RegExTest.PF.compile("\\V").matcher(vws).find());
-        Assert.assertFalse(RegExTest.PF.compile("[\\V]").matcher(vws).find());
+        Assert.assertTrue (RegExTest.PF.compile("\\h+"  ).matcher(hws).matches());
+        Assert.assertTrue (RegExTest.PF.compile("[\\h]+").matcher(hws).matches());
+        Assert.assertFalse(RegExTest.PF.compile("\\H"   ).matcher(hws).find());
+        Assert.assertFalse(RegExTest.PF.compile("[\\H]" ).matcher(hws).find());
+        Assert.assertTrue (RegExTest.PF.compile("\\v+"  ).matcher(vws).matches());
+        Assert.assertTrue (RegExTest.PF.compile("[\\v]+").matcher(vws).matches());
+        Assert.assertFalse(RegExTest.PF.compile("\\V"   ).matcher(vws).find());
+        Assert.assertFalse(RegExTest.PF.compile("[\\V]" ).matcher(vws).find());
 
         String prefix = "abcd";
         String suffix = "efgh";
         String ng     = "A";
         for (int i = 0; i < hws.length(); i++) {
 
-            String c = String.valueOf(hws.charAt(i));
-            Matcher m = RegExTest.PF.compile("\\h").matcher(prefix + c + suffix);
-            Assert.assertTrue(m.find());
-            Assert.assertTrue(c.equals(m.group()));
+            String infix = String.valueOf(hws.charAt(i));
 
-            m = RegExTest.PF.compile("[\\h]").matcher(prefix + c + suffix);
-            Assert.assertTrue(m.find());
-            Assert.assertTrue(c.equals(m.group()));
+            {
+                Matcher m = RegExTest.PF.compile("\\h").matcher(prefix + infix + suffix);
+                Assert.assertTrue(m.find());
+                Assert.assertTrue(infix.equals(m.group()));
+            }
 
-            m = RegExTest.PF.compile("\\H").matcher(hws.substring(0, i) + ng + hws.substring(i));
-            Assert.assertTrue(m.find());
-            Assert.assertTrue(ng.equals(m.group()));
+            {
+                Matcher m = RegExTest.PF.compile("[\\h]").matcher(prefix + infix + suffix);
+                Assert.assertTrue(m.find());
+                Assert.assertTrue(infix.equals(m.group()));
+            }
 
-            m = RegExTest.PF.compile("[\\H]").matcher(hws.substring(0, i) + ng + hws.substring(i));
-            Assert.assertTrue(m.find());
-            Assert.assertTrue(ng.equals(m.group()));
+            {
+                Matcher m = RegExTest.PF.compile("\\H").matcher(hws.substring(0, i) + ng + hws.substring(i));
+                Assert.assertTrue(m.find());
+                Assert.assertTrue(ng.equals(m.group()));
+            }
+
+            {
+                Matcher m = RegExTest.PF.compile("[\\H]").matcher(hws.substring(0, i) + ng + hws.substring(i));
+                Assert.assertTrue(m.find());
+                Assert.assertTrue(ng.equals(m.group()));
+            }
         }
         for (int i = 0; i < vws.length(); i++) {
 
             String c = String.valueOf(vws.charAt(i));
-            Matcher m = RegExTest.PF.compile("\\v").matcher(prefix + c + suffix);
-            Assert.assertTrue(m.find());
-            Assert.assertTrue(c.equals(m.group()));
+            {
+                Matcher m = RegExTest.PF.compile("\\v").matcher(prefix + c + suffix);
+                Assert.assertTrue(m.find());
+                Assert.assertTrue(c.equals(m.group()));
+            }
 
-            m = RegExTest.PF.compile("[\\v]").matcher(prefix + c + suffix);
-            Assert.assertTrue(m.find());
-            Assert.assertTrue(c.equals(m.group()));
+            {
+                Matcher m = RegExTest.PF.compile("[\\v]").matcher(prefix + c + suffix);
+                Assert.assertTrue(m.find());
+                Assert.assertTrue(c.equals(m.group()));
+            }
 
-            m = RegExTest.PF.compile("\\V").matcher(vws.substring(0, i) + ng + vws.substring(i));
-            Assert.assertTrue(m.find());
-            Assert.assertTrue(ng.equals(m.group()));
+            {
+                Matcher m = RegExTest.PF.compile("\\V").matcher(vws.substring(0, i) + ng + vws.substring(i));
+                Assert.assertTrue(m.find());
+                Assert.assertTrue(ng.equals(m.group()));
+            }
 
-            m = RegExTest.PF.compile("[\\V]").matcher(vws.substring(0, i) + ng + vws.substring(i));
-            Assert.assertTrue(m.find());
-            Assert.assertTrue(ng.equals(m.group()));
+            {
+                Matcher m = RegExTest.PF.compile("[\\V]").matcher(vws.substring(0, i) + ng + vws.substring(i));
+                Assert.assertTrue(m.find());
+                Assert.assertTrue(ng.equals(m.group()));
+            }
         }
 
         // \v in range is interpreted as 0x0B. This is the undocumented behavior
@@ -4472,47 +4190,49 @@ public class RegExTest {
     // #7189363
     @Test public void
     branchTest() throws Exception {
-        Assert.assertTrue(RegExTest.PF.compile("(a)?bc|d").matcher("d").find());     // greedy
-        Assert.assertTrue(RegExTest.PF.compile("(a)+bc|d").matcher("d").find());
-        Assert.assertTrue(RegExTest.PF.compile("(a)*bc|d").matcher("d").find());
-        Assert.assertTrue(RegExTest.PF.compile("(a)??bc|d").matcher("d").find());    // reluctant
-        Assert.assertTrue(RegExTest.PF.compile("(a)+?bc|d").matcher("d").find());
-        Assert.assertTrue(RegExTest.PF.compile("(a)*?bc|d").matcher("d").find());
-        Assert.assertTrue(RegExTest.PF.compile("(a)?+bc|d").matcher("d").find());    // possessive
-        Assert.assertTrue(RegExTest.PF.compile("(a)++bc|d").matcher("d").find());
-        Assert.assertTrue(RegExTest.PF.compile("(a)*+bc|d").matcher("d").find());
-        Assert.assertTrue(RegExTest.PF.compile("(a)?bc|d").matcher("d").matches());  // greedy
-        Assert.assertTrue(RegExTest.PF.compile("(a)+bc|d").matcher("d").matches());
-        Assert.assertTrue(RegExTest.PF.compile("(a)*bc|d").matcher("d").matches());
-        Assert.assertTrue(RegExTest.PF.compile("(a)??bc|d").matcher("d").matches()); // reluctant
-        Assert.assertTrue(RegExTest.PF.compile("(a)+?bc|d").matcher("d").matches());
-        Assert.assertTrue(RegExTest.PF.compile("(a)*?bc|d").matcher("d").matches());
-        Assert.assertTrue(RegExTest.PF.compile("(a)?+bc|d").matcher("d").matches()); // possessive
-        Assert.assertTrue(RegExTest.PF.compile("(a)++bc|d").matcher("d").matches());
-        Assert.assertTrue(RegExTest.PF.compile("(a)*+bc|d").matcher("d").matches());
-        Assert.assertTrue(RegExTest.PF.compile("(a)?bc|de").matcher("de").find());   // others
+        Assert.assertTrue(RegExTest.PF.compile("(a)?bc|d"  ).matcher("d" ).find());     // greedy
+        Assert.assertTrue(RegExTest.PF.compile("(a)+bc|d"  ).matcher("d" ).find());
+        Assert.assertTrue(RegExTest.PF.compile("(a)*bc|d"  ).matcher("d" ).find());
+        Assert.assertTrue(RegExTest.PF.compile("(a)??bc|d" ).matcher("d" ).find());    // reluctant
+        Assert.assertTrue(RegExTest.PF.compile("(a)+?bc|d" ).matcher("d" ).find());
+        Assert.assertTrue(RegExTest.PF.compile("(a)*?bc|d" ).matcher("d" ).find());
+        Assert.assertTrue(RegExTest.PF.compile("(a)?+bc|d" ).matcher("d" ).find());    // possessive
+        Assert.assertTrue(RegExTest.PF.compile("(a)++bc|d" ).matcher("d" ).find());
+        Assert.assertTrue(RegExTest.PF.compile("(a)*+bc|d" ).matcher("d" ).find());
+        Assert.assertTrue(RegExTest.PF.compile("(a)?bc|d"  ).matcher("d" ).matches());  // greedy
+        Assert.assertTrue(RegExTest.PF.compile("(a)+bc|d"  ).matcher("d" ).matches());
+        Assert.assertTrue(RegExTest.PF.compile("(a)*bc|d"  ).matcher("d" ).matches());
+        Assert.assertTrue(RegExTest.PF.compile("(a)??bc|d" ).matcher("d" ).matches()); // reluctant
+        Assert.assertTrue(RegExTest.PF.compile("(a)+?bc|d" ).matcher("d" ).matches());
+        Assert.assertTrue(RegExTest.PF.compile("(a)*?bc|d" ).matcher("d" ).matches());
+        Assert.assertTrue(RegExTest.PF.compile("(a)?+bc|d" ).matcher("d" ).matches()); // possessive
+        Assert.assertTrue(RegExTest.PF.compile("(a)++bc|d" ).matcher("d" ).matches());
+        Assert.assertTrue(RegExTest.PF.compile("(a)*+bc|d" ).matcher("d" ).matches());
+        Assert.assertTrue(RegExTest.PF.compile("(a)?bc|de" ).matcher("de").find());   // others
         Assert.assertTrue(RegExTest.PF.compile("(a)??bc|de").matcher("de").find());
-        Assert.assertTrue(RegExTest.PF.compile("(a)?bc|de").matcher("de").matches());
+        Assert.assertTrue(RegExTest.PF.compile("(a)?bc|de" ).matcher("de").matches());
     }
 
     // This test is for 8007395
     @Test public void
     groupCurlyNotFoundSuppTest() throws Exception {
+
         String input = "test this as \ud83d\ude0d";
-        for (String pStr : new String[] { "test(.)+(@[a-zA-Z.]+)",
-                                          "test(.)*(@[a-zA-Z.]+)",
-                                          "test([^B])+(@[a-zA-Z.]+)",
-                                          "test([^B])*(@[a-zA-Z.]+)",
-                                          "test(\\P{IsControl})+(@[a-zA-Z.]+)",
-                                          "test(\\P{IsControl})*(@[a-zA-Z.]+)",
-                                        }) {
+        for (String pStr : new String[] {
+            "test(.)+(@[a-zA-Z.]+)",
+            "test(.)*(@[a-zA-Z.]+)",
+            "test([^B])+(@[a-zA-Z.]+)",
+            "test([^B])*(@[a-zA-Z.]+)",
+            "test(\\P{IsControl})+(@[a-zA-Z.]+)",
+            "test(\\P{IsControl})*(@[a-zA-Z.]+)",
+        }) {
             Matcher m = RegExTest.PF.compile(pStr, Pattern.CASE_INSENSITIVE).matcher(input);
             try {
                 if (m.find()) {
-                    Assert.fail();
+                    Assert.fail(pStr);
                 }
             } catch (Exception x) {
-                Assert.fail();
+                Assert.fail(pStr);
             }
         }
     }
@@ -4520,6 +4240,7 @@ public class RegExTest {
     // This test is for 8023647
     @Test public void
     groupCurlyBackoffTest() throws Exception {
+
         if (!"abc1c".matches("(\\w)+1\\1") ||
             "abc11".matches("(\\w)+1\\1")) {
             Assert.fail();
