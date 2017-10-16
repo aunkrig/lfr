@@ -30,6 +30,7 @@ import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
+import java.util.Arrays;
 import java.util.regex.MatchResult;
 import java.util.regex.PatternSyntaxException;
 
@@ -150,7 +151,7 @@ class FunctionalityEquivalencePatternFactory extends PatternFactory {
 
                             if (referenceException != null) {
                                 if (subjectException == null) {
-                                    Error e = new AssertionError("Expected a " + referenceException.getClass());
+                                    Error e = new AssertionError("Regex \"" + regex + "\": Expected a " + referenceException.getClass());
                                     e.initCause(referenceException);
                                     throw e;
                                 }
@@ -306,7 +307,11 @@ class FunctionalityEquivalencePatternFactory extends PatternFactory {
                 String[] expected = referencePattern.split(input, limit);
                 String[] actual   = subjectPattern.split(input, limit);
 
-                Assert.assertArrayEquals(expected, actual);
+                Assert.assertArrayEquals(
+                    input + " => expected=" + Arrays.toString(expected) + " actual=" + Arrays.toString(actual),
+                    expected,
+                    actual
+                );
 
                 return expected;
             }
