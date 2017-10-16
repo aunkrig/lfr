@@ -66,6 +66,9 @@ class PatternTest {
     public static final PatternFactory
     PF = OracleEssentials.PF;
 
+    /**
+     * 6, 7, 8, ...
+     */
     private static final int JRE_VERSION;
     static {
 
