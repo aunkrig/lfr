@@ -76,6 +76,10 @@ public class RegExTest {
 //        de.unkrig.ref4j.jur.PatternFactory.INSTANCE,
 //        de.unkrig.lfr.core.PatternFactory.INSTANCE
 //    );
+//    private static final PatternFactory PF = new PerformanceMeasurementPatternFactory(
+//        de.unkrig.ref4j.jur.PatternFactory.INSTANCE,
+//        de.unkrig.lfr.core.PatternFactory.INSTANCE
+//    );
 
     private static final boolean
     LFR = RegExTest.PF.getClass().getName().indexOf(".lfr.") != -1 || RegExTest.PF.getClass().getSimpleName().equals("FunctionalityEquivalencePatternFactory");
@@ -1656,23 +1660,22 @@ public class RegExTest {
     @Test public void
     appendTest2() {
 
-        String  s1 = "Swap all: first = 123, second = 456";
-        String  s2 = "Swap one: first = 123, second = 456";
-        String  r  = "$3$2$1";
-        Pattern pattern = RegExTest.PF.compile("([a-z]+)( *= *)([0-9]+)");
-        Matcher matcher = pattern.matcher(s1);
+        Pattern pattern     = RegExTest.PF.compile("([a-z]+)( *= *)([0-9]+)");
+        String  replacement = "$3$2$1";
 
-        String result = matcher.replaceAll(r);
-        Assert.assertEquals("Swap all: 123 = first, 456 = second", result);
+        {
+            Matcher matcher = pattern.matcher("Swap all: first = 123, second = 456");
+            Assert.assertEquals("Swap all: 123 = first, 456 = second", matcher.replaceAll(replacement));
+        }
 
-        matcher = pattern.matcher(s2);
+        {
+            Matcher matcher = pattern.matcher("Swap one: first = 123, second = 456");
 
-        if (matcher.find()) {
+            Assert.assertTrue(matcher.find());
             StringBuffer sb = new StringBuffer();
-            matcher.appendReplacement(sb, r);
-            matcher.appendTail(sb);
-            result = sb.toString();
-            Assert.assertEquals("Swap one: 123 = first, second = 456", result);
+            matcher.appendReplacement(sb, replacement).appendTail(sb);
+
+            Assert.assertEquals("Swap one: 123 = first, second = 456", sb.toString());
         }
     }
 
@@ -3521,6 +3524,8 @@ public class RegExTest {
                     Assert.assertNull("Long FIX_HIT_END system property value",     System.getProperty("FIX_HIT_END"));
                     Assert.assertNull("Long FIX_REQUIRE_END system property value", System.getProperty("FIX_REQUIRE_END"));
                 }
+            } catch (RuntimeException re) {
+                throw ExceptionUtil.wrap(resourceName + ":" + lnr.getLineNumber(), re);
             } catch (AssertionError ae) {
                 throw ExceptionUtil.wrap(resourceName + ":" + lnr.getLineNumber(), ae);
             }
