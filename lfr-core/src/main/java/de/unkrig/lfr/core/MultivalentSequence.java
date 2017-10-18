@@ -38,7 +38,7 @@ package de.unkrig.lfr.core;
  *   <dd><code>"a[bc]d"</code> (match length is 3)</dd>
  *   <dd><code>"\s"</code> (whitespace characters are all in the BMP, and are a small set)</dd>
  *   <dd><code>"abc|def"</code> (both alternatives have the same length)</dd>
- *   <dd><code>"a\x{10000}|def"</code> (both alternatives have the same length)</dd>
+ *   <dd><code>"a\x{10000}|def"</code> (both alternatives have length 3)</dd>
  * </dl>
  * <p>
  *   The following are <em>not</em> multivalent sequences:
@@ -60,7 +60,8 @@ interface MultivalentSequence {
      * Returns the character sets that represent a match, e.g. "<code>{ { 'a', 'A' }, { 'b', 'B' }, { 'c', 'C' }
      * }</code>".
      * <p>
-     *   Notice that {@code getNeedle()[n].length} is often different for different values of {@code n}.
+     *   Notice that, other than in the example above, {@code getNeedle()[n].length} is often different for different
+     *   values of {@code n}.
      * </p>
      */
     char[][]
