@@ -31,10 +31,9 @@ import java.util.HashSet;
 import java.util.Set;
 
 import de.unkrig.commons.lang.CharSequences;
+import de.unkrig.commons.lang.Characters;
 import de.unkrig.commons.lang.StringUtil;
 import de.unkrig.commons.lang.StringUtil.IndexOf;
-import de.unkrig.commons.lang.protocol.NoException;
-import de.unkrig.commons.lang.protocol.Predicate;
 import de.unkrig.commons.nullanalysis.Nullable;
 import de.unkrig.commons.util.ArrayUtil;
 
@@ -1330,23 +1329,7 @@ class Sequences {
      * </p>
      */
     public static Sequence
-    wordBoundary() { return Sequences.wordBoundary(BACKSLASH_B_WORD, "wordBoundary"); }
-
-    /**
-     * The predicate for word boundary detection.
-     */
-    private static final Predicate<Integer>
-    BACKSLASH_B_WORD = new Predicate<Integer>() {
-
-        @Override public boolean
-        evaluate(Integer cp) throws NoException { return Character.isLetterOrDigit(cp) || cp == '_'; }
-    };
-
-    /**
-     * Implements {@code "\b"}, and, negated, {@code "\B"}.
-     */
-    private static Sequence
-    wordBoundary(final Predicate<Integer> isWordCharacter, final String toString) {
+    wordBoundary() {
 
         return new CompositeSequence(0) {
 
@@ -1374,7 +1357,7 @@ class Sequences {
                     matcher.requireEnd = true;
                     return (
                         o != trs // Zero-length region.
-                        && isWordCharacter.evaluate(Character.codePointBefore(matcher.subject, o))
+                        && Characters.isUnicodeWord(Character.codePointBefore(matcher.subject, o))
                         && this.next.matches(matcher)
                     );
                 }
@@ -1383,7 +1366,7 @@ class Sequences {
 
                     // At start of transparent region.
                     return (
-                        isWordCharacter.evaluate(Character.codePointAt(matcher.subject, o))
+                        Characters.isUnicodeWord(Character.codePointAt(matcher.subject, o))
                         && this.next.matches(matcher)
                     );
                 }
@@ -1397,7 +1380,7 @@ class Sequences {
                 if (cpBefore == '\u030a') {
                     for (int i = o - 1;; i--) {
                         if (i <= trs) {
-                            if (!isWordCharacter.evaluate(cpAt)) return false;
+                            if (!Characters.isUnicodeWord(cpAt)) return false;
                             break;
                         }
 
@@ -1406,13 +1389,13 @@ class Sequences {
                     }
                 }
                 return (
-                    (isWordCharacter.evaluate(cpBefore) != isWordCharacter.evaluate(cpAt))
+                    (Characters.isUnicodeWord(cpBefore) != Characters.isUnicodeWord(cpAt))
                     && this.next.matches(matcher)
                 );
             }
 
             @Override public String
-            toStringWithoutNext() { return toString; }
+            toStringWithoutNext() { return "wordBoundary"; }
         };
     }
 
