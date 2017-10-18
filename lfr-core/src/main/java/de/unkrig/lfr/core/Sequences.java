@@ -832,6 +832,7 @@ class Sequences {
                         }
                     }
 
+                    matcher.hitEnd = true;
                     return -1;
                 }
 
