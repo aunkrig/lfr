@@ -666,8 +666,10 @@ class Sequences {
          */
         LiteralString(CharSequence cs) {
             super(cs.length());
-            this.cs      = cs;
-            this.indexOf = StringUtil.indexOf(this.cs);
+            this.cs = cs;
+
+            // BMH is supposedly ALWAYS faster that NAIVE.
+            this.indexOf = StringUtil.boyerMooreHorspoolIndexOf(this.cs);
         }
 
         @Override public char[][]
