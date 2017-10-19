@@ -344,8 +344,8 @@ class MatcherImpl implements Matcher {
         Arrays.fill(this.groups, -1);
         this.hitEnd     = false;
         this.requireEnd = false;
-        this.offset     = this.regionStart;
         this.end        = MatcherImpl.End.ANY;
+        this.offset     = this.regionStart;
 
         // Optimization: Test whether there are enough chars lefts so that the sequence can possibly match.
         if (this.pattern.sequence.minMatchLength > this.regionEnd - this.regionStart) {
