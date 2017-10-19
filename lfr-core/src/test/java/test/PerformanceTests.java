@@ -44,6 +44,8 @@ class PerformanceTests {
     @Test public void
     test() throws FileNotFoundException, IOException {
 
+        System.out.printf("Regex:                                    JUR [ns]:       LFR [ns]:%n");
+
         String s = Readers.readAll(new FileReader("../regex-test/mtent12.txt"), true);
 
         this.findAll("Twain",                               s);
