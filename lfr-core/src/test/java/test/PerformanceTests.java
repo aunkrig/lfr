@@ -42,6 +42,10 @@ import de.unkrig.lfr.core.Pattern;
 public
 class PerformanceTests {
 
+    /**
+     * This test requires the "mtent12.txt" file, which can be found <a
+     * href="http://www.gutenberg.org/files/3200/old/mtent12.zip">here</a>.
+     */
     @Test public void
     test() throws FileNotFoundException, IOException {
 
@@ -90,7 +94,7 @@ class PerformanceTests {
         }
 
         // Measure LFR.
-        long   nsLfr;
+        long nsLfr;
         String seq;
         {
             Pattern pattern = de.unkrig.lfr.core.PatternFactory.INSTANCE.compile(regex);
