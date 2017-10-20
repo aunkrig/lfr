@@ -668,8 +668,7 @@ class Sequences {
             super(cs.length());
             this.cs = cs;
 
-            // BMH is supposedly ALWAYS faster that NAIVE.
-            this.indexOf = StringUtil.boyerMooreHorspoolIndexOf(this.cs);
+            this.indexOf = StringUtil.indexOf(this.cs);
         }
 
         @Override public char[][]
@@ -724,16 +723,40 @@ class Sequences {
 
         if (alternatives.length == 1) return alternatives[0];
 
+        // Matching of the alternatives culminate at this "joiner node".
+        final CompositeSequence joiner = new CompositeSequence(0) {
+
+            @Override protected String toStringWithoutNext() { return "endOfAlternative"; }
+
+            @Override boolean
+            matches(MatcherImpl matcher) { return this.next.matches(matcher); }
+
+            @Override public Sequence
+            concat(Sequence that) {
+
+                this.minMatchLength = this.next.minMatchLength;
+                this.maxMatchLength = this.next.maxMatchLength;
+
+                return this;
+            }
+        };
+
         int minMlw = Integer.MAX_VALUE, maxMlw = 0;
         for (Sequence a : alternatives) {
+
+            Sequence res = a.concat(joiner);
+            assert res == a;
+
             if (a.minMatchLength < minMlw) minMlw = a.minMatchLength;
             if (a.maxMatchLength > maxMlw) maxMlw = a.maxMatchLength;
         }
 
-        // Optimize the case where all alternatives are multivalent sequences.
+        // Optimize the case where _all_ alternatives start with multivalent sequences.
         OPTIMIZE_MULTIVALENT_ALTERNATIVES: {
 
             final char[][][] needles = new char[alternatives.length][][];
+
+            int minNeedleLength = Integer.MAX_VALUE, maxNeedleLength = 0;
             for (int i = 0; i < alternatives.length; i++) {
                 Sequence a = alternatives[i];
 
@@ -741,41 +764,54 @@ class Sequences {
 
                 MultivalentSequence ms = (MultivalentSequence) a;
 
-                if (((CompositeSequence) ms).next != Sequences.TERMINAL) break OPTIMIZE_MULTIVALENT_ALTERNATIVES;
-
                 needles[i] = ms.getNeedle();
+                if (needles[i].length < minNeedleLength) minNeedleLength = needles[i].length;
+                if (needles[i].length > maxNeedleLength) maxNeedleLength = needles[i].length;
             }
 
-            final int minMlwm1 = minMlw - 1;
+            final int minNeedleLengthMinus1 = minNeedleLength - 1;
 
             // Compute the "safe skip" array.
             final int[] safeSkip = new int[256];
-            Arrays.fill(safeSkip, minMlw);
+            Arrays.fill(safeSkip, minNeedleLength);
             for (char[][] n : needles) {
-                for (int j = 0; j < minMlw; j++) {
-                    for (char c : n[j]) safeSkip[0xff & c] = minMlwm1 - j;
+                for (int j = 0; j < minNeedleLength; j++) {
+                    for (char c : n[j]) safeSkip[0xff & c] = minNeedleLengthMinus1 - j;
                 }
             }
 
             return new CompositeSequence(minMlw, maxMlw) {
 
+                @Override public Sequence
+                concat(Sequence that) {
+
+                	// Catch 22: Append "that" to _the joiner_, not to each alternative.
+                    joiner.next = joiner.next.concat(that);
+
+                    // Recalculate alternatives' min/maxMatchLengths by fake-appending the joiner.
+                    this.minMatchLength = Integer.MAX_VALUE;
+                    this.maxMatchLength = 0;
+                    for (Sequence a : alternatives) {
+                        Sequence res = a.concat(joiner);
+                        assert res == a;
+
+                        if (a.minMatchLength < this.minMatchLength) this.minMatchLength = a.minMatchLength;
+                        if (a.maxMatchLength > this.maxMatchLength) this.maxMatchLength = a.maxMatchLength;
+                    }
+
+                    return this;
+                }
+
                 @Override public boolean
                 matches(MatcherImpl matcher) {
 
-                    final int             savedOffset = matcher.offset;
-                    final MatcherImpl.End savedEnd    = matcher.end;
+                    final int savedOffset = matcher.offset;
 
                     for (int i = 0; i < alternatives.length; i++) {
 
-                        matcher.end = MatcherImpl.End.ANY;
-                        boolean am = alternatives[i].matches(matcher);
-                        matcher.end = savedEnd;
-
-                        if (am && this.next.matches(matcher)) return true;
-
-                        // Restore offset and captured groups.
                         matcher.offset = savedOffset;
-                        Arrays.fill(matcher.groups, 2 * firstSubsequentGroup, matcher.groups.length, -1);
+
+                        if (alternatives[i].matches(matcher)) return true;
                     }
 
                     return false;
@@ -784,7 +820,8 @@ class Sequences {
                 @Override public int
                 find(MatcherImpl matcher) {
 
-                    for (int o = matcher.offset + minMlwm1; o < matcher.regionEnd;) {
+                	// Search first match by Boyer-Moore-Holbrook.
+                    for (int o = matcher.offset + minNeedleLengthMinus1; o < matcher.regionEnd;) {
 
                         int ss = safeSkip[0xff & matcher.subject.charAt(o)];
 
@@ -794,10 +831,11 @@ class Sequences {
 
                             // Check which needles match.
                             NEEDLES:
-                            for (char[][] n : needles) {
+                            for (int j = 0; j < needles.length; j++) {
+                                char[][] n = needles[j];
 
                                 for (int i = 0; i < n.length; i++) {
-                                    char c = matcher.subject.charAt(o - minMlwm1 + i);
+                                    char c = matcher.subject.charAt(o - minNeedleLengthMinus1 + i);
                                     MULTI: {
                                         for (char c2 : n[i]) {
                                             if (c2 == c) break MULTI;
@@ -807,11 +845,11 @@ class Sequences {
                                 }
 
                                 // Needle matches!
-                                matcher.offset = o - minMlwm1 + n.length;
-                                if (this.next.matches(matcher)) return o - minMlwm1;
+                                matcher.offset = o - minNeedleLengthMinus1 + n.length;
+                                if (((CompositeSequence) alternatives[j]).next.matches(matcher)) return o - minNeedleLengthMinus1;
                             }
 
-                            // None of the needles match; continue at next char position.
+                            // None of the needles matched; continue at next char position.
                             o++;
                         }
                     }
@@ -822,7 +860,12 @@ class Sequences {
 
                 @Override protected String
                 toStringWithoutNext() {
-                    return "boyerMooreHorspoolAlternatives(" + PrettyPrinter.toJavaArrayInitializer(needles) + ")";
+                    return (
+                        "boyerMooreHorspoolAlternatives("
+                        + PrettyPrinter.toJavaArrayInitializer(needles)
+                        + ") . "
+                        + joiner.next
+                    );
                 }
             };
         }
@@ -832,27 +875,20 @@ class Sequences {
             @Override public boolean
             matches(MatcherImpl matcher) {
 
-                final int             savedOffset = matcher.offset;
-                final MatcherImpl.End savedEnd    = matcher.end;
+                final int savedOffset = matcher.offset;
 
                 for (int i = 0; i < alternatives.length; i++) {
-
-                    matcher.end = MatcherImpl.End.ANY;
-                    boolean am = alternatives[i].matches(matcher);
-                    matcher.end = savedEnd;
-
-                    if (am && this.next.matches(matcher)) return true;
-
-                    // Restore offset and captured groups.
                     matcher.offset = savedOffset;
-                    Arrays.fill(matcher.groups, 2 * firstSubsequentGroup, matcher.groups.length, -1);
+                    if (alternatives[i].matches(matcher)) return true;
                 }
 
                 return false;
             }
 
             @Override public String
-            toStringWithoutNext() { return "alternatives(" + Sequences.join(alternatives, ", ") + ")"; }
+            toStringWithoutNext() {
+                return "alternatives(" + Sequences.join(alternatives, ", ") + ") . " + joiner.next;
+            }
         };
     }
 
