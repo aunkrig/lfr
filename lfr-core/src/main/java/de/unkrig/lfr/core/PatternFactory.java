@@ -200,8 +200,6 @@ class PatternFactory extends de.unkrig.ref4j.PatternFactory {
             private Sequence
             parseAlternatives() throws ParseException {
 
-                int firstSubsequentGroup = rs.groupCount + 1;
-
                 Sequence op1 = this.parseSequence();
                 if (!this.peekRead("|")) return op1;
 

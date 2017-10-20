@@ -761,7 +761,10 @@ class Sequences {
         };
 
         AlternativesSequence(Sequence[] alternatives) {
-            super(minMinMatchLength(alternatives), maxMaxMatchLength(alternatives));
+            super(
+                AlternativesSequence.minMinMatchLength(alternatives),
+                AlternativesSequence.maxMaxMatchLength(alternatives)
+            );
 
             this.alternatives = alternatives;
 
@@ -989,6 +992,17 @@ class Sequences {
 
                 return true;
             }
+
+            // Unfortunately this optimization is not possible, because the matcher.groups[...] is set too late :-( .
+//            @Override public int
+//            find(MatcherImpl matcher) {
+//
+//                int result = this.next.find(matcher);
+//
+//                if (result != -1)  matcher.groups[2 * groupNumber] = result;
+//
+//                return result;
+//            }
 
             @Override public String
             toStringWithoutNext() { return "capturingGroupStart(" + groupNumber + ")"; }

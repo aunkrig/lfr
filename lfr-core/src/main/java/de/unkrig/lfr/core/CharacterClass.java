@@ -64,13 +64,11 @@ class CharacterClass extends CompositeSequence {
         int cp = matcher.subject.charAt(o++);
 
         // Special handling for UTF-16 surrogates.
-        if (Character.isHighSurrogate((char) cp)) {
-            if (o < matcher.regionEnd) {
-                char ls = matcher.subject.charAt(o);
-                if (Character.isLowSurrogate(ls)) {
-                    cp = Character.toCodePoint((char) cp, ls);
-                    o++;
-                }
+        if (Character.isHighSurrogate((char) cp) && o < matcher.regionEnd) {
+            char ls = matcher.subject.charAt(o);
+            if (Character.isLowSurrogate(ls)) {
+                cp = Character.toCodePoint((char) cp, ls);
+                o++;
             }
         }
 
@@ -78,6 +76,38 @@ class CharacterClass extends CompositeSequence {
 
         matcher.offset = o;
         return this.next.matches(matcher);
+    }
+
+    @Override public int
+    find(MatcherImpl matcher) {
+
+        final int re = matcher.regionEnd;
+
+        for (int o = matcher.offset; o < re;) {
+
+            int result = o;
+
+            int cp = matcher.subject.charAt(o++);
+
+            // Special handling for UTF-16 surrogates.
+            if (Character.isHighSurrogate((char) cp) && o < re) {
+                char ls = matcher.subject.charAt(o);
+                if (Character.isLowSurrogate(ls)) {
+                    cp = Character.toCodePoint((char) cp, ls);
+                    o++;
+                }
+            }
+
+            if (this.matches(cp)) {
+
+                // See if the rest of the pattern matches.
+                matcher.offset = o;
+                if (this.next.matches(matcher)) return result;
+            }
+        }
+
+        matcher.hitEnd = true;
+        return -1;
     }
 
     /**

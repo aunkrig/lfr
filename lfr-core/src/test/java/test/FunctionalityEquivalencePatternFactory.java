@@ -151,7 +151,12 @@ class FunctionalityEquivalencePatternFactory extends PatternFactory {
 
                             if (referenceException != null) {
                                 if (subjectException == null) {
-                                    Error e = new AssertionError("Regex \"" + regex + "\": Expected a " + referenceException.getClass());
+                                    Error e = new AssertionError(
+                                        "Regex \""
+                                        + regex
+                                        + "\": Expected a "
+                                        + referenceException.getClass()
+                                    );
                                     e.initCause(referenceException);
                                     throw e;
                                 }
@@ -342,7 +347,7 @@ class FunctionalityEquivalencePatternFactory extends PatternFactory {
         }
     }
 
-    public static void
+    private static void
     assertEqual(String message, boolean expected, boolean actual, String propertyName) {
 
         String pv = System.getProperty(propertyName);

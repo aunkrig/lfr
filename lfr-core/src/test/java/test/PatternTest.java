@@ -694,7 +694,7 @@ class PatternTest {
     @Test public void testCharacterClassOptimizations2() { PatternTest.assertSequenceToString("oneOfTwoChars('A', 'B')",                        "[AB]");               }
     @Test public void testCharacterClassOptimizations3() { PatternTest.assertSequenceToString("oneOfTwoChars('A', 'K')",                        "[AK]");               }
     @Test public void testCharacterClassOptimizations4() { PatternTest.assertSequenceToString("bitSet('A', 'C', 'E', 'G', 'I', 'K')",           "[ACEGIK]");           }
-    @Test public void testCharacterClassOptimizations5() { PatternTest.assertSequenceToString("charRange('A' - 'E')",                           "[A-E]");              }
+    @Test public void testCharacterClassOptimizations5() { PatternTest.assertSequenceToString("range('A' - 'E')",                               "[A-E]");              }
     @Test public void testCharacterClassOptimizations6() { PatternTest.assertSequenceToString("bitSet('D', 'E', 'F', 'G', 'H', 'I', 'J', 'K')", "[A-K&&D-Z]");         }
     @Test public void testCharacterClassOptimizations7() { PatternTest.assertSequenceToString(PatternTest.jurpc("set\\('.'(?:, '.'){63}\\)"),   "[A-Za-z0-9_\u0400]"); }
 
