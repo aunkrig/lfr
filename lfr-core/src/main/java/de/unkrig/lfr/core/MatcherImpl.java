@@ -270,9 +270,11 @@ class MatcherImpl implements Matcher {
         if (2 * groupNumber >= gs.length) throw new IndexOutOfBoundsException(Integer.toString(groupNumber));
 
         int start = gs[2 * groupNumber];
-        int end   = gs[2 * groupNumber + 1];
+        if (start == -1) return null;
 
-        return start == -1 ? null : this.subject.subSequence(start, end).toString();
+        int end = gs[2 * groupNumber + 1];
+        assert end >= 0 : this.toString();
+        return this.subject.subSequence(start, end).toString();
     }
 
     @Override @Nullable public String
