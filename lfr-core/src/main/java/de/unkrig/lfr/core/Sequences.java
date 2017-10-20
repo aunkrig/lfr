@@ -712,12 +712,10 @@ class Sequences {
      * For example, {@code "a(b|bb)c"} will match both {@code "abc"} and {@code "abbc"}. (In the second case, matching
      * {@code "abc"} fails, but matching {@code "abbc"} eventually succeeds.)
      *
-     * @param firstSubsequentGroup The number of the first capturing group that starts <em>within</em> or
-     *                             <em>after</em> the alternatives
-     * @see                        #independentNonCapturingGroup(Sequence[])
+     * @see #independentNonCapturingGroup(Sequence[])
      */
     public static Sequence
-    alternatives(final Sequence[] alternatives, final int firstSubsequentGroup) {
+    alternatives(final Sequence[] alternatives) {
 
         if (alternatives.length == 0) return Sequences.TERMINAL;
 
@@ -725,20 +723,22 @@ class Sequences {
 
         // Optimize the case where _all_ alternatives start with multivalent sequences.
         OPTIMIZE_MULTIVALENT_ALTERNATIVES: {
-            MultivalentSequence[] multivalentAlternatives = new MultivalentSequence[alternatives.length];
-            for (int i = 0; i < alternatives.length; i++) {
-                Sequence a = alternatives[i];
 
+            for (Sequence a : alternatives) {
                 if (!(a instanceof MultivalentSequence)) break OPTIMIZE_MULTIVALENT_ALTERNATIVES;
-
-                multivalentAlternatives[i] = (MultivalentSequence) a;
             }
 
-            return alternatives(multivalentAlternatives);
+            return boyerMooreHorspoolAlternatives(alternatives);
         }
 
-        // Matching of the alternatives culminate at this "joiner node".
-        final CompositeSequence joiner = new CompositeSequence(0) {
+        return new AlternativesSequence(alternatives);
+    }
+
+    private static final
+    class AlternativesSequence extends CompositeSequence {
+
+        private final Sequence[]        alternatives;
+        private final CompositeSequence joiner = new CompositeSequence(0) {
 
             @Override protected String toStringWithoutNext() { return "endOfAlternative"; }
 
@@ -755,42 +755,80 @@ class Sequences {
             }
         };
 
-        int minMlw = Integer.MAX_VALUE, maxMlw = 0;
-        for (Sequence a : alternatives) {
+        AlternativesSequence(Sequence[] alternatives) {
+            super(minMinMatchLength(alternatives), maxMaxMatchLength(alternatives));
 
-            Sequence res = a.concat(joiner);
-            assert res == a;
+            this.alternatives = alternatives;
 
-            if (a.minMatchLength < minMlw) minMlw = a.minMatchLength;
-            if (a.maxMatchLength > maxMlw) maxMlw = a.maxMatchLength;
+            for (int i = 0; i < alternatives.length; i++) {
+                alternatives[i] = alternatives[i].concat(this.joiner);
+            }
         }
 
-        return new CompositeSequence(minMlw, maxMlw) {
+        private static int
+        minMinMatchLength(Sequence[] alternatives2) {
+            int result = Integer.MAX_VALUE;
+            for (Sequence a : alternatives2) {
+                if (a.minMatchLength < result) result = a.minMatchLength;
+            }
+            return result;
+        }
 
-            @Override public boolean
-            matches(MatcherImpl matcher) {
+        private static int
+        maxMaxMatchLength(Sequence[] alternatives2) {
+            int result = 0;
+            for (Sequence a : alternatives2) {
+                if (a.maxMatchLength > result) result = a.maxMatchLength;
+            }
+            return result;
+        }
 
-                final int savedOffset = matcher.offset;
+        @Override public boolean
+        matches(MatcherImpl matcher) {
 
-                for (int i = 0; i < alternatives.length; i++) {
-                    matcher.offset = savedOffset;
-                    if (alternatives[i].matches(matcher)) return true;
-                }
+            final int savedOffset = matcher.offset;
 
-                return false;
+            for (Sequence a : this.alternatives) {
+                matcher.offset = savedOffset;
+                if (a.matches(matcher)) return true;
             }
 
-            @Override public String
-            toStringWithoutNext() {
-                return "alternatives(" + Sequences.join(alternatives, ", ") + ") . " + joiner.next;
+            return false;
+        }
+
+        @Override public Sequence
+        concat(Sequence that) {
+
+            // Catch 22: Append "that" to _the joiner_, not to each alternative.
+            this.joiner.next = this.joiner.next.concat(that);
+
+            // Recalculate the alternatives' min/maxMatchLengths by "fake-appending" the joiner.
+            this.minMatchLength = Integer.MAX_VALUE;
+            this.maxMatchLength = 0;
+            for (Sequence a : this.alternatives) {
+
+                Sequence res = a.concat(this.joiner);
+                assert res == a;
+
+                if (a.minMatchLength < this.minMatchLength) this.minMatchLength = a.minMatchLength;
+                if (a.maxMatchLength > this.maxMatchLength) this.maxMatchLength = a.maxMatchLength;
             }
-        };
+
+            return this;
+        }
+
+        @Override public String
+        toStringWithoutNext() {
+            return "alternatives(" + Sequences.join(this.alternatives, ", ") + ") . " + this.joiner.next;
+        }
     }
 
     private static Sequence
-    alternatives(final MultivalentSequence[] multivalentAlternatives) {
+    boyerMooreHorspoolAlternatives(final Sequence[] alternatives) {
 
-        // Matching of the alternatives culminate at this "joiner node".
+        final int al = alternatives.length;
+
+        // Matching of the alternatives culminates at this "joiner node".
         final CompositeSequence joiner = new CompositeSequence(0) {
 
             @Override protected String toStringWithoutNext() { return "endOfAlternative"; }
@@ -809,25 +847,22 @@ class Sequences {
         };
 
         // Collect the alternatives' needles and the min and max needle length.
-        final char[][][]          needles = new char[multivalentAlternatives.length][][];
-        final CompositeSequence[] compositeAlternatives = new CompositeSequence[multivalentAlternatives.length];
+        final char[][][] needles         = new char[al][][];
+        int              minMatchLength  = Integer.MAX_VALUE, maxMatchLength  = 0;
+        int              minNeedleLength = Integer.MAX_VALUE, maxNeedleLength = 0;
+        for (int i = 0; i < al; i++) {
+            Sequence a = alternatives[i];
 
-        int minMatchLength  = Integer.MAX_VALUE, maxMatchLength = 0;
-        int minNeedleLength = Integer.MAX_VALUE, maxNeedleLength = 0;
-        for (int i = 0; i < multivalentAlternatives.length; i++) {
+            char[][] n = (needles[i] = ((MultivalentSequence) a).getNeedle());
 
-            MultivalentSequence ma = multivalentAlternatives[i];
+            if (n.length < minNeedleLength) minNeedleLength = n.length;
+            if (n.length > maxNeedleLength) maxNeedleLength = n.length;
 
-            needles[i] = ma.getNeedle();
-            if (needles[i].length < minNeedleLength) minNeedleLength = needles[i].length;
-            if (needles[i].length > maxNeedleLength) maxNeedleLength = needles[i].length;
+            Sequence res = a.concat(joiner);
+            assert res == a;
 
-            compositeAlternatives[i] = (CompositeSequence) ma;
-            Sequence res = compositeAlternatives[i].concat(joiner);
-            assert res == compositeAlternatives[i];
-
-            if (compositeAlternatives[i].minMatchLength < minMatchLength) minMatchLength = compositeAlternatives[i].minMatchLength;
-            if (compositeAlternatives[i].maxMatchLength > maxMatchLength) maxMatchLength = compositeAlternatives[i].maxMatchLength;
+            if (a.minMatchLength < minMatchLength) minMatchLength = a.minMatchLength;
+            if (a.maxMatchLength > maxMatchLength) maxMatchLength = a.maxMatchLength;
         }
 
         final int minNeedleLengthMinus1 = minNeedleLength - 1;
@@ -852,7 +887,8 @@ class Sequences {
                 // Recalculate alternatives' min/maxMatchLengths by fake-appending the joiner.
                 this.minMatchLength = Integer.MAX_VALUE;
                 this.maxMatchLength = 0;
-                for (Sequence a : compositeAlternatives) {
+                for (Sequence a : alternatives) {
+
                     Sequence res = a.concat(joiner);
                     assert res == a;
 
@@ -868,11 +904,11 @@ class Sequences {
 
                 final int savedOffset = matcher.offset;
 
-                for (int i = 0; i < multivalentAlternatives.length; i++) {
+                for (int i = 0; i < alternatives.length; i++) {
 
                     matcher.offset = savedOffset;
 
-                    if (compositeAlternatives[i].matches(matcher)) return true;
+                    if (alternatives[i].matches(matcher)) return true;
                 }
 
                 return false;
@@ -907,7 +943,9 @@ class Sequences {
 
                             // Needle matches!
                             matcher.offset = o - minNeedleLengthMinus1 + n.length;
-                            if (((CompositeSequence) multivalentAlternatives[j]).next.matches(matcher)) return o - minNeedleLengthMinus1;
+                            if (((CompositeSequence) alternatives[j]).next.matches(matcher)) {
+                                return o - minNeedleLengthMinus1;
+                            }
                         }
 
                         // None of the needles matched; continue at next char position.
@@ -937,7 +975,7 @@ class Sequences {
      * For example, {@code "a(?>b|bb)c"} will match {@code "abc"} but <em>not</em> {@code "abbc"}. (In the second case,
      * matching {@code "ab"} succeeds, {@code "abb"} is never tried.)
      *
-     * @see #alternatives(Sequence[])
+     * @see #boyerMooreHorspoolAlternatives(Sequence[])
      */
     public static Sequence
     independentNonCapturingGroup(final Sequence[] alternatives) {
@@ -1025,7 +1063,10 @@ class Sequences {
 
                 matcher.groups[2 * groupNumber + 1] = matcher.offset;
 
-                return this.next.matches(matcher);
+                if (this.next.matches(matcher)) return true;
+
+                matcher.groups[2 * groupNumber + 1] = -1;
+                return false;
             }
 
             @Override public String

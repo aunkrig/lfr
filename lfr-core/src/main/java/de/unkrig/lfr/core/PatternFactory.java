@@ -211,8 +211,7 @@ class PatternFactory extends de.unkrig.ref4j.PatternFactory {
                 while (this.peekRead(EITHER_OR) != null) alternatives.add(this.parseSequence());
 
                 return Sequences.alternatives(
-                    alternatives.toArray(new Sequence[alternatives.size()]),
-                    firstSubsequentGroup
+                    alternatives.toArray(new Sequence[alternatives.size()])
                 );
             }
 
