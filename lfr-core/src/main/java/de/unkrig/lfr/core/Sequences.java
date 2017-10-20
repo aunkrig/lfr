@@ -728,17 +728,22 @@ class Sequences {
                 if (!(a instanceof MultivalentSequence)) break OPTIMIZE_MULTIVALENT_ALTERNATIVES;
             }
 
-            return boyerMooreHorspoolAlternatives(alternatives);
+            return Sequences.boyerMooreHorspoolAlternatives(alternatives);
         }
 
         return new AlternativesSequence(alternatives);
     }
 
-    private static final
+    /**
+     * Representation of a set of "alternatives", e.g. {@code "a|b|c"}.
+     *
+     * @see #alternatives
+     */
+    private static
     class AlternativesSequence extends CompositeSequence {
 
-        private final Sequence[]        alternatives;
-        private final CompositeSequence joiner = new CompositeSequence(0) {
+        private final Sequence[]          alternatives;
+        protected final CompositeSequence joiner = new CompositeSequence(0) {
 
             @Override protected String toStringWithoutNext() { return "endOfAlternative"; }
 
@@ -828,41 +833,15 @@ class Sequences {
 
         final int al = alternatives.length;
 
-        // Matching of the alternatives culminates at this "joiner node".
-        final CompositeSequence joiner = new CompositeSequence(0) {
-
-            @Override protected String toStringWithoutNext() { return "endOfAlternative"; }
-
-            @Override boolean
-            matches(MatcherImpl matcher) { return this.next.matches(matcher); }
-
-            @Override public Sequence
-            concat(Sequence that) {
-
-                this.minMatchLength = this.next.minMatchLength;
-                this.maxMatchLength = this.next.maxMatchLength;
-
-                return this;
-            }
-        };
-
         // Collect the alternatives' needles and the min and max needle length.
         final char[][][] needles         = new char[al][][];
-        int              minMatchLength  = Integer.MAX_VALUE, maxMatchLength  = 0;
-        int              minNeedleLength = Integer.MAX_VALUE, maxNeedleLength = 0;
+        int              minNeedleLength = Integer.MAX_VALUE;
         for (int i = 0; i < al; i++) {
             Sequence a = alternatives[i];
 
-            char[][] n = (needles[i] = ((MultivalentSequence) a).getNeedle());
+            int needleLength = (needles[i] = ((MultivalentSequence) a).getNeedle()).length;
 
-            if (n.length < minNeedleLength) minNeedleLength = n.length;
-            if (n.length > maxNeedleLength) maxNeedleLength = n.length;
-
-            Sequence res = a.concat(joiner);
-            assert res == a;
-
-            if (a.minMatchLength < minMatchLength) minMatchLength = a.minMatchLength;
-            if (a.maxMatchLength > maxMatchLength) maxMatchLength = a.maxMatchLength;
+            if (needleLength < minNeedleLength) minNeedleLength = needleLength;
         }
 
         final int minNeedleLengthMinus1 = minNeedleLength - 1;
@@ -876,48 +855,14 @@ class Sequences {
             }
         }
 
-        return new CompositeSequence(minMatchLength, maxMatchLength) {
+        return new AlternativesSequence(alternatives) {
 
-            @Override public Sequence
-            concat(Sequence that) {
-
-                // Catch 22: Append "that" to _the joiner_, not to each alternative.
-                joiner.next = joiner.next.concat(that);
-
-                // Recalculate alternatives' min/maxMatchLengths by fake-appending the joiner.
-                this.minMatchLength = Integer.MAX_VALUE;
-                this.maxMatchLength = 0;
-                for (Sequence a : alternatives) {
-
-                    Sequence res = a.concat(joiner);
-                    assert res == a;
-
-                    if (a.minMatchLength < this.minMatchLength) this.minMatchLength = a.minMatchLength;
-                    if (a.maxMatchLength > this.maxMatchLength) this.maxMatchLength = a.maxMatchLength;
-                }
-
-                return this;
-            }
-
-            @Override public boolean
-            matches(MatcherImpl matcher) {
-
-                final int savedOffset = matcher.offset;
-
-                for (int i = 0; i < alternatives.length; i++) {
-
-                    matcher.offset = savedOffset;
-
-                    if (alternatives[i].matches(matcher)) return true;
-                }
-
-                return false;
-            }
-
+            /**
+             * Performance-optimized version that utilizes the Boyer-Moore-Holbrook algorithm.
+             */
             @Override public int
             find(MatcherImpl matcher) {
 
-                // Search first match by Boyer-Moore-Holbrook.
                 for (int o = matcher.offset + minNeedleLengthMinus1; o < matcher.regionEnd;) {
 
                     int ss = safeSkip[0xff & matcher.subject.charAt(o)];
@@ -957,13 +902,13 @@ class Sequences {
                 return -1;
             }
 
-            @Override protected String
+            @Override public String
             toStringWithoutNext() {
                 return (
                     "boyerMooreHorspoolAlternatives("
                     + PrettyPrinter.toJavaArrayInitializer(needles)
                     + ") . "
-                    + joiner.next
+                    + this.joiner.next
                 );
             }
         };
