@@ -33,6 +33,7 @@ import java.io.IOException;
 import org.junit.Test;
 
 import de.unkrig.commons.io.Readers;
+import de.unkrig.lfr.core.Pattern;
 
 /**
  * A Java re-implementation of the <a href="http://sljit.sourceforge.net/regex_perf.html">Performance comparison of
@@ -44,7 +45,7 @@ class PerformanceTests {
     @Test public void
     test() throws FileNotFoundException, IOException {
 
-        System.out.printf("Regex:                                    JUR [ns]:       LFR [ns]:%n");
+        System.out.printf("Regex:                           JUR [ns]:       LFR [ns]: Sequence:%n");
 
         String s = Readers.readAll(new FileReader("../regex-test/mtent12.txt"), true);
 
@@ -89,9 +90,12 @@ class PerformanceTests {
         }
 
         // Measure LFR.
-        long nsLfr;
+        long   nsLfr;
+        String seq;
         {
-            de.unkrig.lfr.core.Matcher m = de.unkrig.lfr.core.PatternFactory.INSTANCE.compile(regex).matcher(subject);
+            Pattern pattern = de.unkrig.lfr.core.PatternFactory.INSTANCE.compile(regex);
+            seq = pattern.sequenceToString();
+            de.unkrig.lfr.core.Matcher m = pattern.matcher(subject);
 
             // Warm up.
             while (m.find());
@@ -108,6 +112,6 @@ class PerformanceTests {
             nsLfr = System.nanoTime() - start;
         }
 
-        System.out.printf("%-35s %,15d %,15d %6.2f%%%n", regex, nsJur, nsLfr, 100. * nsLfr / nsJur);
+        System.out.printf("%-35s %,15d %,15d %6.2f%% %s%n", regex, nsJur, nsLfr, 100. * nsLfr / nsJur, seq);
     }
 }

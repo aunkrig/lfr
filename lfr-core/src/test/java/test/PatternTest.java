@@ -690,15 +690,15 @@ class PatternTest {
         Assert.assertEquals("== Hello bar and foo!", sb.toString());
     }
 
-    @Test public void testCharacterClassOptimizations1() { PatternTest.assertSequenceToString("'A'",                                            "[A]"); }
-    @Test public void testCharacterClassOptimizations2() { PatternTest.assertSequenceToString("oneOfTwoChars('A', 'B')",                        "[AB]"); }
-    @Test public void testCharacterClassOptimizations3() { PatternTest.assertSequenceToString("oneOfTwoChars('A', 'K')",                        "[AK]"); }
-    @Test public void testCharacterClassOptimizations4() { PatternTest.assertSequenceToString("bitSet('A', 'C', 'E', 'G', 'I', 'K')",           "[ACEGIK]"); }
-    @Test public void testCharacterClassOptimizations5() { PatternTest.assertSequenceToString("range('A' - 'E')",                               "[A-E]"); }
-    @Test public void testCharacterClassOptimizations6() { PatternTest.assertSequenceToString("bitSet('D', 'E', 'F', 'G', 'H', 'I', 'J', 'K')", "[A-K&&D-Z]"); }
+    @Test public void testCharacterClassOptimizations1() { PatternTest.assertSequenceToString("'A'",                                            "[A]");                } // SUPPRESS CHECKSTYLE LineLength:6
+    @Test public void testCharacterClassOptimizations2() { PatternTest.assertSequenceToString("oneOfTwoChars('A', 'B')",                        "[AB]");               }
+    @Test public void testCharacterClassOptimizations3() { PatternTest.assertSequenceToString("oneOfTwoChars('A', 'K')",                        "[AK]");               }
+    @Test public void testCharacterClassOptimizations4() { PatternTest.assertSequenceToString("bitSet('A', 'C', 'E', 'G', 'I', 'K')",           "[ACEGIK]");           }
+    @Test public void testCharacterClassOptimizations5() { PatternTest.assertSequenceToString("charRange('A' - 'E')",                           "[A-E]");              }
+    @Test public void testCharacterClassOptimizations6() { PatternTest.assertSequenceToString("bitSet('D', 'E', 'F', 'G', 'H', 'I', 'J', 'K')", "[A-K&&D-Z]");         }
     @Test public void testCharacterClassOptimizations7() { PatternTest.assertSequenceToString(PatternTest.jurpc("set\\('.'(?:, '.'){63}\\)"),   "[A-Za-z0-9_\u0400]"); }
 
-    @Test public void testQuantifierOptimizations1()  { PatternTest.assertSequenceToString("'A'",                                                                                                      "A");                      }
+    @Test public void testQuantifierOptimizations1()  { PatternTest.assertSequenceToString("'A'",                                                                                                      "A");                      } // SUPPRESS CHECKSTYLE LineLength:12
     @Test public void testQuantifierOptimizations2()  { PatternTest.assertSequenceToString("'A' . greedyQuantifierOnCharacterClass(operand=anyCharButLineBreak, min=0, max=infinite) . 'B'",           "A.*B");                   }
     @Test public void testQuantifierOptimizations3()  { PatternTest.assertSequenceToString("'A' . greedyQuantifierOnCharacterClass(operand=anyCharButLineBreak, min=0, max=infinite) . naive(\"BC\")", "A.*BC");                  }
     @Test public void testQuantifierOptimizations4()  { PatternTest.assertSequenceToString("'A' . greedyQuantifierOnAnyCharAndLiteralString(min=0, max=infinite, ls=naive(\"BC\"))",                   "A.*BC",  Pattern.DOTALL); }

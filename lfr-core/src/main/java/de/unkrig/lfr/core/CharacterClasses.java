@@ -630,10 +630,32 @@ class CharacterClasses {
 
         if (lhs > rhs) return CharacterClasses.FAIL;
 
+        if (!Character.isSupplementaryCodePoint(rhs)) {
+            return new CharClass() {
+
+                @Override public boolean
+                matches(int c) { return c >= lhs && c <= rhs; }
+
+                @Override public int lowerBound() { return lhs;     }
+                @Override public int upperBound() { return rhs + 1; }
+
+                @Override protected String
+                toStringWithoutNext() {
+                    return (
+                        "charRange("
+                        + PrettyPrinter.toJavaCharLiteral((char) lhs)
+                        + " - "
+                        + PrettyPrinter.toJavaCharLiteral((char) rhs)
+                        + ")"
+                    );
+                }
+            };
+        }
+
         return new CharacterClass(Character.charCount(lhs), Character.charCount(rhs)) {
 
             @Override public boolean
-            matches(int subject) { return (subject >= lhs && subject <= rhs); }
+            matches(int cp) { return cp >= lhs && cp <= rhs; }
 
             @Override public int lowerBound() { return lhs;           }
             @Override public int upperBound() { return rhs + 1;       }
@@ -642,12 +664,11 @@ class CharacterClasses {
             @Override public String
             toStringWithoutNext() {
                 return (
-                    new StringBuilder("range('")
-                    .appendCodePoint(lhs)
-                    .append("' - '")
-                    .appendCodePoint(rhs)
-                    .append("')")
-                    .toString()
+                    "range("
+                    + PrettyPrinter.codePointToJavaLiteral(lhs)
+                    + " - "
+                    + PrettyPrinter.codePointToJavaLiteral(rhs)
+                    + ")"
                 );
             }
         };
