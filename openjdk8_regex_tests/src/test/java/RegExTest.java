@@ -1660,7 +1660,7 @@ public class RegExTest {
     @Test public void
     appendTest2() {
 
-        Pattern pattern     = RegExTest.PF.compile("([a-z]+)( *= *)([0-9]+)");
+        Pattern pattern = RegExTest.PF.compile("([a-z]+)( *= *)([0-9]+)");
         String  replacement = "$3$2$1";
 
         {
@@ -3513,9 +3513,9 @@ public class RegExTest {
                 result.append(m.groupCount());
 
                 if (found) {
-                    for (int i=1; i<m.groupCount()+1; i++)
-                        if (m.group(i) != null)
-                            result.append(" " +m.group(i));
+                    for (int i = 1; i <= m.groupCount(); i++) {
+                        if (m.group(i) != null) result.append(" " + m.group(i));
+                    }
                 }
 
                 Assert.assertEquals("result", expectedResult, result.toString());
@@ -3526,8 +3526,8 @@ public class RegExTest {
                 }
             } catch (RuntimeException re) {
                 throw ExceptionUtil.wrap(resourceName + ":" + lnr.getLineNumber(), re);
-            } catch (AssertionError ae) {
-                throw ExceptionUtil.wrap(resourceName + ":" + lnr.getLineNumber(), ae);
+            } catch (Error e) {
+                throw ExceptionUtil.wrap(resourceName + ":" + lnr.getLineNumber(), e);
             }
         }
     }
