@@ -26,6 +26,8 @@
 
 package de.unkrig.lfr.core;
 
+import de.unkrig.commons.lang.protocol.Consumer;
+
 /**
  * A {@link CompositeSequence} that implements {@link #matches(MatcherImpl)} by applying {@link
  * #matches(int)} onto itself.
@@ -111,10 +113,10 @@ class CharacterClass extends CompositeSequence {
     }
 
     /**
-     * @return Whether <var>c</var> matches this character class
+     * @return Whether the <var>codePoint</var> matches this character class
      */
     public abstract boolean
-    matches(int c);
+    matches(int codePoint);
 
     /**
      * {@link #matches(int)} is guaranteed to return {@code false} for all subjects smaller than {@link #lowerBound()}.
@@ -134,4 +136,22 @@ class CharacterClass extends CompositeSequence {
      */
     @SuppressWarnings("static-method") public int
     sizeBound() { return Integer.MAX_VALUE; }
+
+    @Override protected void
+    checkWithoutNext(int offset, Consumer<Integer> result) {
+
+        if (this.upperBound() - this.lowerBound() > 100) {
+            result.consume(-1);
+            return;
+        }
+
+        for (int cp = this.upperBound(); cp <= this.lowerBound(); cp++) {
+            if (this.matches(cp)) {
+                for (int cp2 : new int[] { cp, Character.toUpperCase(cp), Character.toLowerCase(cp) }) {
+                    char[] chars = Character.toChars(cp2);
+                    if (offset < chars.length) result.consume((int) chars[offset]);
+                }
+            }
+        }
+    }
 }

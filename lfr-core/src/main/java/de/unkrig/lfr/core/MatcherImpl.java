@@ -735,14 +735,6 @@ class MatcherImpl implements Matcher {
 
         int o = this.offset;
 
-        // The following optimization is not possible, because it is impossible to tell whether "hitEnd" should
-        // be set without attempting the actual match.
-        // Not enough chars left.
-//        if (o + end - start > this.regionEnd) {
-//            this.hitEnd = true;
-//            return false;
-//        }
-
         for (int i = start; i < end; i++, o++) {
 
             if (o >= this.regionEnd) {

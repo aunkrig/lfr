@@ -38,8 +38,8 @@ import java.util.Set;
 import de.unkrig.commons.lang.CharSequences;
 import de.unkrig.commons.lang.Characters;
 import de.unkrig.commons.lang.PrettyPrinter;
+import de.unkrig.commons.lang.protocol.Consumer;
 import de.unkrig.commons.lang.protocol.Predicate;
-import de.unkrig.commons.util.ArrayUtil;
 import de.unkrig.commons.util.collections.CollectionUtil;
 import de.unkrig.commons.util.collections.Sets;
 
@@ -84,7 +84,7 @@ class CharacterClasses {
         getNeedle() { return new char[][] { { (char) this.c } }; }
 
         @Override public boolean
-        matches(int subject) { return subject == this.c; }
+        matches(int cp) { return cp == this.c; }
 
         @Override public int lowerBound() { return this.c;     }
         @Override public int upperBound() { return this.c + 1; }
@@ -149,48 +149,80 @@ class CharacterClasses {
     public static CharacterClass
     literalCharacter(final int codePoint) {
 
-        // Optimize for BMP (one-char) code point.
-        if (!Character.isSupplementaryCodePoint(codePoint)) {
-            if (Character.isHighSurrogate((char) codePoint)) {
-                return new CharacterClass() {
-                    @Override public boolean   matches(int cp)       { return cp == codePoint; }
-                    @Override protected String toStringWithoutNext() { return "bareHighSurrogate(0x" + Integer.toHexString(codePoint) + ")"; } // SUPPRESS CHECKSTYLE LineLength
-                };
-            }
-            if (Character.isLowSurrogate((char) codePoint)) {
-                return new CharacterClass() {
-                    @Override public boolean   matches(int cp)       { return cp == codePoint; }
-                    @Override protected String toStringWithoutNext() { return "bareLowSurrogate(0x" + Integer.toHexString(codePoint) + ")"; } // SUPPRESS CHECKSTYLE LineLength
-                };
-            }
-            return new LiteralChar((char) codePoint);
+        return (
+            Character.isSupplementaryCodePoint(codePoint)
+            ? new SupplementaryCharacter(codePoint)
+            : Character.isHighSurrogate((char) codePoint) || Character.isLowSurrogate((char) codePoint)
+            ? new BareSurrogate((char) codePoint)
+            : new LiteralChar((char) codePoint)
+        );
+    }
+
+    /**
+     * Bare surrogates pose a very special case: They must not extend {@link MultivalentSequence} to enforce
+     * surrogate decoding before matching.
+     */
+    static
+    class BareSurrogate extends CharacterClass {
+
+        private final char chaR;
+
+        BareSurrogate(char chaR) {
+            super(1);
+            this.chaR = chaR;
         }
 
-        class LiteralSupplementaryCodePoint extends CharacterClass implements MultivalentSequence {
+        @Override public boolean
+        matches(int cp) { return cp == this.chaR; }
 
-            final char[]       chars = Character.toChars(codePoint);
-            final CharSequence cs    = CharSequences.from(this.chars);
+        @Override public int lowerBound() { return this.chaR;     }
+        @Override public int upperBound() { return this.chaR + 1; }
+        @Override public int sizeBound()  { return 1;             }
 
-            LiteralSupplementaryCodePoint() { super(2); }
+        @Override protected void
+        checkWithoutNext(int offset, Consumer<Integer> result) { result.consume((int) this.chaR); }
 
-            @Override public char[][]
-            getNeedle() { return ArrayUtil.mirror(new char[][] { this.chars }); }
+        @Override protected String
+        toStringWithoutNext() { return "\\x{" + Integer.toHexString(this.chaR) + "}"; }
+    }
 
-            /**
-             * Override {@link CharacterClass#matches(MatcherImpl)} with an optimized version (saves the decoding of
-             * surrogate pairs).
-             */
-            @Override public boolean
-            matches(MatcherImpl matcher) { return matcher.peekRead(this.cs) && this.next.matches(matcher); }
+    static
+    class SupplementaryCharacter extends CharacterClass implements MultivalentSequence {
 
-            @Override public boolean
-            matches(int c) { return c == codePoint; }
+        private final int  codePoint;
+        final char[]       chars;
+        final CharSequence cs;
 
-            @Override protected String
-            toStringWithoutNext() { return "\\x{" + Integer.toHexString(codePoint) + "}"; }
+        SupplementaryCharacter(int codePoint) {
+            super(2);
+
+            this.codePoint = codePoint;
+            this.chars     = Character.toChars(codePoint);
+            this.cs        = CharSequences.from(this.chars);
         }
 
-        return new LiteralSupplementaryCodePoint();
+        @Override public char[][]
+        getNeedle() { return new char[][] { { this.chars[0] }, { this.chars[1] } }; }
+
+        /**
+         * Override {@link CharacterClass#matches(MatcherImpl)} with an optimized version (saves the decoding of
+         * surrogate pairs).
+         */
+        @Override public boolean
+        matches(MatcherImpl matcher) { return matcher.peekRead(this.cs) && this.next.matches(matcher); }
+
+        @Override public boolean
+        matches(int cp) { return cp == this.codePoint; }
+
+        @Override public int lowerBound() { return this.codePoint;     }
+        @Override public int upperBound() { return this.codePoint + 1; }
+        @Override public int sizeBound()  { return 1;                  }
+
+        @Override protected void
+        checkWithoutNext(int offset, Consumer<Integer> result) { result.consume((int) this.chars[offset]); }
+
+        @Override protected String
+        toStringWithoutNext() { return "\\x{" + Integer.toHexString(this.codePoint) + "}"; }
     }
 
     /**
@@ -371,7 +403,7 @@ class CharacterClasses {
         return new MultivalentCharClass(chars) {
 
             @Override public boolean
-            matches(int subject) { return Arrays.binarySearch(chars2, subject) >= 0; }
+            matches(int cp) { return Arrays.binarySearch(chars2, cp) >= 0; }
 
             @Override protected String
             toStringWithoutNext() {
@@ -393,6 +425,15 @@ class CharacterClasses {
 
             @Override public boolean
             matches(int subject) { return Arrays.binarySearch(codePoints, subject) >= 0; }
+
+            @Override public int
+            lowerBound() { return codePoints[0]; }
+
+            @Override public int
+            upperBound() { return codePoints[codePoints.length - 1] + 1; }
+
+            @Override public int
+            sizeBound() { return codePoints.length; }
 
             @Override protected String
             toStringWithoutNext() {
@@ -630,6 +671,37 @@ class CharacterClasses {
 
         if (lhs > rhs) return CharacterClasses.FAIL;
 
+        if (
+            !Character.isSupplementaryCodePoint(rhs)
+            && !Character.isHighSurrogate((char) rhs)
+            && !Character.isLowSurrogate((char) rhs)
+        ) {
+            return new CharacterClass() {
+
+                @Override public boolean
+                matches(int cp) { return cp >= lhs && cp <= rhs; }
+
+                @Override public int lowerBound() { return lhs;     }
+                @Override public int upperBound() { return rhs + 1; }
+
+                @Override protected void
+                checkWithoutNext(int offset, Consumer<Integer> result) {
+                    for (int cp = lhs; cp <= rhs; cp++) result.consume(cp);
+                }
+
+                @Override protected String
+                toStringWithoutNext() {
+                    return (
+                        "charRange("
+                        + PrettyPrinter.toJavaCharLiteral((char) lhs)
+                        + " - "
+                        + PrettyPrinter.toJavaCharLiteral((char) rhs)
+                        + ")"
+                    );
+                }
+            };
+        }
+
         return new CharacterClass(Character.charCount(lhs), Character.charCount(rhs)) {
 
             @Override public boolean
@@ -795,20 +867,20 @@ class CharacterClasses {
         return new MultivalentCharClass(CharacterClasses.LINE_BREAK_CHARACTERS) {
 
             @Override public boolean
-            matches(int c) { return (c <= 0x0d && c >= 0x0a) || c == 0x85 || (c >= 0x2028 && c <= 0x2029); }
+            matches(int cp) { return (cp <= 0x0d && cp >= 0x0a) || cp == 0x85 || (cp >= 0x2028 && cp <= 0x2029); }
 
             @Override public String
             toStringWithoutNext() { return "lineBreakCharacter"; }
         };
     }
-    private static final Set<Integer> LINE_BREAK_CHARACTERS = Sets.of(0x0a, 0x0b, 0x0d, 0x85, 0x2028, 0x2029);
+    static final Set<Integer> LINE_BREAK_CHARACTERS = Sets.of(0x0a, 0x0b, 0x0d, 0x85, 0x2028, 0x2029);
 
     /**
      * Matches <em>any</em> character.
      */
     public static
     class AnyCharacter extends CharacterClass {
-        @Override public boolean matches(int subject)  { return true;           }
+        @Override public boolean matches(int cp)       { return true;           }
         @Override public String  toStringWithoutNext() { return "anyCharacter"; }
     }
 

@@ -26,6 +26,7 @@
 
 package de.unkrig.lfr.core;
 
+import de.unkrig.commons.lang.protocol.Consumer;
 import de.unkrig.commons.util.ArrayUtil;
 
 /**
@@ -40,8 +41,18 @@ class CompositeSequence extends Sequence {
     /**
      * Reference to the "next" sequence.
      */
-    Sequence          next;
+    Sequence next;
+
+    /**
+     * This sequence (excluding the {@link #next} sequence) will match at least that many characters. E.g.
+     * <code>".{3,5}"</code> has a {@link #minMatchLengthWithoutNext} of three.
+     */
     private final int minMatchLengthWithoutNext;
+
+    /**
+     * This sequence (excluding the {@link #next} sequence) will match at most that many characters. E.g.
+     * <code>".{,3}"</code> has a {@link #maxMatchLengthWithoutNext} of six.
+     */
     private final int maxMatchLengthWithoutNext;
 
     CompositeSequence(int matchLengthWithoutNext) {
@@ -86,6 +97,31 @@ class CompositeSequence extends Sequence {
         }
 
         return this;
+    }
+
+    @Override void
+    check(int offset, Consumer<Integer> result) {
+
+        if (offset < this.maxMatchLengthWithoutNext) this.checkWithoutNext(offset, result);
+
+        int limit = offset - this.minMatchLengthWithoutNext;
+        if (limit > 0) {
+            int limit2 = this.maxMatchLength - this.minMatchLength;
+            if (limit > limit2) limit = limit2;
+            for (int i = 0; i < limit; i++) {
+                this.next.check(i, result);
+            }
+        }
+    }
+
+    /**
+     * Same as {@link #check(int, Consumer)}, but ignores the {@link #next} sequence.
+     *
+     * @param offset 0 ... {@code (}{@link #maxMatchLengthWithoutNext} {@code - 1)}
+     */
+    protected void
+    checkWithoutNext(int offset, Consumer<Integer> result) {
+        if (this.maxMatchLengthWithoutNext > 0) result.consume(-1);
     }
 
     /**

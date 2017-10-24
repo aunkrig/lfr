@@ -35,6 +35,7 @@ import de.unkrig.commons.lang.Characters;
 import de.unkrig.commons.lang.PrettyPrinter;
 import de.unkrig.commons.lang.StringUtil;
 import de.unkrig.commons.lang.StringUtil.IndexOf;
+import de.unkrig.commons.lang.protocol.Consumer;
 import de.unkrig.commons.nullanalysis.Nullable;
 import de.unkrig.commons.util.ArrayUtil;
 
@@ -78,6 +79,11 @@ class Sequences {
 
         AbstractMultivalentSequence(int matchLengthWithoutNext) {
             super(matchLengthWithoutNext);
+        }
+
+        @Override protected void
+        checkWithoutNext(int offset, Consumer<Integer> result) {
+            for (char c : this.getNeedle()[offset]) result.consume((int) c);
         }
     }
 
@@ -246,11 +252,11 @@ class Sequences {
      */
     private static Sequence
     greedyOrReluctantQuantifier(
-        Sequence      operand,
-        final int     min,
-        final int     max,
-        final int     counterIndex,
-        final boolean greedy
+        final Sequence operand,
+        final int      min,
+        final int      max,
+        final int      counterIndex,
+        final boolean  greedy
     ) {
 
         final int minml = Sequences.mul(min, operand.minMatchLength);
@@ -333,6 +339,11 @@ class Sequences {
                     this.maxMatchLength = Sequences.add(maxml, that.maxMatchLength);
 
                     return this;
+                }
+
+                @Override void
+                check(int offset, Consumer<Integer> result) {
+                    checkQuantified(offset, result, operand, min, Integer.MAX_VALUE, cs.next);
                 }
 
                 @Override public String
@@ -463,6 +474,11 @@ class Sequences {
                 this.maxMatchLength = Sequences.add(maxml, that.maxMatchLength);
 
                 return this;
+            }
+
+            @Override void
+            check(int offset, Consumer<Integer> result) {
+                checkQuantified(offset, result, operand, min, max, cs.next);
             }
 
             @Override public String
@@ -637,6 +653,11 @@ class Sequences {
                 return this;
             }
 
+            @Override void
+            check(int offset, Consumer<Integer> result) {
+                checkQuantified(offset, result, operand, min, max, this.next);
+            }
+
             @Override public String
             toStringWithoutNext() {
                 return (
@@ -650,6 +671,23 @@ class Sequences {
                 );
             }
         };
+    }
+
+    protected static void
+    checkQuantified(int offset, Consumer<Integer> result, Sequence operand, int min, int max, Sequence next) {
+
+        if (offset < operand.maxMatchLength) operand.check(offset, result);
+
+        if (offset >= operand.minMatchLength) {
+            if (min <= 0) {
+                next.check(offset, result);
+            } else
+            if (max > 0) {
+                for (int i = operand.minMatchLength; i < offset; i++) {
+                    checkQuantified(i, result, operand, min - 1, max - 1, next);
+                }
+            }
+        }
     }
 
     /**
@@ -825,6 +863,11 @@ class Sequences {
             return this;
         }
 
+        @Override protected void
+        checkWithoutNext(int offset, Consumer<Integer> result) {
+            for (Sequence a : this.alternatives) { a.check(offset, result); }
+        }
+
         @Override public String
         toStringWithoutNext() {
             return "alternatives(" + Sequences.join(this.alternatives, ", ") + ") . " + this.joiner.next;
@@ -955,6 +998,11 @@ class Sequences {
                 return false;
             }
 
+            @Override protected void
+            checkWithoutNext(int offset, Consumer<Integer> result) {
+                for (Sequence a : alternatives) { a.check(offset, result); }
+            }
+
             @Override public String
             toStringWithoutNext() { return "independentNonCapturingGroup(" + Sequences.join(alternatives, ", ") + ")"; }
         };
@@ -1062,6 +1110,11 @@ class Sequences {
 
                 // Match the rest of the sequence.
                 return this.next.matches(matcher);
+            }
+
+            @Override protected void
+            checkWithoutNext(int offset, Consumer<Integer> result) {
+                subsequence.check(offset, result);
             }
 
             @Override public String
@@ -1495,6 +1548,16 @@ class Sequences {
                 }
 
                 return false;
+            }
+
+            @Override protected void
+            checkWithoutNext(int offset, Consumer<Integer> result) {
+                if (offset == 0) {
+                    for (int cp : CharacterClasses.LINE_BREAK_CHARACTERS) result.consume(cp);
+                } else
+                if (offset == 1) {
+                    result.consume((int) '\n');
+                }
             }
 
             @Override public String

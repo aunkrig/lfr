@@ -30,6 +30,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
+import de.unkrig.commons.lang.protocol.Consumer;
 import de.unkrig.commons.util.ArrayUtil;
 
 /**
@@ -91,6 +92,14 @@ class MultivalentCharacterClass extends CharacterClass {
         }
 
         return this;
+    }
+
+    @Override protected void
+    checkWithoutNext(int offset, Consumer<Integer> result) {
+        for (int cp : this.codePoints) {
+            char[] chars = Character.toChars(cp);
+            if (offset < chars.length) result.consume((int) chars[offset]);
+        }
     }
 
     @Override protected String

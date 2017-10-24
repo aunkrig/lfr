@@ -132,26 +132,30 @@ class Sequence {
     abstract Sequence
     concat(Sequence that);
 
-//    /**
-//     * Computes all the {@code char}s that could appear at the given <var>offset</var> when this sequence matches a
-//     * subject, and feeds these {@code char}s to the <var>result</var>.
-//     * If that set of {@code char}s is large, or if even <em>any</em> {@code char} could appear at the
-//     * <var>offset</var>, then this method invokes the <var>result</var> with {@code 0}.
-//     * <p>
-//     *   Examples:
-//     * </p>
-//     * <table>
-//     *   <tr><th>Sequence</th><th><var>offset</var></th><th><var>result</var></th></tr>
-//     *   <tr><td>{@code abc}</td><td>2</td><td>{@code 'c'}</td></tr>
-//     *   <tr><td>{@code .*A}</td><td>2</td><td>{@code 0} (<em>any</em> char could appear at position 2)</td></tr>
-//     *   <tr><td>{@code .?abcde}</td><td>3</td><td>
-//     *     {@code 'b'}, {@code 'c'} and {@code 'd'} ({@code 'b'} could appear at offset 3 if ".?" matches a surrogate
-//     *     pair)
-//     *   </td></tr>
-//     * </table>
-//     */
-//    abstract void
-//    check(int offset, Consumer<Character> result);
+    /**
+     * Computes all the {@code char}s that could appear at the given <var>offset</var> when this sequence matches a
+     * subject, and feeds these {@code char}s to the <var>result</var>.
+     * If that set of {@code char}s is large, or if even <em>any</em> {@code char} could appear at the
+     * <var>offset</var>, then this method invokes the <var>result</var> with {@code -1}.
+     * <p>
+     *   Examples:
+     * </p>
+     * <table>
+     *   <tr><th>Sequence</th><th><var>offset</var></th><th><var>result</var></th></tr>
+     *   <tr><td>{@code abc}</td><td>2</td><td>{@code 'c'}</td></tr>
+     *   <tr><td>{@code .*A}</td><td>2</td><td>{@code 0} (<em>any</em> char could appear at position 2)</td></tr>
+     *   <tr><td>{@code .?abcde}</td><td>3</td><td>
+     *     {@code 'b'}, {@code 'c'} and {@code 'd'} ({@code 'b'} could appear at offset 3 if ".?" matches a surrogate
+     *     pair)
+     *   </td></tr>
+     * </table>
+     * <p>
+     *   This method is key to all the beautiful optimizations that the Boyer-Moore-Holbrook algorithm can do, e.g.
+     *   for finding the pattern {@code "abcd.efgh"} only every nineth character of the haystack must be checked.
+     * </p>
+     */
+    @SuppressWarnings("static-method") void
+    check(int offset, Consumer<Integer> result) { result.consume(-1); }
 
     /**
      * Returns an unambiguous string form of {@code this} sequence; practical for verifying a compiled sequence e.g.
