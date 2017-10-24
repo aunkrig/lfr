@@ -133,9 +133,15 @@ public class RegExTest {
         Assert.assertEquals("\"" + p + "\" \"" + s + "\"", expected, p.matcher(s).find());
     }
 
-    private static void check(String p, String s, boolean expected) {
-        Matcher matcher = RegExTest.PF.compile(p).matcher(s);
-        Assert.assertFalse(matcher.find() != expected);
+    /**
+     * Verifies that the <var>regex</var> can (or: can not) be found in the <var>haystack</var>.
+     *
+     * @param expected {@code true} iff the <var>regex</var> must be found, {code false} if the <var>regex</var> must
+     *                 not be found
+     */
+    private static void check(String regex, String haystack, boolean expected) {
+        Matcher matcher = RegExTest.PF.compile(regex).matcher(haystack);
+        Assert.assertEquals(expected, matcher.find());
     }
 
     private static void check(String p, char c, boolean expected) {
