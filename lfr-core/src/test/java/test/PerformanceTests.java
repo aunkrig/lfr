@@ -46,8 +46,6 @@ class PerformanceTests {
 
     @Before public void
     setUp() throws IOException {
-        System.out.printf("Regex:                                    JUR [ns]:       LFR [ns]:         Sequence:%n");
-
         this.subject = Readers.readAll(new FileReader("../regex-test/mtent12.txt"), true);
     }
 
@@ -75,6 +73,10 @@ class PerformanceTests {
     private static void
     findAll(String regex, String subject) {
 
+        System.out.printf("%n");
+        System.out.printf("%s():%n", Thread.currentThread().getStackTrace()[2]);
+        System.out.printf("  Regex:                                    JUR [ns]:       LFR [ns]:         Sequence:%n");
+
         java.util.regex.Matcher    jurMatcher = java.util.regex.Pattern.compile(regex).matcher("");
 
         de.unkrig.lfr.core.Matcher lfrMatcher = de.unkrig.lfr.core.PatternFactory.INSTANCE.compile(regex).matcher("");
@@ -98,7 +100,7 @@ class PerformanceTests {
             }
 
             System.out.printf(
-                "%-35s %,15d %,15d %6.2f%% %s%n",
+                "  %-35s %,15d %,15d %6.2f%% %s%n",
                 regex,
                 nsJur,
                 nsLfr,

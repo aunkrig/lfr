@@ -1022,7 +1022,7 @@ class MatcherImpl implements Matcher {
             indexOf(CharSequence haystack, int minIndex, int maxIndex, int limit) {
 
                 for (int o = minIndex + needleLength - 1; o < maxIndex;) {
-                    int ss = needleLength - 1 - charTable[haystack.charAt(o)];
+                    int ss = needleLength - 1 - charTable[0xff & haystack.charAt(o)];
                     if (ss == 0) {
                         MatcherImpl.this.offset = o - needleLength + 1;
                         if (MatcherImpl.this.pattern.sequence.matches(MatcherImpl.this)) {

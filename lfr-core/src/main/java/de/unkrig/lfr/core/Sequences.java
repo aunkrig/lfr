@@ -700,14 +700,14 @@ class Sequences {
         int               opmaxml
     ) {
 
-        if (offset < opmaxml) operand.check(offset, result);
+        if (min <= 0) next.check(offset, result);
 
-        if (offset >= opminml) {
-            if (max <= 0) {
-                next.check(offset, result);
-            } else
-            if (min > 0) {
-                for (int i = opminml; i <= offset; i++) {
+        if (max >= 0) {
+            if (offset < opmaxml) operand.check(offset, result);
+
+            if (offset >= opminml) {
+
+                for (int i = 0; i <= offset - opminml; i++) {
                     Sequences.checkQuantified(i, result, operand, min - 1, max - 1, next, opminml, opminml);
                 }
             }
