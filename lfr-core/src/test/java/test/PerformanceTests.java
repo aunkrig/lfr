@@ -26,14 +26,14 @@
 
 package test;
 
-import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 
+import org.junit.Before;
 import org.junit.Test;
 
 import de.unkrig.commons.io.Readers;
-import de.unkrig.lfr.core.Pattern;
+import de.unkrig.commons.lang.ObjectUtil;
 
 /**
  * A Java re-implementation of the <a href="http://sljit.sourceforge.net/regex_perf.html">Performance comparison of
@@ -42,81 +42,69 @@ import de.unkrig.lfr.core.Pattern;
 public
 class PerformanceTests {
 
-    /**
-     * This test requires the "mtent12.txt" file, which can be found <a
-     * href="http://www.gutenberg.org/files/3200/old/mtent12.zip">here</a>.
-     */
-    @Test @SuppressWarnings("static-method") public void
-    test() throws FileNotFoundException, IOException {
+    private String subject = ObjectUtil.almostNull();
 
+    @Before public void
+    setUp() throws IOException {
         System.out.printf("Regex:                                    JUR [ns]:       LFR [ns]:         Sequence:%n");
 
-        String s = Readers.readAll(new FileReader("../regex-test/mtent12.txt"), true);
-
-        PerformanceTests.findAll("Twain",                               s);
-        PerformanceTests.findAll("(?i)Twain",                           s);
-        PerformanceTests.findAll("[a-z]shing",                          s);
-        PerformanceTests.findAll("Huck[a-zA-Z]+|Saw[a-zA-Z]+",          s);
-        PerformanceTests.findAll("\\b\\w+nn\\b",                        s);
-        PerformanceTests.findAll("[a-q][^u-z]{13}x",                    s);
-        PerformanceTests.findAll("Tom|Sawyer|Huckleberry|Finn",         s);
-        PerformanceTests.findAll("(?i)Tom|Sawyer|Huckleberry|Finn",     s);
-        PerformanceTests.findAll("(Tom|Sawyer|Huckleberry|Finn)",       s);
-        PerformanceTests.findAll(".{0,2}(Tom|Sawyer|Huckleberry|Finn)", s);
-        PerformanceTests.findAll(".{2,4}(Tom|Sawyer|Huckleberry|Finn)", s);
-        PerformanceTests.findAll("Tom.{10,25}river|river.{10,25}Tom",   s);
-        PerformanceTests.findAll("[a-zA-Z]+ing",                        s);
-        PerformanceTests.findAll("\\s[a-zA-Z]{0,12}ing\\s",             s);
-        PerformanceTests.findAll("([A-Za-z]awyer|[A-Za-z]inn)\\s",      s);
-        PerformanceTests.findAll("[\"'][^\"']{0,30}[?!\\.][\"']",       s);
+        this.subject = Readers.readAll(new FileReader("../regex-test/mtent12.txt"), true);
     }
+
+    /**
+     * These tests require the "mtent12.txt" file, which can be found <a
+     * href="http://www.gutenberg.org/files/3200/old/mtent12.zip">here</a>.
+     */
+    @Test public void test1()  { PerformanceTests.findAll("Twain",                               this.subject); }
+    @Test public void test2()  { PerformanceTests.findAll("(?i)Twain",                           this.subject); }
+    @Test public void test3()  { PerformanceTests.findAll("[a-z]shing",                          this.subject); }
+    @Test public void test4()  { PerformanceTests.findAll("Huck[a-zA-Z]+|Saw[a-zA-Z]+",          this.subject); }
+    @Test public void test5()  { PerformanceTests.findAll("\\b\\w+nn\\b",                        this.subject); }
+    @Test public void test6()  { PerformanceTests.findAll("[a-q][^u-z]{13}x",                    this.subject); }
+    @Test public void test7()  { PerformanceTests.findAll("Tom|Sawyer|Huckleberry|Finn",         this.subject); }
+    @Test public void test8()  { PerformanceTests.findAll("(?i)Tom|Sawyer|Huckleberry|Finn",     this.subject); }
+    @Test public void test8a() { PerformanceTests.findAll("(Tom|Sawyer|Huckleberry|Finn)",       this.subject); }
+    @Test public void test9()  { PerformanceTests.findAll(".{0,2}(Tom|Sawyer|Huckleberry|Finn)", this.subject); }
+    @Test public void test10() { PerformanceTests.findAll(".{2,4}(Tom|Sawyer|Huckleberry|Finn)", this.subject); }
+    @Test public void test11() { PerformanceTests.findAll("Tom.{10,25}river|river.{10,25}Tom",   this.subject); }
+    @Test public void test12() { PerformanceTests.findAll("[a-zA-Z]+ing",                        this.subject); }
+    @Test public void test13() { PerformanceTests.findAll("\\s[a-zA-Z]{0,12}ing\\s",             this.subject); }
+    @Test public void test14() { PerformanceTests.findAll("([A-Za-z]awyer|[A-Za-z]inn)\\s",      this.subject); }
+    @Test public void test15() { PerformanceTests.findAll("[\"'][^\"']{0,30}[?!\\.][\"']",       this.subject); }
 
     private static void
     findAll(String regex, String subject) {
 
-        // Measure JUR.
-        long nsJur;
-        {
-            java.util.regex.Matcher m = java.util.regex.Pattern.compile(regex).matcher(subject);
+        java.util.regex.Matcher    jurMatcher = java.util.regex.Pattern.compile(regex).matcher("");
 
-            // Warm up.
-            while (m.find());
-            m.reset(subject);
-            while (m.find());
-            m.reset(subject);
-            while (m.find());
+        de.unkrig.lfr.core.Matcher lfrMatcher = de.unkrig.lfr.core.PatternFactory.INSTANCE.compile(regex).matcher("");
 
-            m.reset(subject);
-            long start = System.nanoTime();
+        for (int i = 0; i < 7; i++) {
+
+            long nsJur;
             {
-                while (m.find());
+                jurMatcher.reset(subject);
+                long start = System.nanoTime();
+                while (jurMatcher.find());
+                nsJur = System.nanoTime() - start;
             }
-            nsJur = System.nanoTime() - start;
-        }
 
-        // Measure LFR.
-        long   nsLfr;
-        String seq;
-        {
-            Pattern pattern = de.unkrig.lfr.core.PatternFactory.INSTANCE.compile(regex);
-            seq = pattern.sequenceToString();
-            de.unkrig.lfr.core.Matcher m = pattern.matcher(subject);
-
-            // Warm up.
-            while (m.find());
-            m.reset(subject);
-            while (m.find());
-            m.reset(subject);
-            while (m.find());
-
-            m.reset(subject);
-            long start = System.nanoTime();
+            long nsLfr;
             {
-                while (m.find());
+                lfrMatcher.reset(subject);
+                long start = System.nanoTime();
+                while (lfrMatcher.find());
+                nsLfr = System.nanoTime() - start;
             }
-            nsLfr = System.nanoTime() - start;
-        }
 
-        System.out.printf("%-35s %,15d %,15d %6.2f%% %s%n", regex, nsJur, nsLfr, 100. * nsLfr / nsJur, seq);
+            System.out.printf(
+                "%-35s %,15d %,15d %6.2f%% %s%n",
+                regex,
+                nsJur,
+                nsLfr,
+                100. * nsLfr / nsJur,
+                de.unkrig.lfr.core.PatternFactory.INSTANCE.compile(regex).sequenceToString()
+            );
+        }
     }
 }
