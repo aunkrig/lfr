@@ -104,12 +104,10 @@ class CompositeSequence extends Sequence {
 
         if (offset < this.maxMatchLengthWithoutNext) this.checkWithoutNext(offset, result);
 
-        int limit = offset - this.minMatchLengthWithoutNext;
-        if (limit > 0) {
-            int limit2 = this.maxMatchLength - this.minMatchLength;
-            if (limit > limit2) limit = limit2;
-            for (int i = 0; i < limit; i++) {
-                this.next.check(i, result);
+//        int limit = offset - this.minMatchLengthWithoutNext;
+        if (offset >= this.minMatchLengthWithoutNext) {
+            for (int i = this.minMatchLengthWithoutNext; i <= this.maxMatchLengthWithoutNext && i <= offset; i++) {
+                this.next.check(offset - i, result);
             }
         }
     }

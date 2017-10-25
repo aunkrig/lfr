@@ -676,7 +676,7 @@ class CharacterClasses {
             && !Character.isHighSurrogate((char) rhs)
             && !Character.isLowSurrogate((char) rhs)
         ) {
-            return new CharacterClass() {
+            return new CharacterClass(1) {
 
                 @Override public boolean
                 matches(int cp) { return cp >= lhs && cp <= rhs; }

@@ -259,8 +259,11 @@ class Sequences {
         final boolean  greedy
     ) {
 
-        final int minml = Sequences.mul(min, operand.minMatchLength);
-        final int maxml = Sequences.mul(max, operand.maxMatchLength);
+        final int opminml = operand.minMatchLength;
+        final int opmaxml = operand.maxMatchLength;
+
+        final int minml = Sequences.mul(min, opminml);
+        final int maxml = Sequences.mul(max, opmaxml);
 
         if ((min == 0 || min == 1) && max == Integer.MAX_VALUE) {
 
@@ -343,7 +346,16 @@ class Sequences {
 
                 @Override void
                 check(int offset, Consumer<Integer> result) {
-                    checkQuantified(offset, result, operand, min, Integer.MAX_VALUE, cs.next);
+                    Sequences.checkQuantified(
+                        offset,
+                        result,
+                        operand,
+                        min,
+                        Integer.MAX_VALUE,
+                        cs.next,
+                        opminml,
+                        opmaxml)
+                ;
                 }
 
                 @Override public String
@@ -378,8 +390,8 @@ class Sequences {
         final String     opToString = operand.toString();
 
         final CompositeSequence cs = new CompositeSequence(
-            Sequences.mul(operand.minMatchLength, min == 0 ? 0   : min - 1), // minMatchLength
-            Sequences.mul(operand.maxMatchLength, min == 0 ? max : max - 1)  // maxMatchLength
+            Sequences.mul(opminml, min == 0 ? 0   : min - 1), // minMatchLength
+            Sequences.mul(opmaxml, min == 0 ? max : max - 1)  // maxMatchLength
         ) {
 
             @Override public boolean
@@ -478,7 +490,7 @@ class Sequences {
 
             @Override void
             check(int offset, Consumer<Integer> result) {
-                checkQuantified(offset, result, operand, min, max, cs.next);
+                Sequences.checkQuantified(offset, result, operand, min, max, cs.next, opminml, opmaxml);
             }
 
             @Override public String
@@ -569,9 +581,12 @@ class Sequences {
     private static Sequence
     possessiveQuantifier(final Sequence operand, final int min, final int max) {
 
+        final int opminml = operand.minMatchLength;
+        final int opmaxml = operand.maxMatchLength;
+
         return new CompositeSequence(
-            Sequences.mul(min, operand.minMatchLength),
-            Sequences.mul(max, operand.maxMatchLength)
+            Sequences.mul(min, opminml),
+            Sequences.mul(max, opmaxml)
         ) {
 
             @Override public boolean
@@ -655,7 +670,7 @@ class Sequences {
 
             @Override void
             check(int offset, Consumer<Integer> result) {
-                checkQuantified(offset, result, operand, min, max, this.next);
+                Sequences.checkQuantified(offset, result, operand, min, max, this.next, opminml, opmaxml);
             }
 
             @Override public String
@@ -674,17 +689,26 @@ class Sequences {
     }
 
     protected static void
-    checkQuantified(int offset, Consumer<Integer> result, Sequence operand, int min, int max, Sequence next) {
+    checkQuantified(
+        int               offset,
+        Consumer<Integer> result,
+        Sequence          operand,
+        int               min,
+        int               max,
+        Sequence          next,
+        int               opminml,
+        int               opmaxml
+    ) {
 
-        if (offset < operand.maxMatchLength) operand.check(offset, result);
+        if (offset < opmaxml) operand.check(offset, result);
 
-        if (offset >= operand.minMatchLength) {
-            if (min <= 0) {
+        if (offset >= opminml) {
+            if (max <= 0) {
                 next.check(offset, result);
             } else
-            if (max > 0) {
-                for (int i = operand.minMatchLength; i < offset; i++) {
-                    checkQuantified(i, result, operand, min - 1, max - 1, next);
+            if (min > 0) {
+                for (int i = opminml; i <= offset; i++) {
+                    Sequences.checkQuantified(i, result, operand, min - 1, max - 1, next, opminml, opminml);
                 }
             }
         }

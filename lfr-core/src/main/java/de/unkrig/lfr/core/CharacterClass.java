@@ -145,7 +145,7 @@ class CharacterClass extends CompositeSequence {
             return;
         }
 
-        for (int cp = this.upperBound(); cp <= this.lowerBound(); cp++) {
+        for (int cp = this.lowerBound(); cp < this.upperBound(); cp++) {
             if (this.matches(cp)) {
                 for (int cp2 : new int[] { cp, Character.toUpperCase(cp), Character.toLowerCase(cp) }) {
                     char[] chars = Character.toChars(cp2);
