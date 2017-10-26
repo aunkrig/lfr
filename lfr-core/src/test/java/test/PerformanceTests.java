@@ -74,7 +74,7 @@ class PerformanceTests {
     findAll(String regex, String subject) {
 
         System.out.printf("%n");
-        System.out.printf("%s():%n", Thread.currentThread().getStackTrace()[2]);
+        System.out.printf("%s:%n", Thread.currentThread().getStackTrace()[2]);
         System.out.printf("  Regex:                                    JUR [ns]:       LFR [ns]:         Sequence:%n");
 
         java.util.regex.Matcher    jurMatcher = java.util.regex.Pattern.compile(regex).matcher("");
