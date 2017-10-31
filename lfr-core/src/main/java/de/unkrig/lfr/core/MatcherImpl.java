@@ -33,10 +33,6 @@ import java.util.List;
 import java.util.regex.MatchResult;
 
 import de.unkrig.commons.lang.ExceptionUtil;
-import de.unkrig.commons.lang.ObjectUtil;
-import de.unkrig.commons.lang.StringUtil.AbstractIndexOf;
-import de.unkrig.commons.lang.StringUtil.IndexOf;
-import de.unkrig.commons.lang.protocol.Consumer;
 import de.unkrig.commons.lang.protocol.Mapping;
 import de.unkrig.commons.lang.protocol.Mappings;
 import de.unkrig.commons.lang.protocol.NoException;
@@ -418,26 +414,10 @@ class MatcherImpl implements Matcher {
         this.offset = start;
         this.end    = MatcherImpl.End.ANY;
 
-        // The following optimization is not possible because iff there are NOT enough chars left, we STILL must
-        // attempt the match, because otherwise we cannot tell whether "hitEnd" should be set or not.
-//        // Optimization: Test whether there are enough chars left so that the sequence can possibly match.
-//        if (this.pattern.sequence.minMatchLength > this.regionEnd - start) {
-//            this.endOfPreviousMatch = -1;
-//            this.hitEnd             = true;
-//            return false;
-//        }
-
-//        int matchStart = this.pattern.sequence.find(this);
-        int matchStart = this.getIndexOf().indexOf(
-            this.subject,                                                      // haystack
-            this.offset,                                                       // minIndex
-            this.regionEnd,                                                    // maxIndex
-            this.hasTransparentBounds ? this.subject.length() : this.regionEnd // limit
-        );
+        int matchStart = this.pattern.sequence.find(this);
 
         if (matchStart < 0) {
             this.endOfPreviousMatch = -1;
-            this.hitEnd             = true;
             return false;
         }
 
@@ -936,109 +916,4 @@ class MatcherImpl implements Matcher {
 
     int
     sequenceEndMatches(int offset) { return this.end == MatcherImpl.End.ANY || offset == this.regionEnd ? offset : -1; }
-
-    @Nullable private IndexOf indexOf;
-
-    private IndexOf
-    getIndexOf() {
-
-        if (this.indexOf != null) return this.indexOf;
-
-        int[] bestCt   = ObjectUtil.almostNull();
-        int   bestNl   = -1;
-        int   bestSkip = -1;
-
-        final int[] ct = new int[256];
-        Arrays.fill(ct, -1);
-        for (int i = 0; i < bestNl + 20; i++) {
-
-            final int finalNl = i;
-            MatcherImpl.this.pattern.sequence.check(i, new Consumer<Integer>() {
-
-                @Override public void
-                consume(Integer subject) throws NoException {
-                    if (subject < 0) {
-                        Arrays.fill(ct, finalNl);
-                    } else {
-                        ct[0xff & subject] = finalNl;
-                    }
-                }
-            });
-
-            int skip = 0;
-            for (int j = 0; j < ct.length; j++) skip += i - ct[j];
-
-            if (skip > bestSkip) {
-                bestCt   = Arrays.copyOf(ct, ct.length);
-                bestNl   = i + 1;
-                bestSkip = skip;
-            }
-        }
-
-        if (bestNl == 1) {
-
-            // This matcher cannot be optimized with BMH; fall back to naive implementation.
-            return new AbstractIndexOf() {
-
-                @Override public int
-                indexOf(CharSequence haystack, int minIndex, int maxIndex) {
-                    return this.indexOf(haystack, minIndex, maxIndex, Integer.MAX_VALUE);
-                }
-
-                @Override public int
-                indexOf(CharSequence haystack, int minIndex, int maxIndex, int limit) {
-
-                    for (int o = minIndex;;) {
-
-                        MatcherImpl.this.offset = o;
-                        if (MatcherImpl.this.pattern.sequence.matches(MatcherImpl.this)) return o;
-
-                        if (o >= maxIndex) return -1;
-
-                        if (
-                            Character.isHighSurrogate(haystack.charAt(o++))
-                            && o < limit
-                            && Character.isLowSurrogate(haystack.charAt(o))
-                        ) o++;
-                    }
-                }
-
-                @Override public String
-                toString() { return "naive"; }
-            };
-        }
-
-        final int[] charTable    = bestCt;
-        final int   needleLength = bestNl;
-
-        return (this.indexOf = new AbstractIndexOf() {
-
-            @Override public int
-            indexOf(CharSequence haystack, int minIndex, int maxIndex) {
-                return this.indexOf(haystack, minIndex, maxIndex, Integer.MAX_VALUE);
-            }
-
-            @Override public int
-            indexOf(CharSequence haystack, int minIndex, int maxIndex, int limit) {
-
-                for (int o = minIndex + needleLength - 1; o < maxIndex;) {
-                    int ss = needleLength - 1 - charTable[0xff & haystack.charAt(o)];
-                    if (ss == 0) {
-                        MatcherImpl.this.offset = o - needleLength + 1;
-                        if (MatcherImpl.this.pattern.sequence.matches(MatcherImpl.this)) {
-                            return o - needleLength + 1;
-                        }
-                        o++;
-                    } else {
-                        o += ss;
-                    }
-                }
-
-                return -1;
-            }
-
-            @Override public String
-            toString() { return "bmh2"; }
-        });
-    }
 }

@@ -703,6 +703,12 @@ class Sequences {
         if (min <= 0) next.check(offset, result);
 
         if (max >= 0) {
+
+            if (max > 10) {
+                result.consume(-1);
+                return;
+            }
+
             if (offset < opmaxml) operand.check(offset, result);
 
             if (offset >= opminml) {

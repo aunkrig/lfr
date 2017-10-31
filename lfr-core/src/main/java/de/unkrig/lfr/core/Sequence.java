@@ -26,7 +26,12 @@
 
 package de.unkrig.lfr.core;
 
+import java.util.Arrays;
+
+import de.unkrig.commons.lang.ObjectUtil;
 import de.unkrig.commons.lang.protocol.Consumer;
+import de.unkrig.commons.lang.protocol.NoException;
+import de.unkrig.commons.nullanalysis.Nullable;
 
 /**
  * Implements {@link #find(MatcherImpl)} through {@link #matches(MatcherImpl)}.
@@ -103,26 +108,7 @@ class Sequence {
      */
     public int
     find(MatcherImpl matcher) {
-
-        final int re = matcher.regionEnd;
-
-        for (int o = matcher.offset;;) {
-
-            if (this.matches(matcher)) return o;
-
-            if (o >= re) {
-                matcher.hitEnd = true;
-                return -1;
-            }
-
-            if (
-                Character.isHighSurrogate(matcher.subject.charAt(o++))
-                && o < re
-                && Character.isLowSurrogate(matcher.subject.charAt(o))
-            ) o++;
-
-            matcher.offset = o;
-        }
+        return this.find().find(matcher);
     }
 
     /**
@@ -156,6 +142,109 @@ class Sequence {
      */
     @SuppressWarnings("static-method") void
     check(int offset, Consumer<Integer> result) { result.consume(-1); }
+
+    interface Find { int find(MatcherImpl matcherImpl); }
+
+    @Nullable private Find find;
+
+    Find
+    getFind() {
+
+        if (this.find != null) return this.find;
+
+        return (this.find = this.find());
+    }
+
+    private Find
+    find() {
+
+        int[] bestCt   = ObjectUtil.almostNull();
+        int   bestNl   = -1;
+        int   bestSkip = -1;
+
+        final int[] ct = new int[256];
+        Arrays.fill(ct, -1);
+        for (int i = 0; i < bestNl + 20; i++) {
+
+            final int finalNl = i;
+            this.check(i, new Consumer<Integer>() {
+
+                @Override public void
+                consume(Integer subject) throws NoException {
+                    if (subject < 0) {
+                        Arrays.fill(ct, finalNl);
+                    } else {
+                        ct[0xff & subject] = finalNl;
+                    }
+                }
+            });
+
+            int skip = 0;
+            for (int j = 0; j < ct.length; j++) skip += i - ct[j];
+
+            if (skip > bestSkip) {
+                bestCt   = Arrays.copyOf(ct, ct.length);
+                bestNl   = i + 1;
+                bestSkip = skip;
+            }
+        }
+
+        if (bestNl == 1) {
+
+            // This matcher cannot be optimized with BMH; fall back to naive implementation.
+            return new Find() {
+
+                @Override public int
+                find(MatcherImpl matcher) {
+
+                    int limit = matcher.hasTransparentBounds ? matcher.subject.length() : matcher.regionEnd;
+
+                    for (int o = matcher.offset;;) {
+
+                        matcher.offset = o;
+                        if (Sequence.this.matches(matcher)) return o;
+
+                        if (o >= matcher.regionEnd) {
+                            matcher.hitEnd = true;
+                            return -1;
+                        }
+
+                        if (
+                            Character.isHighSurrogate(matcher.subject.charAt(o++))
+                            && o < limit
+                            && Character.isLowSurrogate(matcher.subject.charAt(o))
+                        ) o++;
+                    }
+                }
+            };
+        }
+
+        final int[] charTable    = bestCt;
+        final int   needleLength = bestNl;
+
+        return new Find() {
+
+            @Override public int
+            find(MatcherImpl matcher) {
+
+                for (int o = matcher.offset + needleLength - 1; o < matcher.regionEnd;) {
+                    int ss = needleLength - 1 - charTable[0xff & matcher.subject.charAt(o)];
+                    if (ss == 0) {
+                        matcher.offset = o - needleLength + 1;
+                        if (Sequence.this.matches(matcher)) {
+                            return o - needleLength + 1;
+                        }
+                        o++;
+                    } else {
+                        o += ss;
+                    }
+                }
+
+                matcher.hitEnd = true;
+                return -1;
+            }
+        };
+    }
 
     /**
      * Returns an unambiguous string form of {@code this} sequence; practical for verifying a compiled sequence e.g.
