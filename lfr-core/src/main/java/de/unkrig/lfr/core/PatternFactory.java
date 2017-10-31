@@ -132,7 +132,7 @@ class PatternFactory extends de.unkrig.ref4j.PatternFactory {
             throw pse;
         }
 
-        result.init(sequence, rs.groupCount, rs.namedGroups, rs.greatestQuantifierNesting);
+        result.init(sequence, rs.groupCount, rs.namedGroups, rs.capturingQuantifierCount);
     }
 
     /**
@@ -237,59 +237,49 @@ class PatternFactory extends de.unkrig.ref4j.PatternFactory {
             private Sequence
             parseQuantified() throws ParseException {
 
-                if (++rs.currentQuantifierNesting > rs.greatestQuantifierNesting) {
-                    rs.greatestQuantifierNesting = rs.currentQuantifierNesting;
-                }
-
                 final Sequence op = this.parsePrimary();
 
-                --rs.currentQuantifierNesting;
-
-                Token<TokenType> t = this.peek();
+                Token<TokenType> t = this.peekRead(
+                    TokenType.QUESTION,
+                    TokenType.ASTERISK,
+                    TokenType.PLUS,
+                    TokenType.CAPTURING_QUANTIFIER
+                );
                 if (t == null) return op;
 
                 switch (t.type) {
 
-                case GREEDY_QUANTIFIER:
-                case RELUCTANT_QUANTIFIER:
-                case POSSESSIVE_QUANTIFIER:
-                    this.read();
+                case QUESTION: return Sequences.quantifierZeroOne(op, this.parseQuantifierNature());
+                case ASTERISK: return Sequences.quantifierInfinity(op, true, this.parseQuantifierNature());
+                case PLUS:     return Sequences.quantifierInfinity(op, false, this.parseQuantifierNature());
 
-                    final int min, max;
-                    switch (t.text.charAt(0)) {
-
-                    case '?': min = 0; max = 1;                 break;
-                    case '*': min = 0; max = Integer.MAX_VALUE; break;
-                    case '+': min = 1; max = Integer.MAX_VALUE; break;
-
-                    case '{':
-                        {
-                            min = Integer.parseInt(t.captured[0]);
-                            max = (
-                                t.captured[1] == null ? min :
-                                t.captured[2] == null ? Integer.MAX_VALUE :
-                                Integer.parseInt(t.captured[2])
-                            );
-                        }
-                        break;
-
-                    default:
-                        throw new AssertionError(t);
-                    }
-
-                    switch (t.type) {
-
-                    case GREEDY_QUANTIFIER:     return Sequences.quantifier(op, min, max, rs.currentQuantifierNesting, QuantifierNature.GREEDY); // SUPPRESS CHECKSTYLE LineLength:2
-                    case RELUCTANT_QUANTIFIER:  return Sequences.quantifier(op, min, max, rs.currentQuantifierNesting, QuantifierNature.RELUCTANT);
-                    case POSSESSIVE_QUANTIFIER: return Sequences.quantifier(op, min, max, rs.currentQuantifierNesting, QuantifierNature.POSSESSIVE);
-
-                    default:
-                        throw new AssertionError(t);
+                case CAPTURING_QUANTIFIER:
+                    {
+                        final int min = Integer.parseInt(t.captured[0]);
+                        final int max = (
+                            t.captured[1] == null ? min               :
+                            t.captured[2] == null ? Integer.MAX_VALUE :
+                            Integer.parseInt(t.captured[2])
+                        );
+                        return Sequences.capturingQuantifier(
+                            op,
+                            min,
+                            max,
+                            rs.capturingQuantifierCount++,
+                            this.parseQuantifierNature()
+                        );
                     }
 
                 default:
-                    return op;
+                    throw new AssertionError();
                 }
+            }
+
+            private QuantifierNature
+            parseQuantifierNature() throws ParseException {
+                if (this.peekRead("?")) return QuantifierNature.RELUCTANT;
+                if (this.peekRead("+")) return QuantifierNature.POSSESSIVE;
+                return QuantifierNature.GREEDY;
             }
 
             private Sequence

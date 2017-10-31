@@ -207,15 +207,16 @@ class FunctionalityEquivalencePatternFactory extends PatternFactory {
                             }
 
                             this.assertEqualState(
-                                "Pattern \""
-                                + pattern
-                                + "\", "
+                                "Pattern "
+                                + PrettyPrinter.toJavaStringLiteral(pattern.toString())
+                                + ", "
                                 + (flags == 0 ? "" : "flags=" + flags + ", ")
-                                + "subject \""
-                                + subject
-                                + "\", "
+                                + "subject "
+                                + PrettyPrinter.toJavaStringLiteral(subject)
+                                + ", "
                                 + method.getName()
-                                + "()"
+                                + "() => "
+                                + subjectResult
                             );
 
                             return referenceResult;
@@ -272,7 +273,7 @@ class FunctionalityEquivalencePatternFactory extends PatternFactory {
                                 // JUR's "requireEnd()" method is notoriously buggy... test cases may set a system
                                 // property "FIX_REQUIRE_END" to work around these bugs.
                                 FunctionalityEquivalencePatternFactory.assertEqual(
-                                    message + " requireEnd(): ",
+                                    message + "; requireEnd(): ",
                                     referenceMatcher.requireEnd(),
                                     subjectMatcher.requireEnd(),
                                     "FIX_REQUIRE_END"
@@ -283,7 +284,7 @@ class FunctionalityEquivalencePatternFactory extends PatternFactory {
                             // JUR's "hitEnd()" method is notoriously buggy... test cases may set a system
                             // property "FIX_HIT_END" to work around these bugs.
                             FunctionalityEquivalencePatternFactory.assertEqual(
-                                message + " hitEnd(): ",
+                                message + "; hitEnd(): ",
                                 referenceMatcher.hitEnd(),
                                 subjectMatcher.hitEnd(),
                                 "FIX_HIT_END"

@@ -138,4 +138,31 @@ interface Matcher extends de.unkrig.ref4j.Matcher {
      */
     CompiledReplacement
     compileReplacement(String replacement);
+
+    /**
+     * Returns, after a successful match, the value of the designated "capturing quantifier". A "capturing quantifier"
+     * has the form "<code>{m,n}</code>", where the comma and {@code n} are optional.
+     * <p>
+     *   Capturing quantifier numbers start at zero, and increase left-to-right.
+     * </p>
+     * <p>
+     *   Example:
+     * </p>
+     * <p>
+     *   The regex is <code>"a{1,}b{1,}c{1,}"</code>, the subject string is {@code " abc aabbcc abbccc "}. There are
+     *   three matches, and {@link #count(int)} returns the following values:
+     * </p>
+     * <table border="1">
+     *   <tr><th>Match #</th><th>{@code count(0)}</th><th>{@code count(1)}</th><th>{@code count(2)}</th></tr>
+     *   <tr><td>1</td><td>1</td><td>1</td><td>1</td></tr>
+     *   <tr><td>2</td><td>2</td><td>2</td><td>2</td></tr>
+     *   <tr><td>3</td><td>1</td><td>2</td><td>3</td></tr>
+     * </table>
+     * <p>
+     *   The return value is undefined if there was no previous match, or if the quantifier was not executed during
+     *   the match.
+     * </p>
+     */
+    int
+    count(int number);
 }

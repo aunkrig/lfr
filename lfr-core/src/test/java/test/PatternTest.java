@@ -518,6 +518,7 @@ class PatternTest {
         }
     }
 
+    /** MUSICAL SYMBOL G CLEF OTTAVA BASSA */
     static int    clef              = 0x1d120;
     static char   clefHighSurrogate = PatternTest.highSurrogateOf(PatternTest.clef);
     static char   clefLowSurrogate  = PatternTest.lowSurrogateOf(PatternTest.clef);
@@ -766,6 +767,29 @@ class PatternTest {
         long end = System.currentTimeMillis();
 
         System.out.printf(Locale.US, "Took %,d ms%n",  end - start);
+    }
+
+    @Test public void
+    testCapturingQuantifiers() {
+        de.unkrig.lfr.core.Matcher
+        matcher = de.unkrig.lfr.core.PatternFactory.INSTANCE.compile("a{1,}b{1,}c{1,}").matcher(" abc aabbcc abbccc ");
+
+        Assert.assertTrue(matcher.find());
+        Assert.assertEquals(1, matcher.count(0));
+        Assert.assertEquals(1, matcher.count(1));
+        Assert.assertEquals(1, matcher.count(2));
+
+        Assert.assertTrue(matcher.find());
+        Assert.assertEquals(2, matcher.count(0));
+        Assert.assertEquals(2, matcher.count(1));
+        Assert.assertEquals(2, matcher.count(2));
+
+        Assert.assertTrue(matcher.find());
+        Assert.assertEquals(1, matcher.count(0));
+        Assert.assertEquals(2, matcher.count(1));
+        Assert.assertEquals(3, matcher.count(2));
+
+        Assert.assertFalse(matcher.find());
     }
 
     // ========================================================================================================

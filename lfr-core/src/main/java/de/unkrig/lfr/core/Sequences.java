@@ -26,13 +26,11 @@
 
 package de.unkrig.lfr.core;
 
-import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 
 import de.unkrig.commons.lang.CharSequences;
 import de.unkrig.commons.lang.Characters;
-import de.unkrig.commons.lang.PrettyPrinter;
 import de.unkrig.commons.lang.StringUtil;
 import de.unkrig.commons.lang.StringUtil.IndexOf;
 import de.unkrig.commons.lang.protocol.Consumer;
@@ -185,13 +183,54 @@ class Sequences {
     }
 
     /**
-     * Implements quantifiers (greedy, reluctant and possessive).
+     * Implements quantifiers (greedy, reluctant and possessive) with minimum quantity zero or one, and infinite
+     * maximum quantity.
+     */
+    public static Sequence
+    quantifierInfinity(Sequence operand, boolean minIsZero, QuantifierNature nature) {
+
+        switch (nature) {
+
+        case GREEDY:
+            if (operand instanceof CharacterClass) {
+                CharacterClass cc = (CharacterClass) operand;
+                if (cc.next == Sequences.TERMINAL) {
+                    return Sequences.greedyQuantifierOnCharacterClass(cc, minIsZero ? 0 : 1, Integer.MAX_VALUE, -1);
+                }
+            }
+            return Sequences.greedyOrReluctantQuantifierInfinity(operand, minIsZero, true);
+
+        case RELUCTANT:
+            if (operand instanceof CharacterClass) {
+                CharacterClass cc = (CharacterClass) operand;
+                if (cc.next == Sequences.TERMINAL) {
+                    return Sequences.reluctantQuantifierOnCharacterClass(cc, minIsZero ? 0 : 1, Integer.MAX_VALUE, -1);
+                }
+            }
+            return Sequences.greedyOrReluctantQuantifierInfinity(operand, minIsZero, false);
+
+        case POSSESSIVE:
+            return Sequences.possessiveQuantifier(operand, minIsZero ? 0 : 1, Integer.MAX_VALUE);
+
+        default:
+            throw new AssertionError(nature);
+        }
+    }
+
+    /**
+     * Implements capturing quantifiers (greedy, reluctant and possessive).
      *
      * @param min The "minimum count" of the quantifier
      * @param max The "maximum count" of the quantifier (may be {@link Integer#MAX_VALUE})
      */
     public static Sequence
-    quantifier(Sequence operand, final int min, final int max, final int counterIndex, QuantifierNature nature) {
+    capturingQuantifier(
+        Sequence         operand,
+        final int        min,
+        final int        max,
+        final int        counterNumber,
+        QuantifierNature nature
+    ) {
 
         if (min > max)            return CharacterClasses.FAIL;
         if (max == 0)             return Sequences.TERMINAL;
@@ -203,7 +242,7 @@ class Sequences {
             if (lc.next == Sequences.TERMINAL) {
                 return (
                     new Sequences.LiteralString(StringUtil.repeat(min, Character.toChars(lc.c)))
-                    .concat(Sequences.quantifier(lc, 0, max - min, counterIndex, nature))
+                    .concat(Sequences.capturingQuantifier(lc, 0, max - min, counterNumber, nature))
                 );
             }
         }
@@ -214,7 +253,7 @@ class Sequences {
             if (ls.next == Sequences.TERMINAL && min * ls.cs.length() <= 1000) {
                 return (
                     new Sequences.LiteralString(StringUtil.repeat(min, ls.cs))
-                    .concat(Sequences.quantifier(ls, 0, max - min, counterIndex, nature))
+                    .concat(Sequences.capturingQuantifier(ls, 0, max - min, counterNumber, nature))
                 );
             }
         }
@@ -225,19 +264,19 @@ class Sequences {
             if (operand instanceof CharacterClass) {
                 CharacterClass cc = (CharacterClass) operand;
                 if (cc.next == Sequences.TERMINAL) {
-                    return Sequences.greedyQuantifierOnCharacterClass(cc, min, max);
+                    return Sequences.greedyQuantifierOnCharacterClass(cc, min, max, counterNumber);
                 }
             }
-            return Sequences.greedyOrReluctantQuantifier(operand, min, max, counterIndex, true);
+            return Sequences.greedyOrReluctantQuantifier(operand, min, max, counterNumber, true);
 
         case RELUCTANT:
             if (operand instanceof CharacterClass) {
                 CharacterClass cc = (CharacterClass) operand;
                 if (cc.next == Sequences.TERMINAL) {
-                    return Sequences.reluctantQuantifierOnCharacterClass(cc, min, max);
+                    return Sequences.reluctantQuantifierOnCharacterClass(cc, min, max, counterNumber);
                 }
             }
-            return Sequences.greedyOrReluctantQuantifier(operand, min, max, counterIndex, false);
+            return Sequences.greedyOrReluctantQuantifier(operand, min, max, counterNumber, false);
 
         case POSSESSIVE:
             return Sequences.possessiveQuantifier(operand, min, max);
@@ -248,6 +287,233 @@ class Sequences {
     }
 
     /**
+     * Implements quantifiers (greedy, reluctant and possessive) with minimum quantity zero and maximum quantity one.
+     */
+    public static Sequence
+    quantifierZeroOne(Sequence operand, QuantifierNature nature) {
+
+        switch (nature) {
+
+        case GREEDY:
+            return Sequences.greedyOrReluctantQuantifierZeroOne(operand, true);
+
+        case RELUCTANT:
+            return Sequences.greedyOrReluctantQuantifierZeroOne(operand, false);
+
+        case POSSESSIVE:
+            return Sequences.possessiveQuantifier(operand, 0, 1);
+
+        default:
+            throw new AssertionError(nature);
+        }
+    }
+
+    /**
+     * Implements greedy and reluctant (but <em>not</em> possessive) quantifiers for minimum quantity zero or one, and
+     * infinite maximum quantity, i.e. "{@code *}" and "{@code +}".
+     */
+    private static Sequence
+    greedyOrReluctantQuantifierInfinity(
+        final Sequence operand,
+        final boolean  minIsZero,
+        final boolean  greedy
+    ) {
+
+        final int minml = minIsZero ? 0 : operand.minMatchLength;
+
+        //         +-----------+
+        //         |  result   |
+        //         +-----------+
+        //           |  or   |
+        //           v       v
+        //   +---------+   +--------+   +--------+
+        //   | operand |-->|   cs   |-->|  next  |
+        //   +---------+   +--------+   +--------+
+        //        ^            |
+        //        |            |
+        //        +------------+
+
+        final Sequence[] operand2   = { operand };
+        final String     opToString = operand.toString();
+
+        final CompositeSequence cs = new CompositeSequence(0, Integer.MAX_VALUE) {
+
+            @Override public boolean
+            matches(MatcherImpl matcher) {
+
+                // Optimize: TODO: Probably this optimization is not possible
+                if (matcher.regionEnd - matcher.offset < this.next.minMatchLength) return false;
+
+                int savedOffset = matcher.offset;
+
+                if (savedOffset == matcher.regionEnd) matcher.hitEnd = true;
+
+                if (greedy) {
+
+                    if (operand2[0].matches(matcher)) return true;
+
+                    matcher.offset = savedOffset;
+
+                    return this.next.matches(matcher);
+                } else {
+
+                    if (this.next.matches(matcher)) return true;
+
+                    matcher.offset = savedOffset;
+
+                    return operand2[0].matches(matcher);
+                }
+            }
+
+            @Override void
+            check(int offset, Consumer<Integer> result) {
+                operand2[0].check(offset, result);
+                this.next.check(offset, result);
+            }
+
+            @Override protected String
+            toStringWithoutNext() { return "???cs"; }
+        };
+
+        operand2[0] = operand.concat(cs);
+
+        return new Sequence(minml, Integer.MAX_VALUE) {
+
+            @Override public boolean
+            matches(MatcherImpl matcher) {
+                return minIsZero ? cs.matches(matcher) : operand2[0].matches(matcher);
+            }
+
+            @Override public Sequence
+            concat(final Sequence that) {
+
+                cs.concat(that);
+
+                this.minMatchLength = Sequences.add(minml, that.minMatchLength);
+                this.maxMatchLength = Integer.MAX_VALUE;
+
+                return this;
+            }
+
+            @Override void
+            check(int offset, Consumer<Integer> result) {
+                if (minIsZero) {
+                    cs.check(offset, result);
+                } else {
+                    operand2[0].check(offset, result);
+                }
+            }
+
+            @Override public String
+            toString() {
+                return (
+                    (greedy ? "greedyQuantifier(operand=" : "reluctantQuantifier(operand=")
+                    + opToString
+                    + ", min="
+                    + (minIsZero ? 0 : 1)
+                    + ")"
+                    + (cs.next == Sequences.TERMINAL ? "" : " . " + cs.next)
+                );
+            }
+        };
+    }
+
+    /**
+     * Implements greedy and reluctant (but <em>not</em> possessive) quantifiers for minimum quantity zero and maximum
+     * quantity one.
+     */
+    private static Sequence
+    greedyOrReluctantQuantifierZeroOne(Sequence operand, final boolean greedy) {
+
+        final int    opmaxml    = operand.maxMatchLength;
+        final String opToString = operand.toString();
+
+        //         +-----------+
+        //         |  result   |
+        //         +-----------+
+        //           |  or   |
+        //           v       v
+        //   +---------+   +--------+   +--------+
+        //   | operand |-->|   cs   |-->|  next  |
+        //   +---------+   +--------+   +--------+
+
+        final CompositeSequence cs = new CompositeSequence(0, opmaxml) {
+
+            @Override public boolean
+            matches(MatcherImpl matcher) { return this.next.matches(matcher); }
+
+            @Override void
+            check(int offset, Consumer<Integer> result) { this.next.check(offset, result); }
+
+            @Override protected String
+            toStringWithoutNext() { return "???cs"; }
+        };
+
+        final Sequence operand2 = operand.concat(cs);
+
+        return new Sequence(0, opmaxml) {
+
+            @Override public boolean
+            matches(MatcherImpl matcher) {
+
+                if (greedy) {
+                    int savedOffset = matcher.offset;
+                    if (operand2.matches(matcher)) return true;
+                    matcher.offset = savedOffset;
+                    return cs.next.matches(matcher);
+                } else {
+                    int savedOffset = matcher.offset;
+                    if (cs.next.matches(matcher)) return true;
+                    matcher.offset = savedOffset;
+                    return operand2.matches(matcher);
+                }
+            }
+
+            @Override public Sequence
+            concat(final Sequence that) {
+
+                // Optimize the special case ".{min,max}literalstring".
+                if (
+                    operand2 instanceof CharacterClasses.AnyCharacter
+                    && ((CompositeSequence) operand2).next == cs
+                    && that instanceof LiteralString
+                ) {
+                    LiteralString ls = (LiteralString) that;
+
+                    return (
+                        greedy
+                        ? Sequences.greedyQuantifierOnAnyCharAndLiteralString(0, 1, ls.cs)
+                        : Sequences.reluctantQuantifierOnAnyCharAndLiteralString(0, 1, ls.cs)
+                    ).concat(ls.next);
+                }
+
+                cs.next = cs.next.concat(that);
+
+                this.minMatchLength = Sequences.add(0,       that.minMatchLength);
+                this.maxMatchLength = Sequences.add(opmaxml, that.maxMatchLength);
+
+                return this;
+            }
+
+            @Override void
+            check(int offset, Consumer<Integer> result) {
+                operand2.check(offset, result);
+                cs.check(offset, result);
+            }
+
+            @Override public String
+            toString() {
+                return (
+                    (greedy ? "greedyQuantifier(operand=" : "reluctantQuantifier(operand=")
+                    + opToString
+                    + ", min=0, max=1)"
+                    + (cs.next == Sequences.TERMINAL ? "" : " . " + cs.next)
+                );
+            }
+        };
+    }
+
+    /**
      * Implements greedy and reluctant (but <em>not</em> possessive) quantifiers.
      */
     private static Sequence
@@ -255,7 +521,7 @@ class Sequences {
         final Sequence operand,
         final int      min,
         final int      max,
-        final int      counterIndex,
+        final int      counterNumber,
         final boolean  greedy
     ) {
 
@@ -264,113 +530,6 @@ class Sequences {
 
         final int minml = Sequences.mul(min, opminml);
         final int maxml = Sequences.mul(max, opmaxml);
-
-        if ((min == 0 || min == 1) && max == Integer.MAX_VALUE) {
-
-            // Optimization for "x*" and "x+": We can save the overhead of counting repetitions.
-
-            //         +-----------+
-            //         |  result   |
-            //         +-----------+
-            //           |  or   |
-            //           v       v
-            //   +---------+   +--------+   +--------+
-            //   | operand |-->|   cs   |-->|  next  |
-            //   +---------+   +--------+   +--------+
-            //        ^            |
-            //        |            |
-            //        +------------+
-
-            final Sequence[] operand2   = { operand };
-            final String     opToString = operand.toString();
-
-            final CompositeSequence cs = new CompositeSequence(0, Integer.MAX_VALUE) {
-
-                @Override public boolean
-                matches(MatcherImpl matcher) {
-
-                    // Optimize: TODO: Probably this optimization is not possible
-                    if (matcher.regionEnd - matcher.offset < this.next.minMatchLength) return false;
-
-                    int savedOffset = matcher.offset;
-
-                    if (savedOffset == matcher.regionEnd) matcher.hitEnd = true;
-
-                    if (greedy) {
-
-                        if (operand2[0].matches(matcher)) return true;
-
-                        matcher.offset = savedOffset;
-
-                        return this.next.matches(matcher);
-                    } else {
-
-                        if (this.next.matches(matcher)) return true;
-
-                        matcher.offset = savedOffset;
-
-                        return operand2[0].matches(matcher);
-                    }
-                }
-
-                @Override protected String
-                toStringWithoutNext() { return "???cs"; }
-            };
-
-            operand2[0] = operand.concat(cs);
-
-            return new Sequence(minml, maxml) {
-
-                @Override public boolean
-                matches(MatcherImpl matcher) {
-
-                    if (min == 0) {
-                        matcher.counters[counterIndex] = 0;
-                        return cs.matches(matcher);
-                    } else {
-                        matcher.counters[counterIndex] = 1;
-                        return operand2[0].matches(matcher);
-                    }
-                }
-
-                @Override public Sequence
-                concat(final Sequence that) {
-
-                    cs.concat(that);
-
-                    this.minMatchLength = Sequences.add(minml, that.minMatchLength);
-                    this.maxMatchLength = Sequences.add(maxml, that.maxMatchLength);
-
-                    return this;
-                }
-
-                @Override void
-                check(int offset, Consumer<Integer> result) {
-                    Sequences.checkQuantified(
-                        offset,
-                        result,
-                        operand,
-                        min,
-                        Integer.MAX_VALUE,
-                        cs.next,
-                        opminml,
-                        opmaxml)
-                ;
-                }
-
-                @Override public String
-                toString() {
-                    return (
-                        (greedy ? "greedyQuantifier(operand=" : "reluctantQuantifier(operand=")
-                        + opToString
-                        + ", min="
-                        + min
-                        + ")"
-                        + (cs.next == Sequences.TERMINAL ? "" : " . " + cs.next)
-                    );
-                }
-            };
-        }
 
         // Here we have the "general case", where min and max can have any value.
 
@@ -402,11 +561,11 @@ class Sequences {
 //                    // Optimize: TODO: Probably not correct
 //                    if (matcher.regionEnd - matcher.offset < this.next.minMatchLength) return false;
 
-                    int ic = matcher.counters[counterIndex];
+                    int ic = matcher.counters[counterNumber];
 
                     if (ic == max) return this.next.matches(matcher);
 
-                    matcher.counters[counterIndex] = ic + 1;
+                    matcher.counters[counterNumber] = ic + 1;
                     {
                         if (ic < min) return operand2[0].matches(matcher);
 
@@ -416,11 +575,11 @@ class Sequences {
                         }
                         matcher.offset = savedOffset;
                     }
-                    matcher.counters[counterIndex] = ic;
+                    matcher.counters[counterNumber] = ic;
 
                     return this.next.matches(matcher);
                 } else {
-                    int ic = matcher.counters[counterIndex];
+                    int ic = matcher.counters[counterNumber];
 
                     if (ic >= min) {
                         int savedOffset = matcher.offset;
@@ -432,14 +591,20 @@ class Sequences {
 
                     if (ic >= max) return false;
 
-                    matcher.counters[counterIndex] = ic + 1;
+                    matcher.counters[counterNumber] = ic + 1;
                     {
                         if (operand2[0].matches(matcher)) return true;
                     }
 
-                    matcher.counters[counterIndex] = ic;
+                    matcher.counters[counterNumber] = ic;
                     return false;
                 }
+            }
+
+            @Override void
+            check(int offset, Consumer<Integer> result) {
+                operand2[0].check(offset, result);
+                this.next.check(offset, result);
             }
 
             @Override protected String
@@ -454,10 +619,10 @@ class Sequences {
             matches(MatcherImpl matcher) {
 
                 if (min == 0) {
-                    matcher.counters[counterIndex] = 0;
+                    matcher.counters[counterNumber] = 0;
                     return cs.matches(matcher);
                 } else {
-                    matcher.counters[counterIndex] = 1;
+                    matcher.counters[counterNumber] = 1;
                     return operand2[0].matches(matcher);
                 }
             }
@@ -490,7 +655,11 @@ class Sequences {
 
             @Override void
             check(int offset, Consumer<Integer> result) {
-                Sequences.checkQuantified(offset, result, operand, min, max, cs.next, opminml, opmaxml);
+                if (min == 1) {
+                    operand2[0].check(offset, result);
+                } else {
+                    cs.check(offset, result);
+                }
             }
 
             @Override public String
@@ -789,16 +958,6 @@ class Sequences {
 
         if (alternatives.length == 1) return alternatives[0];
 
-        // Optimize the case where _all_ alternatives start with multivalent sequences.
-        OPTIMIZE_MULTIVALENT_ALTERNATIVES: {
-
-            for (Sequence a : alternatives) {
-                if (!(a instanceof MultivalentSequence)) break OPTIMIZE_MULTIVALENT_ALTERNATIVES;
-            }
-
-            return Sequences.boyerMooreHorspoolAlternatives(alternatives);
-        }
-
         return new AlternativesSequence(alternatives);
     }
 
@@ -902,92 +1061,6 @@ class Sequences {
         toStringWithoutNext() {
             return "alternatives(" + Sequences.join(this.alternatives, ", ") + ") . " + this.joiner.next;
         }
-    }
-
-    private static Sequence
-    boyerMooreHorspoolAlternatives(final Sequence[] alternatives) {
-
-        final int al = alternatives.length;
-
-        // Collect the alternatives' needles and the min and max needle length.
-        final char[][][] needles         = new char[al][][];
-        int              minNeedleLength = Integer.MAX_VALUE;
-        for (int i = 0; i < al; i++) {
-            Sequence a = alternatives[i];
-
-            int needleLength = (needles[i] = ((MultivalentSequence) a).getNeedle()).length;
-
-            if (needleLength < minNeedleLength) minNeedleLength = needleLength;
-        }
-
-        final int minNeedleLengthMinus1 = minNeedleLength - 1;
-
-        // Compute the "safe skip" array.
-        final int[] safeSkip = new int[256];
-        Arrays.fill(safeSkip, minNeedleLength);
-        for (char[][] n : needles) {
-            for (int j = 0; j < minNeedleLength; j++) {
-                for (char c : n[j]) safeSkip[0xff & c] = minNeedleLengthMinus1 - j;
-            }
-        }
-
-        return new AlternativesSequence(alternatives) {
-
-            /**
-             * Performance-optimized version that utilizes the Boyer-Moore-Holbrook algorithm.
-             */
-            @Override public int
-            find(MatcherImpl matcher) {
-
-                for (int o = matcher.offset + minNeedleLengthMinus1; o < matcher.regionEnd;) {
-
-                    int ss = safeSkip[0xff & matcher.subject.charAt(o)];
-
-                    if (ss > 0) {
-                        o += ss;
-                    } else {
-
-                        // Check which needles match.
-                        NEEDLES:
-                        for (int j = 0; j < needles.length; j++) {
-                            char[][] n = needles[j];
-
-                            for (int i = 0; i < n.length; i++) {
-                                char c = matcher.subject.charAt(o - minNeedleLengthMinus1 + i);
-                                MULTI: {
-                                    for (char c2 : n[i]) {
-                                        if (c2 == c) break MULTI;
-                                    }
-                                    continue NEEDLES;
-                                }
-                            }
-
-                            // Needle matches!
-                            matcher.offset = o - minNeedleLengthMinus1 + n.length;
-                            if (((CompositeSequence) alternatives[j]).next.matches(matcher)) {
-                                return o - minNeedleLengthMinus1;
-                            }
-                        }
-
-                        // None of the needles matched; continue at next char position.
-                        o++;
-                    }
-                }
-
-                matcher.hitEnd = true;
-                return -1;
-            }
-
-            @Override public String
-            toStringWithoutNext() {
-                return (
-                    "boyerMooreHorspoolAlternatives("
-                    + PrettyPrinter.toJavaArrayInitializer(needles)
-                    + ") . "
-                    + this.joiner.next
-                );
-            }
-        };
     }
 
     /**
@@ -1800,10 +1873,20 @@ class Sequences {
      * @param max The "maximum count" of the quantifier (may be {@link Integer#MAX_VALUE})
      */
     public static Sequence
-    greedyQuantifierOnCharacterClass(final CharacterClass operand, final int min, final int max) {
+    greedyQuantifierOnCharacterClass(
+        final CharacterClass operand,
+        final int            min,
+        final int            max,
+        final int            counterNumber
+    ) {
 
         if (operand instanceof CharacterClasses.LiteralChar) {
-            return Sequences.greedyQuantifierOnChar((char) ((CharacterClasses.LiteralChar) operand).c, min, max);
+            return Sequences.greedyQuantifierOnChar(
+                (char) ((CharacterClasses.LiteralChar) operand).c,
+                min,
+                max,
+                counterNumber
+            );
         }
 
         return new CompositeSequence(min * operand.minMatchLength, Sequences.mul(max, operand.maxMatchLength)) {
@@ -1870,7 +1953,10 @@ class Sequences {
                 for (;; i--) {
 
                     matcher.offset = o;
-                    if (this.next.matches(matcher)) return true;
+                    if (this.next.matches(matcher)) {
+                        if (counterNumber != -1) matcher.counters[counterNumber] = i;
+                        return true;
+                    }
 
                     if (i <= min) break;
 
@@ -1928,7 +2014,7 @@ class Sequences {
      * @param max The "maximum count" of the quantifier (may be {@link Integer#MAX_VALUE})
      */
     public static Sequence
-    greedyQuantifierOnChar(final char operand, final int min, final int max) {
+    greedyQuantifierOnChar(final char operand, final int min, final int max, final int counterNumber) {
 
         return new CompositeSequence(min, max) {
 
@@ -1969,7 +2055,10 @@ class Sequences {
                 for (;; i--) {
 
                     matcher.offset = o;
-                    if (this.next.matches(matcher)) return true;
+                    if (this.next.matches(matcher)) {
+                        if (counterNumber != -1) matcher.counters[counterNumber] = i;
+                        return true;
+                    }
 
                     if (i <= min) break;
 
@@ -2007,7 +2096,12 @@ class Sequences {
      * @param max The "maximum count" of the quantifier (may be {@link Integer#MAX_VALUE})
      */
     public static Sequence
-    reluctantQuantifierOnCharacterClass(final CharacterClass operand, final int min, final int max) {
+    reluctantQuantifierOnCharacterClass(
+        final CharacterClass operand,
+        final int            min,
+        final int            max,
+        final int            counterNumber
+    ) {
 
         return new CompositeSequence(min * operand.minMatchLength, Sequences.mul(max, operand.maxMatchLength)) {
 
@@ -2043,7 +2137,10 @@ class Sequences {
                 // Now try to match the operand (max-min) more times.
                 for (;; i++) {
 
-                    if (this.next.matches(matcher)) return true;
+                    if (this.next.matches(matcher)) {
+                        if (counterNumber != -1) matcher.counters[counterNumber] = i;
+                        return true;
+                    }
 
                     if (i == max) return false;
 
@@ -2113,7 +2210,7 @@ class Sequences {
      * @param max The "maximum count" of the quantifier (may be {@link Integer#MAX_VALUE})
      */
     public static Sequence
-    reluctantQuantifierOnChar(final char operand, final int min, final int max) {
+    reluctantQuantifierOnChar(final char operand, final int min, final int max, final int counterNumber) {
 
         return new CompositeSequence(min, max) {
 
@@ -2146,7 +2243,10 @@ class Sequences {
                     }
 
                     matcher.offset = o;
-                    if (this.next.matches(matcher)) return true;
+                    if (this.next.matches(matcher)) {
+                        matcher.counters[counterNumber] = i;
+                        return true;
+                    }
 
                     if (i == max) break;
 

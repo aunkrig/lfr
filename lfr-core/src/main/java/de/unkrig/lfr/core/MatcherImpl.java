@@ -157,7 +157,7 @@ class MatcherImpl implements Matcher {
         this.groups = new int[2 + 2 * pattern.groupCount];
         Arrays.fill(this.groups, -1);
 
-        this.counters = new int[pattern.quantifierNesting];
+        this.counters = new int[pattern.capturingQuantifierCount];
     }
 
     @Override public MatchResult
@@ -200,7 +200,7 @@ class MatcherImpl implements Matcher {
     usePattern(de.unkrig.ref4j.Pattern newPattern) {
 
         this.pattern  = (Pattern) newPattern;
-        this.counters = new int[this.pattern.quantifierNesting];
+        this.counters = new int[this.pattern.capturingQuantifierCount];
         this.groups   = new int[2 + 2 * this.pattern.groupCount];
         Arrays.fill(this.groups, -1);
 
@@ -699,6 +699,9 @@ class MatcherImpl implements Matcher {
         this.hasAnchoringBounds = b;
         return this;
     }
+
+    @Override public int
+    count(int number) { return this.counters[number]; }
 
     // =====================================
 

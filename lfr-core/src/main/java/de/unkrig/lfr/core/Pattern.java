@@ -28,6 +28,7 @@
 
 package de.unkrig.lfr.core;
 
+import static de.unkrig.lfr.core.Pattern.TokenType.ASTERISK;
 import static de.unkrig.lfr.core.Pattern.TokenType.BEGINNING_OF_INPUT;
 import static de.unkrig.lfr.core.Pattern.TokenType.BEGINNING_OF_LINE;
 import static de.unkrig.lfr.core.Pattern.TokenType.CAPTURING_GROUP;
@@ -42,7 +43,6 @@ import static de.unkrig.lfr.core.Pattern.TokenType.END_OF_INPUT;
 import static de.unkrig.lfr.core.Pattern.TokenType.END_OF_INPUT_BUT_FINAL_TERMINATOR;
 import static de.unkrig.lfr.core.Pattern.TokenType.END_OF_LINE;
 import static de.unkrig.lfr.core.Pattern.TokenType.END_OF_PREVIOUS_MATCH;
-import static de.unkrig.lfr.core.Pattern.TokenType.GREEDY_QUANTIFIER;
 import static de.unkrig.lfr.core.Pattern.TokenType.INDEPENDENT_NON_CAPTURING_GROUP;
 import static de.unkrig.lfr.core.Pattern.TokenType.LEFT_BRACKET;
 import static de.unkrig.lfr.core.Pattern.TokenType.LINEBREAK_MATCHER;
@@ -61,13 +61,13 @@ import static de.unkrig.lfr.core.Pattern.TokenType.NEGATIVE_LOOKAHEAD;
 import static de.unkrig.lfr.core.Pattern.TokenType.NEGATIVE_LOOKBEHIND;
 import static de.unkrig.lfr.core.Pattern.TokenType.NON_CAPTURING_GROUP;
 import static de.unkrig.lfr.core.Pattern.TokenType.NON_WORD_BOUNDARY;
+import static de.unkrig.lfr.core.Pattern.TokenType.PLUS;
 import static de.unkrig.lfr.core.Pattern.TokenType.POSITIVE_LOOKAHEAD;
 import static de.unkrig.lfr.core.Pattern.TokenType.POSITIVE_LOOKBEHIND;
-import static de.unkrig.lfr.core.Pattern.TokenType.POSSESSIVE_QUANTIFIER;
+import static de.unkrig.lfr.core.Pattern.TokenType.QUESTION;
 import static de.unkrig.lfr.core.Pattern.TokenType.QUOTATION_BEGIN;
 import static de.unkrig.lfr.core.Pattern.TokenType.QUOTATION_END;
 import static de.unkrig.lfr.core.Pattern.TokenType.QUOTED_CHARACTER;
-import static de.unkrig.lfr.core.Pattern.TokenType.RELUCTANT_QUANTIFIER;
 import static de.unkrig.lfr.core.Pattern.TokenType.RIGHT_BRACKET;
 import static de.unkrig.lfr.core.Pattern.TokenType.WORD_BOUNDARY;
 
@@ -152,9 +152,10 @@ class Pattern implements de.unkrig.ref4j.Pattern, Serializable {
     transient Map<String, Integer> namedGroups;
 
     /**
-     * Zero iff the pattern contains no quantifiers, 1 iff the pattern contains only unnested quatifiers, etc.
+     * The number of "capturing quantifiers", i.e. those of the form <code>"{m,n}"</code>. The counts of these are
+     * available through {@link Matcher#count(int)}.
      */
-    transient int quantifierNesting;
+    transient int capturingQuantifierCount;
 
     // SUPPRESS CHECKSTYLE JavadocVariable:59
     enum TokenType {
@@ -241,12 +242,14 @@ class Pattern implements de.unkrig.ref4j.Pattern, Serializable {
         LINEBREAK_MATCHER,
 
         // Quantifiers.
-        /** <code>X? X* X+ X{n} X{min,} X{min,max}</code> */
-        GREEDY_QUANTIFIER,
-        /** <code>X?? X*? X+? X{n}? X{min,}? X{min,max}?</code> */
-        RELUCTANT_QUANTIFIER,
-        /** <code>X?+ X*+ X++ X{n}+ X{min,}+ X{min,max}+</code> */
-        POSSESSIVE_QUANTIFIER,
+        /** {@code ?} */
+        QUESTION,
+        /** {@code *} */
+        ASTERISK,
+        /** {@code +} */
+        PLUS,
+        /** <code>{min,max}</code> */
+        CAPTURING_QUANTIFIER,
 
         // Logical operators.
         /** {@code X|Y} */
@@ -322,12 +325,12 @@ class Pattern implements de.unkrig.ref4j.Pattern, Serializable {
         Sequence             sequence,
         int                  groupCount,
         Map<String, Integer> namedGroups,
-        int                  quantifierNesting
+        int                  capturingQuantifierCount
     ) {
-        this.sequence          = sequence;
-        this.groupCount        = groupCount;
-        this.namedGroups       = namedGroups;
-        this.quantifierNesting = quantifierNesting;
+        this.sequence                 = sequence;
+        this.groupCount               = groupCount;
+        this.namedGroups              = namedGroups;
+        this.capturingQuantifierCount = capturingQuantifierCount;
     }
 
     static
@@ -335,8 +338,7 @@ class Pattern implements de.unkrig.ref4j.Pattern, Serializable {
 
         int                        groupCount;
         final Map<String, Integer> namedGroups = new HashMap<String, Integer>();
-        int                        currentQuantifierNesting;
-        int                        greatestQuantifierNesting;
+        int                        capturingQuantifierCount;
 
         RegexScanner() { super(ScannerState.class); }
 
@@ -476,42 +478,33 @@ class Pattern implements de.unkrig.ref4j.Pattern, Serializable {
         ss.addRule(Pattern.DEFAULT_STATES, "\\\\R", LINEBREAK_MATCHER).goTo(ss.REMAIN);
 
         // Greedy quantifiers
-        // X?         X, once or not at all
-        // X*         X, zero or more times
-        // X+         X, one or more times
-        // X{n}       X, exactly n times
-        // X{min,}    X, at least min times
-        // X{min,max} X, at least min but not more than max times
-        ss.addRule(
-            Pattern.DEFAULT_STATES,
-            "(?:\\?|\\*|\\+|\\{(\\d+)(?:(,)(\\d+)?)?})(?![?+])", // $1=min, $2="," (opt), $3=max (opt)
-            GREEDY_QUANTIFIER
-        ).goTo(ss.REMAIN);
-
+        //   X?         X, once or not at all
+        //   X*         X, zero or more times
+        //   X+         X, one or more times
+        //   X{n}       X, exactly n times
+        //   X{min,}    X, at least min times
+        //   X{min,max} X, at least min but not more than max times
         // Reluctant quantifiers
-        // X??         X, once or not at all
-        // X*?         X, zero or more times
-        // X+?         X, one or more times
-        // X{n}?       X, exactly n times (identical with X{n})
-        // X{min,}?    X, at least min times
-        // X{min,max}? X, at least min but not more than max times
-        ss.addRule(
-            Pattern.DEFAULT_STATES,
-            "(?:\\?|\\*|\\+|\\{(\\d+)(?:(,)(\\d+)?)?})\\?", // $1=min, $2="," (opt), $3=max (opt)
-            RELUCTANT_QUANTIFIER
-        ).goTo(ss.REMAIN);
-
+        //   X??         X, once or not at all
+        //   X*?         X, zero or more times
+        //   X+?         X, one or more times
+        //   X{n}?       X, exactly n times (identical with X{n})
+        //   X{min,}?    X, at least min times
+        //   X{min,max}? X, at least min but not more than max times
         // Possessive quantifiers
-        // X?+         X, once or not at all
-        // X*+         X, zero or more times
-        // X++         X, one or more times
-        // X{n}+       X, exactly n times (identical with X{n})
-        // X{min,}+    X, at least min times
-        // X{min,max}+ X, at least min but not more than max times
+        //   X?+         X, once or not at all
+        //   X*+         X, zero or more times
+        //   X++         X, one or more times
+        //   X{n}+       X, exactly n times (identical with X{n})
+        //   X{min,}+    X, at least min times
+        //   X{min,max}+ X, at least min but not more than max times
+        ss.addRule(Pattern.DEFAULT_STATES, "\\?", QUESTION).goTo(ss.REMAIN);
+        ss.addRule(Pattern.DEFAULT_STATES, "\\*", ASTERISK).goTo(ss.REMAIN);
+        ss.addRule(Pattern.DEFAULT_STATES, "\\+", PLUS).goTo(ss.REMAIN);
         ss.addRule(
             Pattern.DEFAULT_STATES,
-            "(?:\\?|\\*|\\+|\\{(\\d+)(?:(,)(\\d+)?)?})\\+", // $1=min, $2="," (opt), $3=max (opt)
-            POSSESSIVE_QUANTIFIER
+            "\\{(\\d+)(?:(,)(\\d+)?)?}", // $1=min, $2="," (opt), $3=max (opt)
+            TokenType.CAPTURING_QUANTIFIER
         ).goTo(ss.REMAIN);
 
         // Logical operators
