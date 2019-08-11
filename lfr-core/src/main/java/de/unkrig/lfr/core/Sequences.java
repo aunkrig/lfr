@@ -2387,7 +2387,13 @@ class Sequences {
      */
     static int
     add(int op1, int op2) {
-        return (op1 == Integer.MAX_VALUE || op2 == Integer.MAX_VALUE) ? Integer.MAX_VALUE : op1 + op2;
+        int result = op1 + op2;
+        if (op1 > 0) {
+            if (op2 > 0 && result < 0) return Integer.MAX_VALUE;
+        } else {
+            if (op2 < 0 && result > 0) return Integer.MIN_VALUE;
+        }
+        return result;
     }
 
     /**
