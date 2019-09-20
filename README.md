@@ -24,7 +24,9 @@ Plus:
 
   returns
 
-  &nbsp;&nbsp;&nbsp;`" 7a1bc "`
+  &nbsp;&nbsp;&nbsp;`"7a1bc"`
+
+The expression syntax is described [here](https://aunkrig.github.io/lfr/apidocs/de/unkrig/lfr/core/Matcher.html#compileReplacement-java.lang.String-).
 
 ### API DIFFERENCES
 
