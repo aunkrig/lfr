@@ -1068,8 +1068,6 @@ class Sequences {
      * alternative, matches its successor.
      * For example, {@code "a(?>b|bb)c"} will match {@code "abc"} but <em>not</em> {@code "abbc"}. (In the second case,
      * matching {@code "ab"} succeeds, {@code "abb"} is never tried.)
-     *
-     * @see #boyerMooreHorspoolAlternatives(Sequence[])
      */
     public static Sequence
     independentNonCapturingGroup(final Sequence[] alternatives) {
@@ -2198,8 +2196,8 @@ class Sequences {
     }
 
     /**
-     * Optimized version of {@link #reluctantQuantifierOnCharacterClass(CharacterClass, int, int)} when the operand is
-     * a bare (basic plane) {@code char}.
+     * Optimized version of {@link #reluctantQuantifierOnCharacterClass(CharacterClass, int, int, int)} when the
+     * operand is a bare (basic plane) {@code char}.
      * <p>
      *   This method, opposed to {@link #greedyOrReluctantQuantifier(Sequence, int, int, int, boolean)}, uses iteration
      *   instead of recursion for backtracking and thus saves a considerable number of method calls and call stack

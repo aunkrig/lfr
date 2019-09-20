@@ -473,7 +473,7 @@ class MatcherImpl implements Matcher {
         };
 
         final PredicateWhichThrows<String, NoException>
-        isValidVariableName = Mappings.<String, Object, NoException>containsKeyPredicate(variables);
+        isValidVariableName = Mappings.<String, Object>containsKeyPredicate(variables);
 
         final List<Producer<?>> segments = new ArrayList<Producer<?>>();
 
@@ -655,6 +655,9 @@ class MatcherImpl implements Matcher {
         }
     }
 
+    /**
+     * 
+     */
     @Override public String
     replaceAll(String replacement) {
         return this.compileReplacement(replacement).replaceAll();

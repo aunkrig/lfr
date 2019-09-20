@@ -95,8 +95,8 @@ interface Matcher extends de.unkrig.ref4j.Matcher {
     }
 
     /**
-     * Pre-compiles a replacement string for later use by {@link #appendReplacement(Appendable, Producer)}, {@link
-     * #replaceAll(Producer)} and {@link #replaceFirst(Producer)}.
+     * Pre-compiles a replacement string for later use by {@link #appendReplacement(Appendable, String)}, {@link
+     * #replaceAll(String)} and {@link #replaceFirst(String)}.
      *
      * <p>
      *   Supports the following JRE6-compatible constructs:
@@ -106,7 +106,7 @@ interface Matcher extends de.unkrig.ref4j.Matcher {
      *   <dt>{@code \}<var>x</var></dt>
      *   <dt><var>x</var></dt>
      *   <dd>
-     *     The character <<var>x</var>, literally.
+     *     The character <var>x</var>, literally.
      *   </dd>
      *   <dt>{@code $}<var>n</var></dt>
      *   <dd>

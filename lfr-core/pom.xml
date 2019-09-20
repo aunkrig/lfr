@@ -13,7 +13,7 @@
 		<dependency>
 			<groupId>de.unkrig.commons</groupId>
 			<artifactId>commons-text</artifactId>
-			<version>1.2.12-SNAPSHOT</version>
+			<version>1.2.13</version>
 		</dependency>
 		<dependency>
 			<groupId>junit</groupId>
@@ -113,6 +113,14 @@
 					<additionalparam>-Xdoclint:none</additionalparam>
 					<encoding>UTF-8</encoding>
 					<quiet>true</quiet>
+					<stylesheetfile>src/main/javadoc/stylesheet.css</stylesheetfile>
+					<notimestamp>true</notimestamp>
+					<offlineLinks>
+						<offlineLink>
+							<url>http://commons.unkrig.de/commons-text/apidocs/</url>
+							<location>../../src/main/javadoc/package-lists/de.unkrig.commons/commons-text</location>
+						</offlineLink>
+					</offlineLinks>
 				</configuration>
 			</plugin>
 		</plugins>
