@@ -74,10 +74,10 @@ class PatternTest {
 
         String jsv = System.getProperty("java.specification.version");
 
-        java.util.regex.Matcher m = PatternTest.jurpc("1\\.(\\d+)").matcher(jsv);
-        if (!m.matches()) throw new AssertionError(jsv);
+        // For Java 1.0 through 8, the string has the formt "1.x"; since Java 9 "x".
+        if (jsv.startsWith("1.")) jsv = jsv.substring(2);
 
-        JRE_VERSION = Integer.parseInt(m.group(1));
+        JRE_VERSION = Integer.parseInt(jsv);
     }
 
     @Test public void testMatches1() { PatternTest.PF.compile("abc", 0).matcher("abc").matches();        }
