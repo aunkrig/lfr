@@ -60,6 +60,8 @@ Plus:
   * JUR features that appeared in JRE 1.8:
     * Additional predefined character classes: `\h`, `\v`, and their upper-case counterparts
     * The linebreak matcher `\R`
+  * JUR features that appeared in JRE 1.9:
+    * Named Unicode characters, e.g. `\N{LATIN SMALL LETTER O}` (only if executed in a JRE 9+)
 
 ## Performance
 
