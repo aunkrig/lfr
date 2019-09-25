@@ -50,7 +50,7 @@ class OracleEssentials {
     LFR = de.unkrig.lfr.core.PatternFactory.INSTANCE;
 
     /**
-     * The pattern factory that verfies the functional equality of JUR and LFR.
+     * The pattern factory that verifies the functional equality of JUR and LFR.
      */
     public static final PatternFactory
     PF = new FunctionalityEquivalencePatternFactory(OracleEssentials.JUR, OracleEssentials.LFR);
