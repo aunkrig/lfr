@@ -26,20 +26,83 @@
 
 package test;
 
+import java.util.regex.PatternSyntaxException;
+
 import org.junit.Assert;
 import org.junit.Test;
 
-import de.unkrig.lfr.core.PatternFactory;
+import de.unkrig.ref4j.PatternFactory;
 
+@SuppressWarnings("static-method")
 public
 class Misc {
-    
+
+    /**
+     * The pattern factory that verfies the functional equality of JUR and LFR.
+     */
+    public static final PatternFactory
+    PF = PatternFactory.get();
+
+    /**
+     * 6, 7, 8, ...
+     */
+    private static final int JRE_VERSION;
+    static {
+
+        String jsv = System.getProperty("java.specification.version");
+
+        // For Java 1.0 through 8, the string has the formt "1.x"; since Java 9 "x".
+        if (jsv.startsWith("1.")) jsv = jsv.substring(2);
+        
+        JRE_VERSION = Integer.parseInt(jsv);
+    }
+
     @Test public void
     testWebsite() {
         Assert.assertEquals(
             "7a1bc",
-            PatternFactory.INSTANCE.compile("(?<grp>a)").matcher("abc").replaceAll("${3 + 4 + grp + m.groupCount()}")
+            PF.compile("(?<grp>a)").matcher("abc").replaceAll("${3 + 4 + grp + m.groupCount()}")
         );
+    }
+
+    @Test public void
+    testUnicodeCharacterNames() {
+        
+        if (JRE_VERSION < 9) return;
+        
+        assertMatches("\\N{LATIN SMALL LETTER O}",      "o");
+        assertMatches("\\N{LATIN SmalL LETTER O}",      "o");
+        assertMatches("\\N{  LATIN SmalL LETTER O   }", "o");
+        assertPatternSyntaxException("\\N{LATIN SMALL LETTERx O}");
+    }
+    
+    // -----------------------------
+    
+    private static void
+    assertMatches(String regex, String subject) { assertMatches(regex, subject, 0); }
+    
+    private static void
+    assertMatches(String regex, String subject, int flags) {
+        Assert.assertTrue(
+            "\"" + subject + "\" does not match regex \"" + regex + "\"",
+            PF.compile(regex, flags).matcher(subject).matches()
+        );
+    }
+
+    public static void
+    assertPatternSyntaxException(String regex) {
+        Misc.assertPatternSyntaxException(regex, 0);
+    }
+
+    public static void
+    assertPatternSyntaxException(String regex, int flags) {
+
+        try {
+            Misc.PF.compile(regex, flags);
+            Assert.fail();
+        } catch (PatternSyntaxException pse) {
+            return;
+        }
     }
 
 }

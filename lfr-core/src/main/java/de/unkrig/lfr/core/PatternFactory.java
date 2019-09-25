@@ -40,6 +40,8 @@ import java.util.List;
 import java.util.regex.PatternSyntaxException;
 
 import de.unkrig.commons.lang.Characters;
+import de.unkrig.commons.lang.OptionalMethods;
+import de.unkrig.commons.lang.OptionalMethods.MethodWrapper1;
 import de.unkrig.commons.lang.protocol.Predicate;
 import de.unkrig.commons.lang.protocol.PredicateUtil;
 import de.unkrig.commons.lang.protocol.ProducerUtil;
@@ -62,6 +64,14 @@ public final
 class PatternFactory extends de.unkrig.ref4j.PatternFactory {
 
     private PatternFactory() {}
+
+    private static final MethodWrapper1<Character, Integer, String, RuntimeException>
+    CHARACTER__CODE_POINT_OF = OptionalMethods.get1(
+        Character.class,       // declaringClass
+        "codePointOf",         // methodName
+        String.class,          // parameterType
+        RuntimeException.class // checkedException
+    );
 
     /**
      * The singleton {@link de.unkrig.ref4j.PatternFactory} that implements the LFR regex engine.
@@ -746,6 +756,22 @@ class PatternFactory extends de.unkrig.ref4j.PatternFactory {
                     if (cp < Character.MIN_CODE_POINT || cp > Character.MAX_CODE_POINT) {
                         throw new ParseException("Invalid code point " + cp);
                     }
+                    return cp;
+                }
+
+                if ((t = this.peekRead(TokenType.LITERAL_NAMED)) != null) {
+                    String characterName = t.substring(3, t.length() - 1);
+
+                    Integer cp;
+                    try {
+                        cp = CHARACTER__CODE_POINT_OF.invoke(null, characterName);
+                    } catch (IllegalArgumentException iae) {
+                        throw new ParseException("Invalid Unicode character name " + characterName);
+                    } catch (UnsupportedOperationException uoe) {
+                        throw new ParseException("\"\\N{name}\" is only supported for JRE >= 9");
+                    }
+                    assert cp != null;
+
                     return cp;
                 }
 

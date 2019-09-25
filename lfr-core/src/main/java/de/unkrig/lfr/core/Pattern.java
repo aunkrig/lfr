@@ -52,6 +52,7 @@ import static de.unkrig.lfr.core.Pattern.TokenType.LITERAL_CONTROL2;
 import static de.unkrig.lfr.core.Pattern.TokenType.LITERAL_HEXADECIMAL1;
 import static de.unkrig.lfr.core.Pattern.TokenType.LITERAL_HEXADECIMAL2;
 import static de.unkrig.lfr.core.Pattern.TokenType.LITERAL_HEXADECIMAL3;
+import static de.unkrig.lfr.core.Pattern.TokenType.LITERAL_NAMED;
 import static de.unkrig.lfr.core.Pattern.TokenType.LITERAL_OCTAL;
 import static de.unkrig.lfr.core.Pattern.TokenType.MATCH_FLAGS;
 import static de.unkrig.lfr.core.Pattern.TokenType.MATCH_FLAGS_NON_CAPTURING_GROUP;
@@ -171,6 +172,8 @@ class Pattern implements de.unkrig.ref4j.Pattern, Serializable {
         LITERAL_HEXADECIMAL2,
         /** <code>&#92;x{</code><var>h...h</var><code>}</code> */
         LITERAL_HEXADECIMAL3,
+        /** <code>\N{</code><var>name</var><code>}</code> (Since Java 9) */
+        LITERAL_NAMED,
         /** {@code \t \n \r \f \a \e} */
         LITERAL_CONTROL1,
         /** {@code \c}<var>x</var> */
@@ -380,6 +383,8 @@ class Pattern implements de.unkrig.ref4j.Pattern, Serializable {
         // \x{h...h} The character with hexadecimal value 0xh...h
         //                                    (Character.MIN_CODE_POINT  <= 0xh...h <=  Character.MAX_CODE_POINT)
         ss.addRule(Pattern.ANY_BUT_IN_QUOTATION, "\\\\x\\{.*?(?:}|$)",                        LITERAL_HEXADECIMAL3).goTo(ss.REMAIN);
+        // \N{name}  The character with Unicode character name 'name'
+        ss.addRule(Pattern.ANY_BUT_IN_QUOTATION, "\\\\N\\{.*?(?:}|$)",                        LITERAL_NAMED).goTo(ss.REMAIN);
         // \t        The tab character ('/u0009')
         // \n        The newline (line feed) character ('/u000A')
         // \r        The carriage-return character ('/u000D')
