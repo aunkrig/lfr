@@ -31,6 +31,7 @@ import java.util.regex.PatternSyntaxException;
 import org.junit.Assert;
 import org.junit.Test;
 
+import de.unkrig.ref4j.Matcher;
 import de.unkrig.ref4j.PatternFactory;
 
 @SuppressWarnings("static-method")
@@ -42,6 +43,7 @@ class Misc {
      */
     public static final PatternFactory
     PF = PatternFactory.get();
+//    PF = de.unkrig.ref4j.jur.PatternFactory.INSTANCE;
 
     /**
      * 6, 7, 8, ...
@@ -75,20 +77,118 @@ class Misc {
         assertMatches("\\N{  LATIN SmalL LETTER O   }", "o");
         assertPatternSyntaxException("\\N{LATIN SMALL LETTERx O}");
     }
-    
+
+    @Test public void
+    testUnicodeExtendedGraphemeClusterBoundary() {
+        assertMatches(true,  ".\\b{g}.", "ab");
+        assertMatches(false, ".\\b{g}.", "a\u0308");
+    }
+
+    @Test public void
+    testUnicodeExtendedGraphemeCluster() {
+        
+        // ANY one-char sequence is a grapheme.
+        for (int cp = 1; cp < 1000000; cp++) {
+            assertMatches("\\X", new String(Character.toChars(cp)));
+        }
+        assertMatches(true,  "\\X",    "a\u0308"); // 'a' + TREMA is ONE grapheme
+        assertMatches(false, "\\X",    "\u0308a"); // TREMA + 'a' is TWO graphemes
+        assertMatches(true,  "\\X\\X", "\u0308a");
+        
+        // The different kinds of line separator are ONE grapheme, ...
+        assertMatches(true,  "\\X", "\r");
+        assertMatches(true,  "\\X",   "\n");
+        assertMatches(true,  "\\X",    "\r\n");
+        // ... but "\r\r" are TWO.
+        assertMatches(false, "\\X",    "\r\r");
+        assertMatches(true,  "\\X\\X", "\r\r");
+        
+        // Hangeul-Jamo grapheme. See: https://en.wikipedia.org/wiki/Hangul_Jamo_(Unicode_block)
+        assertMatches(true,  "\\X",    "\u1100\u1161\u11a8");
+    }
+
     // -----------------------------
     
     private static void
-    assertMatches(String regex, String subject) { assertMatches(regex, subject, 0); }
-    
-    private static void
-    assertMatches(String regex, String subject, int flags) {
-        Assert.assertTrue(
-            "\"" + subject + "\" does not match regex \"" + regex + "\"",
-            PF.compile(regex, flags).matcher(subject).matches()
-        );
+    assertMatches(String regex, String subject) {
+        assertMatches(regex, subject, 0);
     }
 
+    private static void
+    assertMatches(String regex, String subject, int flags) {
+        assertMatches(true, regex, subject, flags);
+    }
+    
+    private static void
+    assertMatches(boolean expected, String regex, String subject) {
+        assertMatches(expected, regex, subject, 0);
+    }
+    
+    private static void
+    assertMatches(boolean expected, String regex, String subject, int flags) {
+        
+        boolean actual = PF.compile(regex, flags).matcher(subject).matches();
+        
+        if (expected && !actual) {
+            Assert.fail("\"" + subject + "\" does not match regex \"" + regex + "\"");
+        } else
+        if (!expected && actual) {
+            Assert.fail("\"" + subject + "\" should not match regex \"" + regex + "\"");
+        }
+    }
+    
+    // -----------------------------
+    
+    @SuppressWarnings("unused") private static void
+    assertFind(String regex, String subject) {
+        assertFind(regex, subject, 0);
+    }
+    
+    private static void
+    assertFind(String regex, String subject, int flags) {
+        assertFind(-1, regex, subject, flags);
+    }
+    
+    @SuppressWarnings("unused") private static void
+    assertFind(int expected, String regex, String subject) {
+        assertFind(expected, regex, subject, 0);
+    }
+    
+    /**
+     * @param expected Special value -1 means: Once or multiply
+     */
+    private static void
+    assertFind(int expected, String regex, String subject, int flags) {
+        
+        Matcher m = PF.compile(regex, flags).matcher(subject);
+        
+        int actual = 0;
+        while (m.find()) actual++;
+        
+        if (expected != 0 && actual == 0) {
+            Assert.fail("Regex \"" + regex + "\" not found in \"" + subject + "\"");
+        } else
+        if (expected == 0 && actual > 0) {
+            Assert.fail("Regex \"" + regex + "\" should not be found in \"" + subject+ "\"");
+        } else
+        if (expected == -1 && actual > 0) {
+            ;
+        } else
+        if (actual != expected) {
+            Assert.fail(
+                "Regex \""
+                + regex
+                + "\" should be found "
+                + expected
+                + " times in \""
+                + subject
+                + "\", but was found "
+                + actual
+                + " times"
+            );
+        }
+    }
+    
     public static void
     assertPatternSyntaxException(String regex) {
         Misc.assertPatternSyntaxException(regex, 0);
@@ -104,5 +204,4 @@ class Misc {
             return;
         }
     }
-
 }

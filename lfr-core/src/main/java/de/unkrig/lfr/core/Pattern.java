@@ -45,7 +45,7 @@ import static de.unkrig.lfr.core.Pattern.TokenType.END_OF_LINE;
 import static de.unkrig.lfr.core.Pattern.TokenType.END_OF_PREVIOUS_MATCH;
 import static de.unkrig.lfr.core.Pattern.TokenType.INDEPENDENT_NON_CAPTURING_GROUP;
 import static de.unkrig.lfr.core.Pattern.TokenType.LEFT_BRACKET;
-import static de.unkrig.lfr.core.Pattern.TokenType.LINEBREAK_MATCHER;
+import static de.unkrig.lfr.core.Pattern.TokenType.LINEBREAK;
 import static de.unkrig.lfr.core.Pattern.TokenType.LITERAL_CHARACTER;
 import static de.unkrig.lfr.core.Pattern.TokenType.LITERAL_CONTROL1;
 import static de.unkrig.lfr.core.Pattern.TokenType.LITERAL_CONTROL2;
@@ -70,6 +70,8 @@ import static de.unkrig.lfr.core.Pattern.TokenType.QUOTATION_BEGIN;
 import static de.unkrig.lfr.core.Pattern.TokenType.QUOTATION_END;
 import static de.unkrig.lfr.core.Pattern.TokenType.QUOTED_CHARACTER;
 import static de.unkrig.lfr.core.Pattern.TokenType.RIGHT_BRACKET;
+import static de.unkrig.lfr.core.Pattern.TokenType.UNICODE_EXTENDED_GRAPHEME;
+import static de.unkrig.lfr.core.Pattern.TokenType.UNICODE_EXTENDED_GRAPHEME_CLUSTER_BOUNDARY;
 import static de.unkrig.lfr.core.Pattern.TokenType.WORD_BOUNDARY;
 
 import java.io.IOException;
@@ -224,13 +226,15 @@ class Pattern implements de.unkrig.ref4j.Pattern, Serializable {
          */
         CC_NAMED,
 
-        // Matchers.
+        // Boundary matchers.
         /** {@code ^} */
         BEGINNING_OF_LINE,
         /** {@code $} */
         END_OF_LINE,
         /** {@code \b} */
         WORD_BOUNDARY,
+        /** <code>\b{g}</code> */
+        UNICODE_EXTENDED_GRAPHEME_CLUSTER_BOUNDARY,
         /** {@code \B} */
         NON_WORD_BOUNDARY,
         /** {@code \A} */
@@ -241,8 +245,14 @@ class Pattern implements de.unkrig.ref4j.Pattern, Serializable {
         END_OF_INPUT_BUT_FINAL_TERMINATOR,
         /** {@code \z} */
         END_OF_INPUT,
+        
+        // Linebreak matcher.
         /** {@code \R} */
-        LINEBREAK_MATCHER,
+        LINEBREAK,
+        
+        // Unicode extended grapheme matcher.
+        /** {@code \X} */
+        UNICODE_EXTENDED_GRAPHEME,
 
         // Quantifiers.
         /** {@code ?} */
@@ -460,27 +470,33 @@ class Pattern implements de.unkrig.ref4j.Pattern, Serializable {
         ss.addRule(Pattern.ANY_BUT_IN_QUOTATION, "\\\\([pP])(\\w)",       CC_NAMED).goTo(ss.REMAIN);
 
         // Boundary matchers
-        // ^   The beginning of a line
-        ss.addRule(Pattern.DEFAULT_STATES, "\\^",   BEGINNING_OF_LINE).goTo(ss.REMAIN);
-        // $   The end of a line
-        ss.addRule(Pattern.DEFAULT_STATES, "\\$",   END_OF_LINE).goTo(ss.REMAIN);
-        // \b  A word boundary
-        ss.addRule(Pattern.DEFAULT_STATES, "\\\\b", WORD_BOUNDARY).goTo(ss.REMAIN);
-        // \B  A non-word boundary
-        ss.addRule(Pattern.DEFAULT_STATES, "\\\\B", NON_WORD_BOUNDARY).goTo(ss.REMAIN);
-        // \A  The beginning of the input
-        ss.addRule(Pattern.DEFAULT_STATES, "\\\\A", BEGINNING_OF_INPUT).goTo(ss.REMAIN);
-        // \G  The end of the previous match
-        ss.addRule(Pattern.DEFAULT_STATES, "\\\\G", END_OF_PREVIOUS_MATCH).goTo(ss.REMAIN);
-        // \Z  The end of the input but for the final terminator, if any
-        ss.addRule(Pattern.DEFAULT_STATES, "\\\\Z", END_OF_INPUT_BUT_FINAL_TERMINATOR).goTo(ss.REMAIN);
-        // \z  The end of the input
-        ss.addRule(Pattern.DEFAULT_STATES, "\\\\z", END_OF_INPUT).goTo(ss.REMAIN);
+        // ^      The beginning of a line
+        ss.addRule(Pattern.DEFAULT_STATES, "\\^",          BEGINNING_OF_LINE).goTo(ss.REMAIN);
+        // $      The end of a line
+        ss.addRule(Pattern.DEFAULT_STATES, "\\$",          END_OF_LINE).goTo(ss.REMAIN);
+        // \b{g} A word boundary
+        ss.addRule(Pattern.DEFAULT_STATES, "\\\\b\\{g\\}", UNICODE_EXTENDED_GRAPHEME_CLUSTER_BOUNDARY).goTo(ss.REMAIN);
+        // \b     A word boundary
+        ss.addRule(Pattern.DEFAULT_STATES, "\\\\b",        WORD_BOUNDARY).goTo(ss.REMAIN);
+        // \B     A non-word boundary
+        ss.addRule(Pattern.DEFAULT_STATES, "\\\\B",        NON_WORD_BOUNDARY).goTo(ss.REMAIN);
+        // \A     The beginning of the input
+        ss.addRule(Pattern.DEFAULT_STATES, "\\\\A",        BEGINNING_OF_INPUT).goTo(ss.REMAIN);
+        // \G     The end of the previous match
+        ss.addRule(Pattern.DEFAULT_STATES, "\\\\G",        END_OF_PREVIOUS_MATCH).goTo(ss.REMAIN);
+        // \Z     The end of the input but for the final terminator, if any
+        ss.addRule(Pattern.DEFAULT_STATES, "\\\\Z",        END_OF_INPUT_BUT_FINAL_TERMINATOR).goTo(ss.REMAIN);
+        // \z     The end of the input
+        ss.addRule(Pattern.DEFAULT_STATES, "\\\\z",        END_OF_INPUT).goTo(ss.REMAIN);
 
         // Linebreak matcher
         // \R  Any Unicode linebreak sequence, is equivalent to
         //                          /u000D/u000A|[/u000A/u000B/u000C/u000D/u0085/u2028/u2029]
-        ss.addRule(Pattern.DEFAULT_STATES, "\\\\R", LINEBREAK_MATCHER).goTo(ss.REMAIN);
+        ss.addRule(Pattern.DEFAULT_STATES, "\\\\R", LINEBREAK).goTo(ss.REMAIN);
+        
+        // Unicode Extended Grapheme matcher
+        // \X   Any Unicode extended grapheme cluster
+        ss.addRule(Pattern.DEFAULT_STATES, "\\\\X", UNICODE_EXTENDED_GRAPHEME).goTo(ss.REMAIN);
 
         // Greedy quantifiers
         //   X?         X, once or not at all

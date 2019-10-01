@@ -30,6 +30,7 @@ import java.io.FileReader;
 import java.io.IOException;
 
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import de.unkrig.commons.io.Readers;
@@ -39,6 +40,7 @@ import de.unkrig.commons.lang.ObjectUtil;
  * A Java re-implementation of the <a href="http://sljit.sourceforge.net/regex_perf.html">Performance comparison of
  * regular expression engines</a> of the SLJIT project.
  */
+@Ignore
 public
 class PerformanceTests {
 
@@ -46,7 +48,7 @@ class PerformanceTests {
 
     @Before public void
     setUp() throws IOException {
-        this.subject = Readers.readAll(new FileReader("../regex-test/mtent12.txt"), true);
+        this.subject = Readers.readAll(new FileReader("C:/tmp/mtent12.txt"), true);
     }
 
     /**

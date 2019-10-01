@@ -1666,6 +1666,109 @@ class Sequences {
         };
     }
 
+    public static Sequence
+    unicodeExtendedGrapheme() {
+
+        return new CompositeSequence(1, Integer.MAX_VALUE) {
+
+            @Override public boolean
+            matches(MatcherImpl matcher) {
+
+                if (matcher.offset >= matcher.regionEnd) {
+                    matcher.hitEnd = true;
+                    return false;
+                }
+
+                int cp1 = matcher.subject.charAt(matcher.offset++);
+                if (Character.isHighSurrogate((char) cp1) && matcher.offset < matcher.regionEnd) {
+                    char ls = matcher.subject.charAt(matcher.offset);
+                    if (Character.isLowSurrogate(ls)) {
+                        cp1 = Character.toCodePoint((char) cp1, ls);
+                        matcher.offset++;
+                    }
+                }
+                
+                while (matcher.offset < matcher.regionEnd) {
+                    int o = matcher.offset;
+                    
+                    int cp2 = matcher.subject.charAt(o++);
+                    if (Character.isHighSurrogate((char) cp2) && o < matcher.regionEnd) {
+                        char ls = matcher.subject.charAt(o);
+                        if (Character.isLowSurrogate(ls)) {
+                            cp2 = Character.toCodePoint((char) cp2, ls);
+                            o++;
+                        }
+                    }
+                    
+                    if (Grapheme.isBoundary(cp1,  cp2)) break;
+                    
+                    cp1            = cp2;
+                    matcher.offset = o;
+                }
+
+                return this.next.matches(matcher);
+            }
+
+            @Override protected void
+            checkWithoutNext(int offset, Consumer<Integer> result) {
+                if (offset == 0) {
+                    for (int cp : CharacterClasses.LINE_BREAK_CHARACTERS) result.consume(cp);
+                } else
+                if (offset == 1) {
+                    result.consume((int) '\n');
+                }
+            }
+
+            @Override public String
+            toStringWithoutNext() { return "unicodeExtendedGrapheme"; }
+        };
+    }
+
+    /**
+     * Implements {@code "\b{g}"}.
+     */
+    public static Sequence
+    unicodeExtendedGraphemeClusterBoundary() {
+
+        return new CompositeSequence(0) {
+
+            @Override public boolean
+            matches(MatcherImpl matcher) {
+
+                int o = matcher.offset;
+
+                if (matcher.hasTransparentBounds()) {
+                    if (o == 0 || o == matcher.subject.length())              return this.next.matches(matcher);
+                } else {
+                    if (o == matcher.regionStart || o == matcher.regionEnd()) return this.next.matches(matcher);
+                }
+
+                int cp1 = matcher.subject.charAt(o - 1);
+                if (Character.isLowSurrogate((char) cp1) && o >= 2) {
+                    char hs = matcher.subject.charAt(o - 2);
+                    if (Character.isHighSurrogate(hs)) {
+                        cp1 = Character.toCodePoint(hs, (char) cp1);
+                    }
+                }
+                
+                int cp2 = matcher.subject.charAt(o);
+                if (Character.isHighSurrogate((char) cp2) && o <= matcher.subject.length() - 2) {
+                    char ls = matcher.subject.charAt(o + 1);
+                    if (Character.isLowSurrogate(ls)) {
+                        cp2 = Character.toCodePoint((char) cp2, ls);
+                    }
+                }
+                
+                if (Grapheme.isBoundary(cp1, cp2)) return this.next.matches(matcher);
+                
+                return false;
+            }
+
+            @Override public String
+            toStringWithoutNext() { return "unicodeExtendedGraphemeClusterBoundary"; }
+        };
+    }
+
     /**
      * Implements {@code "\b"}, and, negated, {@code "\B"}.
      * <p>
@@ -1905,19 +2008,19 @@ class Sequences {
                         return false;
                     }
 
-                    int c = matcher.subject.charAt(o++);
+                    int cp = matcher.subject.charAt(o++);
 
                     // Special handling for UTF-16 surrogates.
-                    if (Character.isHighSurrogate((char) c) && o < matcher.regionEnd) {
-                        char c2 = matcher.subject.charAt(o);
-                        if (Character.isLowSurrogate(c2)) {
-                            c = Character.toCodePoint((char) c, c2);
+                    if (Character.isHighSurrogate((char) cp) && o < matcher.regionEnd) {
+                        char ls = matcher.subject.charAt(o);
+                        if (Character.isLowSurrogate(ls)) {
+                            cp = Character.toCodePoint((char) cp, ls);
                             o++;
                         }
                     }
 
                     matcher.offset = o;
-                    if (!operand.matches(c)) return false;
+                    if (!operand.matches(cp)) return false;
                 }
                 final int offsetAfterMin = o;
 
@@ -1931,18 +2034,18 @@ class Sequences {
 
                     int o2 = o;
 
-                    int c = matcher.subject.charAt(o2++);
+                    int cp = matcher.subject.charAt(o2++);
 
                     // Special handling for UTF-16 surrogates.
-                    if (Character.isHighSurrogate((char) c) && o2 < matcher.regionEnd) {
-                        char c2 = matcher.subject.charAt(o2);
-                        if (Character.isLowSurrogate(c2)) {
-                            c = Character.toCodePoint((char) c, c2);
+                    if (Character.isHighSurrogate((char) cp) && o2 < matcher.regionEnd) {
+                        char ls = matcher.subject.charAt(o2);
+                        if (Character.isLowSurrogate(ls)) {
+                            cp = Character.toCodePoint((char) cp, ls);
                             o2++;
                         }
                     }
 
-                    if (!operand.matches(c)) break;
+                    if (!operand.matches(cp)) break;
 
                     o = o2;
                 }
@@ -2121,9 +2224,9 @@ class Sequences {
 
                     // Special handling for UTF-16 surrogates.
                     if (Character.isHighSurrogate((char) cp) && o < matcher.regionEnd) {
-                        char c2 = matcher.subject.charAt(o);
-                        if (Character.isLowSurrogate(c2)) {
-                            cp = Character.toCodePoint((char) cp, c2);
+                        char ls = matcher.subject.charAt(o);
+                        if (Character.isLowSurrogate(ls)) {
+                            cp = Character.toCodePoint((char) cp, ls);
                             o++;
                         }
                     }
@@ -2148,13 +2251,10 @@ class Sequences {
                     }
 
                     int cp = matcher.subject.charAt(o++);
-                    if (
-                        Character.isHighSurrogate((char) cp)
-                        && o < matcher.regionEnd
-                    ) {
-                        char c2 = matcher.subject.charAt(o);
-                        if (Character.isLowSurrogate(c2)) {
-                            cp = Character.toCodePoint((char) cp, c2);
+                    if (Character.isHighSurrogate((char) cp) && o < matcher.regionEnd) {
+                        char ls = matcher.subject.charAt(o);
+                        if (Character.isLowSurrogate(ls)) {
+                            cp = Character.toCodePoint((char) cp, ls);
                             o++;
                         }
                     }

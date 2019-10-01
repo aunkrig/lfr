@@ -67,10 +67,11 @@ class PatternFactory extends de.unkrig.ref4j.PatternFactory {
 
     private static final MethodWrapper1<Character, Integer, String, RuntimeException>
     CHARACTER__CODE_POINT_OF = OptionalMethods.get1(
-        Character.class,       // declaringClass
-        "codePointOf",         // methodName
-        String.class,          // parameterType
-        RuntimeException.class // checkedException
+        "Code point names only available in Java 9+", // message
+        Character.class,                              // declaringClass
+        "codePointOf",                                // methodName
+        String.class,                                 // parameterType
+        RuntimeException.class                        // checkedException
     );
 
     /**
@@ -418,6 +419,10 @@ class PatternFactory extends de.unkrig.ref4j.PatternFactory {
                     );
                 }
 
+                if (this.peekRead(TokenType.UNICODE_EXTENDED_GRAPHEME_CLUSTER_BOUNDARY) != null) {
+                    return Sequences.unicodeExtendedGraphemeClusterBoundary();
+                }
+                
                 if (this.peekRead(TokenType.WORD_BOUNDARY) != null) {
                     return Sequences.wordBoundary();
                 }
@@ -447,8 +452,12 @@ class PatternFactory extends de.unkrig.ref4j.PatternFactory {
                     return Sequences.TERMINAL;
                 }
 
-                if (this.peekRead(TokenType.LINEBREAK_MATCHER) != null) {
+                if (this.peekRead(TokenType.LINEBREAK) != null) {
                     return Sequences.linebreak();
+                }
+                
+                if (this.peekRead(TokenType.UNICODE_EXTENDED_GRAPHEME) != null) {
+                    return Sequences.unicodeExtendedGrapheme();
                 }
 
                 if (this.peekRead(TokenType.NAMED_CAPTURING_GROUP) != null) {

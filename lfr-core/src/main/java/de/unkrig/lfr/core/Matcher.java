@@ -26,7 +26,6 @@
 
 package de.unkrig.lfr.core;
 
-import de.unkrig.commons.lang.protocol.Producer;
 import de.unkrig.commons.text.expression.Parser;
 
 /**
