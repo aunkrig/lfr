@@ -655,9 +655,6 @@ class MatcherImpl implements Matcher {
         }
     }
 
-    /**
-     * 
-     */
     @Override public String
     replaceAll(String replacement) {
         return this.compileReplacement(replacement).replaceAll();
