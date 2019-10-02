@@ -61,6 +61,7 @@ import static de.unkrig.lfr.core.Pattern.TokenType.NAMED_CAPTURING_GROUP_BACK_RE
 import static de.unkrig.lfr.core.Pattern.TokenType.NEGATIVE_LOOKAHEAD;
 import static de.unkrig.lfr.core.Pattern.TokenType.NEGATIVE_LOOKBEHIND;
 import static de.unkrig.lfr.core.Pattern.TokenType.NON_CAPTURING_GROUP;
+import static de.unkrig.lfr.core.Pattern.TokenType.NON_UNICODE_EXTENDED_GRAPHEME_CLUSTER_BOUNDARY;
 import static de.unkrig.lfr.core.Pattern.TokenType.NON_WORD_BOUNDARY;
 import static de.unkrig.lfr.core.Pattern.TokenType.PLUS;
 import static de.unkrig.lfr.core.Pattern.TokenType.POSITIVE_LOOKAHEAD;
@@ -235,6 +236,8 @@ class Pattern implements de.unkrig.ref4j.Pattern, Serializable {
         WORD_BOUNDARY,
         /** <code>\b{g}</code> */
         UNICODE_EXTENDED_GRAPHEME_CLUSTER_BOUNDARY,
+        /** <code>\B{g}</code> */
+        NON_UNICODE_EXTENDED_GRAPHEME_CLUSTER_BOUNDARY,
         /** {@code \B} */
         NON_WORD_BOUNDARY,
         /** {@code \A} */
@@ -474,8 +477,10 @@ class Pattern implements de.unkrig.ref4j.Pattern, Serializable {
         ss.addRule(Pattern.DEFAULT_STATES, "\\^",          BEGINNING_OF_LINE).goTo(ss.REMAIN);
         // $      The end of a line
         ss.addRule(Pattern.DEFAULT_STATES, "\\$",          END_OF_LINE).goTo(ss.REMAIN);
-        // \b{g} A word boundary
+        // \b{g}  A grapheme cluster boundary
         ss.addRule(Pattern.DEFAULT_STATES, "\\\\b\\{g\\}", UNICODE_EXTENDED_GRAPHEME_CLUSTER_BOUNDARY).goTo(ss.REMAIN);
+        // \B{g}  A non-grapheme cluster boundary
+        ss.addRule(Pattern.DEFAULT_STATES, "\\\\B\\{g\\}", NON_UNICODE_EXTENDED_GRAPHEME_CLUSTER_BOUNDARY).goTo(ss.REMAIN);
         // \b     A word boundary
         ss.addRule(Pattern.DEFAULT_STATES, "\\\\b",        WORD_BOUNDARY).goTo(ss.REMAIN);
         // \B     A non-word boundary

@@ -79,6 +79,9 @@ class PatternFactory extends de.unkrig.ref4j.PatternFactory {
      */
     public static final PatternFactory INSTANCE = new PatternFactory();
 
+    @Override public String
+    getId() { return "de.unkrig.lfr"; }
+
     private static final Comparator<CharacterClass>
     COMPARE_BY_UPPER_BOUND = new Comparator<CharacterClass>() {
 
@@ -421,6 +424,10 @@ class PatternFactory extends de.unkrig.ref4j.PatternFactory {
 
                 if (this.peekRead(TokenType.UNICODE_EXTENDED_GRAPHEME_CLUSTER_BOUNDARY) != null) {
                     return Sequences.unicodeExtendedGraphemeClusterBoundary();
+                }
+                
+                if (this.peekRead(TokenType.NON_UNICODE_EXTENDED_GRAPHEME_CLUSTER_BOUNDARY) != null) {
+                    return Sequences.negate(Sequences.unicodeExtendedGraphemeClusterBoundary());
                 }
                 
                 if (this.peekRead(TokenType.WORD_BOUNDARY) != null) {

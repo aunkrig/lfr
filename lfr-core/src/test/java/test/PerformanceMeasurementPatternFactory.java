@@ -52,6 +52,9 @@ class PerformanceMeasurementPatternFactory extends PatternFactory {
         this.delegates = delegates;
     }
 
+    @Override public String
+    getId() { throw new UnsupportedOperationException(); }
+
     @Override public int
     getSupportedFlags() {
         int result = -1;

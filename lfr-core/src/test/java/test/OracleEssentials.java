@@ -32,62 +32,44 @@ import de.unkrig.ref4j.Matcher;
 import de.unkrig.ref4j.Pattern;
 import de.unkrig.ref4j.PatternFactory;
 
-public final
-class OracleEssentials {
+public
+class OracleEssentials extends ParameterizedWithPatternFactory {
 
-    private OracleEssentials() {}
-
-    /**
-     * The {@code java.util.regex} pattern factory.
-     */
-    public static final PatternFactory
-    JUR = de.unkrig.ref4j.jur.PatternFactory.INSTANCE;
-
-    /**
-     * The {@code LFR} pattern factory.
-     */
-    public static final de.unkrig.lfr.core.PatternFactory
-    LFR = de.unkrig.lfr.core.PatternFactory.INSTANCE;
-
-    /**
-     * The pattern factory that verifies the functional equality of JUR and LFR.
-     */
-    public static final PatternFactory
-    PF = new FunctionalityEquivalencePatternFactory(OracleEssentials.JUR, OracleEssentials.LFR);
-//    PF = new PerformanceMeasurementPatternFactory(OracleEssentials.JUR, OracleEssentials.LFR);
+    public
+    OracleEssentials(PatternFactory patternFactory) { super(patternFactory); }
 
     /**
      * Shorthand for "{@link #harnessFull(String, String, int, Integer, int, Boolean, Boolean) harness(regex, subject,
      * 0, null, 0, null, null)}".
      */
-    public static void
-    harnessFull(String regex, String subject) { OracleEssentials.harnessFull(regex, subject, 0, null, 0, null, null); }
+    public void
+    harnessFull(String regex, String subject) { this.harnessFull(regex, subject, 0, null, 0, null, null); }
 
     /**
      * Shorthand for "{@link #harnessFull(String, String, int, Integer, int, Boolean, Boolean) harness(regex, subject,
      * flags, null, 0, null, null)}".
      */
-    public static void
+    public void
     harnessFull(String regex, String subject, int flags) {
-        OracleEssentials.harnessFull(regex, subject, flags, null, 0, null, null);
+        this.harnessFull(regex, subject, flags, null, 0, null, null);
     }
 
     /**
      * Shorthand for "{@link #harnessFull(String, String, int, Integer, int, Boolean, Boolean) harness(regex, subject,
      * flags, regionStart, regionEnd, null, null)}".
      */
-    public static void
+    public void
     harnessFull(String regex, String subject, int flags, int regionStart, int regionEnd) {
-        OracleEssentials.harnessFull(regex, subject, flags, regionStart, regionEnd, null, null);
+        this.harnessFull(regex, subject, flags, regionStart, regionEnd, null, null);
     }
 
     /**
      * Shorthand for "{@link #harnessFull(String, String, int, Integer, int, Boolean, Boolean) harness(regex, subject,
      * flags, regionStart, regionEnd, transparentBounds, null)}".
      */
-    public static void
+    public void
     harnessFull(String regex, String subject, int flags, int regionStart, int regionEnd, boolean transparentBounds) {
-        OracleEssentials.harnessFull(regex, subject, flags, regionStart, regionEnd, transparentBounds, null);
+        this.harnessFull(regex, subject, flags, regionStart, regionEnd, transparentBounds, null);
     }
 
     /**
@@ -101,7 +83,7 @@ class OracleEssentials {
      * @param transparentBounds Optional: Call {@link java.util.regex.Matcher#useTransparentBounds(boolean)}
      * @param anchoringBounds   Optional: Call {@link java.util.regex.Matcher#useAnchoringBounds(boolean)}
      */
-    public static void
+    public void
     harnessFull(
         String            regex,
         final String      subject,
@@ -112,7 +94,7 @@ class OracleEssentials {
         @Nullable Boolean anchoringBounds
     ) {
 
-        Pattern pattern = OracleEssentials.PF.compile(regex, flags);
+        Pattern pattern = this.patternFactory.compile(regex, flags);
 
         Matcher m = pattern.matcher(subject);
 

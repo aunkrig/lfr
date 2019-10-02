@@ -67,6 +67,9 @@ class FunctionalityEquivalencePatternFactory extends PatternFactory {
         this.subject   = subject;
     }
 
+    @Override public String
+    getId() { throw new UnsupportedOperationException(); }
+
     @Override public int
     getSupportedFlags() { throw new UnsupportedOperationException(); }
 

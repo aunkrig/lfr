@@ -74,6 +74,11 @@ class PatternFactory {
     }
 
     /**
+     * @return A package name-like string that is unique among all existing pattern factory implementations
+     */
+    public abstract String
+    getId();
+    /**
      * @return The class that has the given name and extends the {@link PatternFactory} class
      */
     @Nullable public static PatternFactory

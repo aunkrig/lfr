@@ -64,6 +64,9 @@ class PatternFactory extends de.unkrig.ref4j.PatternFactory implements Serializa
 
     public static final PatternFactory INSTANCE = new PatternFactory();
 
+    @Override public String
+    getId() { return "java.util.regex"; }
+    
     // Methods "Matcher.start(String)" and "Matcher.end(String)" are only available since Java 8.
 
     static final MethodWrapper1<java.util.regex.Matcher, Integer, String, RuntimeException>

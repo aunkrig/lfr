@@ -30,21 +30,18 @@ import java.util.regex.PatternSyntaxException;
 
 import org.junit.Assert;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 
 import de.unkrig.ref4j.Matcher;
 import de.unkrig.ref4j.PatternFactory;
 
-@SuppressWarnings("static-method")
-public
-class Misc {
+@RunWith(Parameterized.class) public
+class Misc extends ParameterizedWithPatternFactory {
 
-    /**
-     * The pattern factory that verfies the functional equality of JUR and LFR.
-     */
-    public static final PatternFactory
-    PF = PatternFactory.get();
-//    PF = de.unkrig.ref4j.jur.PatternFactory.INSTANCE;
-
+    public
+    Misc(PatternFactory patternFactory, String patternFactoryId) { super(patternFactory); }
+    
     /**
      * 6, 7, 8, ...
      */
@@ -61,10 +58,12 @@ class Misc {
 
     @Test public void
     testWebsite() {
-        Assert.assertEquals(
-            "7a1bc",
-            PF.compile("(?<grp>a)").matcher("abc").replaceAll("${3 + 4 + grp + m.groupCount()}")
-        );
+        if (this.isLfr()) {
+            Assert.assertEquals(
+                "7a1bc",
+                this.patternFactory.compile("(?<grp>a)").matcher("abc").replaceAll("${3 + 4 + grp + m.groupCount()}")
+            );
+        }
     }
 
     @Test public void
@@ -82,6 +81,10 @@ class Misc {
     testUnicodeExtendedGraphemeClusterBoundary() {
         assertMatches(true,  ".\\b{g}.", "ab");
         assertMatches(false, ".\\b{g}.", "a\u0308");
+        if (this.isLfr()) {
+            assertMatches(false, ".\\B{g}.", "ab");
+            assertMatches(true,  ".\\B{g}.", "a\u0308");
+        }
     }
 
     @Test public void
@@ -109,25 +112,25 @@ class Misc {
 
     // -----------------------------
     
-    private static void
+    private void
     assertMatches(String regex, String subject) {
         assertMatches(regex, subject, 0);
     }
 
-    private static void
+    private void
     assertMatches(String regex, String subject, int flags) {
         assertMatches(true, regex, subject, flags);
     }
     
-    private static void
+    private void
     assertMatches(boolean expected, String regex, String subject) {
         assertMatches(expected, regex, subject, 0);
     }
     
-    private static void
+    private void
     assertMatches(boolean expected, String regex, String subject, int flags) {
         
-        boolean actual = PF.compile(regex, flags).matcher(subject).matches();
+        boolean actual = this.patternFactory.compile(regex, flags).matcher(subject).matches();
         
         if (expected && !actual) {
             Assert.fail("\"" + subject + "\" does not match regex \"" + regex + "\"");
@@ -139,17 +142,17 @@ class Misc {
     
     // -----------------------------
     
-    @SuppressWarnings("unused") private static void
+    @SuppressWarnings("unused") private void
     assertFind(String regex, String subject) {
         assertFind(regex, subject, 0);
     }
     
-    private static void
+    private void
     assertFind(String regex, String subject, int flags) {
         assertFind(-1, regex, subject, flags);
     }
     
-    @SuppressWarnings("unused") private static void
+    @SuppressWarnings("unused") private void
     assertFind(int expected, String regex, String subject) {
         assertFind(expected, regex, subject, 0);
     }
@@ -157,10 +160,10 @@ class Misc {
     /**
      * @param expected Special value -1 means: Once or multiply
      */
-    private static void
+    private void
     assertFind(int expected, String regex, String subject, int flags) {
         
-        Matcher m = PF.compile(regex, flags).matcher(subject);
+        Matcher m = this.patternFactory.compile(regex, flags).matcher(subject);
         
         int actual = 0;
         while (m.find()) actual++;
@@ -189,16 +192,16 @@ class Misc {
         }
     }
     
-    public static void
+    public void
     assertPatternSyntaxException(String regex) {
-        Misc.assertPatternSyntaxException(regex, 0);
+        this.assertPatternSyntaxException(regex, 0);
     }
 
-    public static void
+    public void
     assertPatternSyntaxException(String regex, int flags) {
 
         try {
-            Misc.PF.compile(regex, flags);
+            this.patternFactory.compile(regex, flags);
             Assert.fail();
         } catch (PatternSyntaxException pse) {
             return;
