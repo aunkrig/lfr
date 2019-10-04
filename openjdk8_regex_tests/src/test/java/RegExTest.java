@@ -68,7 +68,8 @@ import test.FunctionalityEquivalencePatternFactory;
  * This is a test class created to check the operation of
  * the Pattern and Matcher classes.
  */
-public class RegExTest {
+@SuppressWarnings("unused") public
+class RegExTest {
 
     private static final PatternFactory PF = de.unkrig.lfr.core.PatternFactory.INSTANCE;
 //    private static final PatternFactory PF = de.unkrig.ref4j.jur.PatternFactory.INSTANCE;
