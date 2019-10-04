@@ -58,9 +58,9 @@ interface Matcher extends de.unkrig.ref4j.Matcher {
          *   Example:
          * </p>
          * <pre>
-         *   Pattern             p  = Pattern.compile(regex);
-         *   Matcher             m  = p.matcher(subject1);
-         *   CompiledReplacement cr = m.compileReplacement(replacement);
+         *   de.unkrig.lfr.core.Pattern                     p  = de.unkrig.lfr.core.Pattern.compile(regex);
+         *   de.unkrig.lfr.core.Matcher                     m  = p.matcher(subject1);
+         *   de.unkrig.lfr.core.Matcher.CompiledReplacement cr = m.compileReplacement(replacement);
          *
          *   String result1 = cr.replaceAll();
          *   m.reset(subject2);
@@ -78,9 +78,9 @@ interface Matcher extends de.unkrig.ref4j.Matcher {
          *   Example:
          * </p>
          * <pre>
-         *   Pattern             p  = Pattern.compile(regex);
-         *   Matcher             m  = p.matcher(subject1);
-         *   CompiledReplacement cr = m.compileReplacement(replacement);
+         *   de.unkrig.lfr.core.Pattern                     p  = de.unkrig.lfr.core.Pattern.compile(regex);
+         *   de.unkrig.lfr.core.Matcher                     m  = p.matcher(subject1);
+         *   de.unkrig.lfr.core.Matcher.CompiledReplacement cr = m.compileReplacement(replacement);
          *
          *   String result1 = cr.replaceFirst();
          *   m.reset(subject2);
