@@ -37,6 +37,6 @@ class Ref4JTests {
 
     @Test public void
     testFactory() throws IOException {
-        PatternFactory pf = PatternFactory.get();
+        @SuppressWarnings("unused") PatternFactory pf = PatternFactory.get();
     }
 }
