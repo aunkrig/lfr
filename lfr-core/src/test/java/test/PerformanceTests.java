@@ -53,22 +53,23 @@ class PerformanceTests {
      * These tests require the "mtent12.txt" file, which can be found <a
      * href="http://www.gutenberg.org/files/3200/old/mtent12.zip">here</a>.
      */
-    @Test public void test1()  { PerformanceTests.findAll("Twain",                               this.subject); }
-    @Test public void test2()  { PerformanceTests.findAll("(?i)Twain",                           this.subject); }
-    @Test public void test3()  { PerformanceTests.findAll("[a-z]shing",                          this.subject); }
-    @Test public void test4()  { PerformanceTests.findAll("Huck[a-zA-Z]+|Saw[a-zA-Z]+",          this.subject); }
-    @Test public void test5()  { PerformanceTests.findAll("\\b\\w+nn\\b",                        this.subject); }
-    @Test public void test6()  { PerformanceTests.findAll("[a-q][^u-z]{13}x",                    this.subject); }
-    @Test public void test7()  { PerformanceTests.findAll("Tom|Sawyer|Huckleberry|Finn",         this.subject); }
-    @Test public void test8()  { PerformanceTests.findAll("(?i)Tom|Sawyer|Huckleberry|Finn",     this.subject); }
-    @Test public void test8a() { PerformanceTests.findAll("(Tom|Sawyer|Huckleberry|Finn)",       this.subject); }
-    @Test public void test9()  { PerformanceTests.findAll(".{0,2}(Tom|Sawyer|Huckleberry|Finn)", this.subject); }
-    @Test public void test10() { PerformanceTests.findAll(".{2,4}(Tom|Sawyer|Huckleberry|Finn)", this.subject); }
-    @Test public void test11() { PerformanceTests.findAll("Tom.{10,25}river|river.{10,25}Tom",   this.subject); }
-    @Test public void test12() { PerformanceTests.findAll("[a-zA-Z]+ing",                        this.subject); }
-    @Test public void test13() { PerformanceTests.findAll("\\s[a-zA-Z]{0,12}ing\\s",             this.subject); }
-    @Test public void test14() { PerformanceTests.findAll("([A-Za-z]awyer|[A-Za-z]inn)\\s",      this.subject); }
-    @Test public void test15() { PerformanceTests.findAll("[\"'][^\"']{0,30}[?!\\.][\"']",       this.subject); }
+    @Test public void test1()  { PerformanceTests.findAll("Twain",                                       this.subject); } // SUPPRESS CHECKSTYLE LineLength:16
+    @Test public void test2()  { PerformanceTests.findAll("(?i)Twain",                                   this.subject); }
+    @Test public void test3()  { PerformanceTests.findAll("[a-z]shing",                                  this.subject); }
+    @Test public void test4()  { PerformanceTests.findAll("Huck[a-zA-Z]+|Saw[a-zA-Z]+",                  this.subject); }
+    @Test public void test5()  { PerformanceTests.findAll("\\b\\w+nn\\b",                                this.subject); }
+    @Test public void test6()  { PerformanceTests.findAll("[a-q][^u-z]{13}x",                            this.subject); }
+    @Test public void test7()  { PerformanceTests.findAll("Tom|Sawyer|Huckleberry|Finn",                 this.subject); }
+    @Test public void test8()  { PerformanceTests.findAll("(?i)Tom|Sawyer|Huckleberry|Finn",             this.subject); }
+    @Test public void test8a() { PerformanceTests.findAll("(Tom|Sawyer|Huckleberry|Finn)",               this.subject); }
+    @Test public void test9()  { PerformanceTests.findAll(".{0,2}(Tom|Sawyer|Huckleberry|Finn)",         this.subject); }
+    @Test public void test9a() { PerformanceTests.findAll("[\\00-\\0377]?(Tom|Sawyer|Huckleberry|Finn)", this.subject); }
+    @Test public void test10() { PerformanceTests.findAll(".{2,4}(Tom|Sawyer|Huckleberry|Finn)",         this.subject); }
+    @Test public void test11() { PerformanceTests.findAll("Tom.{10,25}river|river.{10,25}Tom",           this.subject); }
+    @Test public void test12() { PerformanceTests.findAll("[a-zA-Z]+ing",                                this.subject); }
+    @Test public void test13() { PerformanceTests.findAll("\\s[a-zA-Z]{0,12}ing\\s",                     this.subject); }
+    @Test public void test14() { PerformanceTests.findAll("([A-Za-z]awyer|[A-Za-z]inn)\\s",              this.subject); }
+    @Test public void test15() { PerformanceTests.findAll("[\"'][^\"']{0,30}[?!\\.][\"']",               this.subject); }
 
     private static void
     findAll(String regex, String subject) {

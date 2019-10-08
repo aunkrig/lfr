@@ -41,7 +41,7 @@ class Misc extends ParameterizedWithPatternFactory {
 
     public
     Misc(PatternFactory patternFactory, String patternFactoryId) { super(patternFactory); }
-    
+
     /**
      * 6, 7, 8, ...
      */
@@ -52,7 +52,7 @@ class Misc extends ParameterizedWithPatternFactory {
 
         // For Java 1.0 through 8, the string has the formt "1.x"; since Java 9 "x".
         if (jsv.startsWith("1.")) jsv = jsv.substring(2);
-        
+
         JRE_VERSION = Integer.parseInt(jsv);
     }
 
@@ -68,70 +68,70 @@ class Misc extends ParameterizedWithPatternFactory {
 
     @Test public void
     testUnicodeCharacterNames() {
-        
-        if (JRE_VERSION < 9) return;
-        
-        assertMatches("\\N{LATIN SMALL LETTER O}",      "o");
-        assertMatches("\\N{LATIN SmalL LETTER O}",      "o");
-        assertMatches("\\N{  LATIN SmalL LETTER O   }", "o");
-        assertPatternSyntaxException("\\N{LATIN SMALL LETTERx O}");
+
+        if (Misc.JRE_VERSION < 9) return;
+
+        this.assertMatches("\\N{LATIN SMALL LETTER O}",      "o");
+        this.assertMatches("\\N{LATIN SmalL LETTER O}",      "o");
+        this.assertMatches("\\N{  LATIN SmalL LETTER O   }", "o");
+        this.assertPatternSyntaxException("\\N{LATIN SMALL LETTERx O}");
     }
 
     @Test public void
     testUnicodeExtendedGraphemeClusterBoundary() {
-        assertMatches(true,  ".\\b{g}.", "ab");
-        assertMatches(false, ".\\b{g}.", "a\u0308");
+        this.assertMatches(true,  ".\\b{g}.", "ab");
+        this.assertMatches(false, ".\\b{g}.", "a\u0308");
         if (this.isLfr()) {
-            assertMatches(false, ".\\B{g}.", "ab");
-            assertMatches(true,  ".\\B{g}.", "a\u0308");
+            this.assertMatches(false, ".\\B{g}.", "ab");
+            this.assertMatches(true,  ".\\B{g}.", "a\u0308");
         }
     }
 
     @Test public void
     testUnicodeExtendedGraphemeCluster() {
-        
+
         // ANY one-char sequence is a grapheme.
         for (int cp = 1; cp < 1000000; cp++) {
-            assertMatches("\\X", new String(Character.toChars(cp)));
+            this.assertMatches("\\X", new String(Character.toChars(cp)));
         }
-        assertMatches(true,  "\\X",    "a\u0308"); // 'a' + TREMA is ONE grapheme
-        assertMatches(false, "\\X",    "\u0308a"); // TREMA + 'a' is TWO graphemes
-        assertMatches(true,  "\\X\\X", "\u0308a");
-        
+        this.assertMatches(true,  "\\X",    "a\u0308"); // 'a' + TREMA is ONE grapheme
+        this.assertMatches(false, "\\X",    "\u0308a"); // TREMA + 'a' is TWO graphemes
+        this.assertMatches(true,  "\\X\\X", "\u0308a");
+
         // The different kinds of line separator are ONE grapheme, ...
-        assertMatches(true,  "\\X", "\r");
-        assertMatches(true,  "\\X",   "\n");
-        assertMatches(true,  "\\X",    "\r\n");
+        this.assertMatches(true,  "\\X", "\r");
+        this.assertMatches(true,  "\\X",   "\n");
+        this.assertMatches(true,  "\\X",    "\r\n");
         // ... but "\r\r" are TWO.
-        assertMatches(false, "\\X",    "\r\r");
-        assertMatches(true,  "\\X\\X", "\r\r");
-        
+        this.assertMatches(false, "\\X",    "\r\r");
+        this.assertMatches(true,  "\\X\\X", "\r\r");
+
         // Hangeul-Jamo grapheme. See: https://en.wikipedia.org/wiki/Hangul_Jamo_(Unicode_block)
-        assertMatches(true,  "\\X",    "\u1100\u1161\u11a8");
+        this.assertMatches(true,  "\\X",    "\u1100\u1161\u11a8");
     }
 
     // -----------------------------
-    
+
     private void
     assertMatches(String regex, String subject) {
-        assertMatches(regex, subject, 0);
+        this.assertMatches(regex, subject, 0);
     }
 
     private void
     assertMatches(String regex, String subject, int flags) {
-        assertMatches(true, regex, subject, flags);
+        this.assertMatches(true, regex, subject, flags);
     }
-    
+
     private void
     assertMatches(boolean expected, String regex, String subject) {
-        assertMatches(expected, regex, subject, 0);
+        this.assertMatches(expected, regex, subject, 0);
     }
-    
+
     private void
     assertMatches(boolean expected, String regex, String subject, int flags) {
-        
+
         boolean actual = this.patternFactory.compile(regex, flags).matcher(subject).matches();
-        
+
         if (expected && !actual) {
             Assert.fail("\"" + subject + "\" does not match regex \"" + regex + "\"");
         } else
@@ -139,40 +139,40 @@ class Misc extends ParameterizedWithPatternFactory {
             Assert.fail("\"" + subject + "\" should not match regex \"" + regex + "\"");
         }
     }
-    
+
     // -----------------------------
-    
+
     @SuppressWarnings("unused") private void
     assertFind(String regex, String subject) {
-        assertFind(regex, subject, 0);
+        this.assertFind(regex, subject, 0);
     }
-    
+
     private void
     assertFind(String regex, String subject, int flags) {
-        assertFind(-1, regex, subject, flags);
+        this.assertFind(-1, regex, subject, flags);
     }
-    
+
     @SuppressWarnings("unused") private void
     assertFind(int expected, String regex, String subject) {
-        assertFind(expected, regex, subject, 0);
+        this.assertFind(expected, regex, subject, 0);
     }
-    
+
     /**
      * @param expected Special value -1 means: Once or multiply
      */
     private void
     assertFind(int expected, String regex, String subject, int flags) {
-        
+
         Matcher m = this.patternFactory.compile(regex, flags).matcher(subject);
-        
+
         int actual = 0;
         while (m.find()) actual++;
-        
+
         if (expected != 0 && actual == 0) {
             Assert.fail("Regex \"" + regex + "\" not found in \"" + subject + "\"");
         } else
         if (expected == 0 && actual > 0) {
-            Assert.fail("Regex \"" + regex + "\" should not be found in \"" + subject+ "\"");
+            Assert.fail("Regex \"" + regex + "\" should not be found in \"" + subject + "\"");
         } else
         if (expected == -1 && actual > 0) {
             ;
@@ -191,7 +191,7 @@ class Misc extends ParameterizedWithPatternFactory {
             );
         }
     }
-    
+
     public void
     assertPatternSyntaxException(String regex) {
         this.assertPatternSyntaxException(regex, 0);

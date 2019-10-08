@@ -158,12 +158,12 @@ class Sequence {
     private Find
     find() {
 
+        final int[] ct = new int[256];
+        Arrays.fill(ct, -1);
+
         int[] bestCt   = ObjectUtil.almostNull();
         int   bestNl   = -1;
         int   bestSkip = -1;
-
-        final int[] ct = new int[256];
-        Arrays.fill(ct, -1);
         for (int i = 0; i < bestNl + 20; i++) {
 
             final int finalNl = i;
@@ -197,7 +197,7 @@ class Sequence {
                 @Override public int
                 find(MatcherImpl matcher) {
 
-                    int limit = matcher.hasTransparentBounds ? matcher.subject.length() : matcher.regionEnd;
+                    final int limit = matcher.hasTransparentBounds ? matcher.subject.length() : matcher.regionEnd;
 
                     for (int o = matcher.offset;;) {
 

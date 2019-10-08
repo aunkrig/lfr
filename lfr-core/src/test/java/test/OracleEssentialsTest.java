@@ -48,7 +48,7 @@ class OracleEssentialsTest extends OracleEssentials {
     OracleEssentialsTest(PatternFactory patternFactory, String patternFactoryId) { super(patternFactory); }
 
     @Test public void testStringLiterals1() { this.harnessFull("foo", "foofoofoo"); }
-    @Test public void testStringLiterals2() { this.harnessFull("cat.", "cats"); }
+    @Test public void testStringLiterals2() { this.harnessFull("cat.", "cats");     }
 
     @Test public void
     testSimpleClasses() {
@@ -60,13 +60,13 @@ class OracleEssentialsTest extends OracleEssentials {
     @Test public void testNegation3() { this.harnessFull("[^bcr]at", "rat"); }
     @Test public void testNegation4() { this.harnessFull("[^bcr]at", "hat"); }
 
-    @Test public void testRanges1() { this.harnessFull("[a-c]", "a"); }
-    @Test public void testRanges2() { this.harnessFull("[a-c]", "b"); }
-    @Test public void testRanges3() { this.harnessFull("[a-c]", "c"); }
-    @Test public void testRanges4() { this.harnessFull("[a-c]", "d"); }
-    @Test public void testRanges5() { this.harnessFull("foo[1-5]", "foo1"); }
-    @Test public void testRanges6() { this.harnessFull("foo[1-5]", "foo5"); }
-    @Test public void testRanges7() { this.harnessFull("foo[1-5]", "foo6"); }
+    @Test public void testRanges1() { this.harnessFull("[a-c]",     "a");    }
+    @Test public void testRanges2() { this.harnessFull("[a-c]",     "b");    }
+    @Test public void testRanges3() { this.harnessFull("[a-c]",     "c");    }
+    @Test public void testRanges4() { this.harnessFull("[a-c]",     "d");    }
+    @Test public void testRanges5() { this.harnessFull("foo[1-5]",  "foo1"); }
+    @Test public void testRanges6() { this.harnessFull("foo[1-5]",  "foo5"); }
+    @Test public void testRanges7() { this.harnessFull("foo[1-5]",  "foo6"); }
     @Test public void testRanges8() { this.harnessFull("foo[^1-5]", "foo1"); }
     @Test public void testRanges9() { this.harnessFull("foo[^1-5]", "foo6"); }
 
@@ -192,10 +192,10 @@ class OracleEssentialsTest extends OracleEssentials {
      * @see <a href="https://docs.oracle.com/javase/tutorial/essential/regex/pattern.html#embedded">Essential Classes:
      * Lesson: Regular Expressions: Embedded Flag Expressions</a>
      */
-    @Test public void testEmbeddedFlagExpressions1() { this.harnessFull("foo",     "FOOfooFoOfoO"); }
-    @Test public void testEmbeddedFlagExpressions2() { this.harnessFull("foo",     "FOOfooFoOfoO", Pattern.CASE_INSENSITIVE); } // SUPPRESS CHECKSTYLE LineLength
-    @Test public void testEmbeddedFlagExpressions3() { this.harnessFull("(?i)foo", "FOOfooFoOfoO"); }
-    @Test public void testEmbeddedFlagExpressions4() { this.harnessFull("foo",     "FOOfooFoOfoO"); }
+    @Test public void testEmbeddedFlagExpressions1() { this.harnessFull("foo",     "FOOfooFoOfoO");                           } // SUPPRESS CHECKSTYLE LineLength:3
+    @Test public void testEmbeddedFlagExpressions2() { this.harnessFull("foo",     "FOOfooFoOfoO", Pattern.CASE_INSENSITIVE); }
+    @Test public void testEmbeddedFlagExpressions3() { this.harnessFull("(?i)foo", "FOOfooFoOfoO");                           }
+    @Test public void testEmbeddedFlagExpressions4() { this.harnessFull("foo",     "FOOfooFoOfoO");                           }
 
     /**
      * @see <a href="https://docs.oracle.com/javase/tutorial/essential/regex/pattern.html">Essential Classes:
