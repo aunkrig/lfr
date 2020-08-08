@@ -71,7 +71,7 @@ Plus:
 
 Minus:
 
-* Regex <em>compilation</em> performance was not measured and is probably much slower than JUR. There is surely a lot of room for optimization in this aera, if someone needs it.
+* Regex <em>compilation</em> performance was not measured and is probably much slower than JUR. There is surely a lot of room for optimization in this area, if someone needs it.
 
 Plus:
 
@@ -85,7 +85,7 @@ Plus:
 
   * Patterns that contain a possessive quantifier of ANY; e.g. `"xxx.++xxx"`
 
-  ("ANY" means the "." pattern, and the DOTALL flag being active.)
+  "ANY" means the "." pattern, and the DOTALL flag being active. ("." *without* the DOTALL flag being active means "any character except a line terminator".)
 
 ## Facade
 
