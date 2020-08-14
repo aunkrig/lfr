@@ -102,8 +102,11 @@ interface Matcher extends de.unkrig.ref4j.Matcher {
      * </p>
      *
      * <dl>
-     *   <dt>{@code \}<var>x</var></dt>
-     *   <dt><var>x</var></dt>
+     *   <dt>
+     *     {@code \}<var>x</var>
+     *     <br />
+     *     <var>x</var>
+     *   </dt>
      *   <dd>
      *     The character <var>x</var>, literally.
      *   </dd>
