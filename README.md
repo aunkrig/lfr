@@ -63,8 +63,8 @@ Plus:
     * New binary property "Unicode Join Control"
   * JUR features that appeared in JRE 1.9:
     * Named Unicode characters, e.g. `\N{LATIN SMALL LETTER O}` (only if executed in a JRE 9+)
-    * (Unicode extended graphemes -- whatever that may be -- are not (yet) supported.)
-  * JUR features that appeared in JREs 10,11, 12 and 13:
+    * (Unicode extended graphemes -- are not (yet) supported.)
+  * JUR features that appeared in JREs 10, 11, 12, 13, 14 and 15:
     * (None.)
 
 ## Performance
