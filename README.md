@@ -53,8 +53,8 @@ Plus:
 * LFR only requires JRE 1.6+, but makes some later features available for earlier JREs.
   * JUR features that appeared in JRE 1.7:
     * `\x{h...h}` (code point escapes)
-    * UNICODE scripts like `\p{IsLatin}`
-    * UNICODE binary properties like `\p{IsAlphabetic}`
+    * UNICODE scripts like `\p{IsLatin}` (only if executed in a JRE 7+)
+    * UNICODE binary properties like `\p{IsAlphabetic}` (some of which only if executed in a JRE 7+)
     * Named groups (e.g. `(?<name>X)`) and named group backreferences (e.g. `\k<name>`)
     * The `UNICODE_CHARACTER_CLASS` compilation flag, and its in-line equivalent `(?U)`
   * JUR features that appeared in JRE 1.8:
