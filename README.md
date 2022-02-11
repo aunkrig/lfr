@@ -40,6 +40,10 @@ Analogously, the static method `Matcher.quoteReplacement()` was also moved to th
 
 There are the following differences in the API:
 
+Minus:
+
+* Methods that depend on JRE classes and interfaces that were added after Java 6: `Pattern.asPredicate()`, `Pattern.asMatchPredicate()`, `Pattern.splitAsStream(CharSequence)`, `Matcher.replaceFirst(Function<MatchResult, String>)`, `Matcher.replaceAll(Function<MatchResult, String>)`, `Matcher.results()`.
+
 Plus:
 
 * The LFR `Pattern` class has an additional method `matches(CharSequence subject, int offset)`, which is particularly fast because it does not expose the `Matcher` and can thus save some overhead.
@@ -64,7 +68,7 @@ Plus:
   * JUR features that appeared in JRE 1.9:
     * Named Unicode characters, e.g. `\N{LATIN SMALL LETTER O}` (only if executed in a JRE 9+)
     * (Unicode extended graphemes -- are not (yet) supported.)
-  * JUR features that appeared in JREs 10, 11, 12, 13, 14 and 15:
+  * JUR features that appeared in JREs 10, 11, 12, 13, 14, 15, 16 and 17:
     * (None.)
 
 ## Performance
