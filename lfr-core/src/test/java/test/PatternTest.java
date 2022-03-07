@@ -802,6 +802,34 @@ class PatternTest extends OracleEssentials {
         }
     }
 
+    @Test public void
+    testCapturingGroupsInLookPositiveAheads() {
+
+        Matcher m = this.patternFactory.compile("(?<=(abc))(def)(?=(ghi))").matcher("   abcdefghi   ");
+        Assert.assertTrue(m.find());
+        Assert.assertEquals(3, m.groupCount());
+
+        Assert.assertEquals("def", m.group());
+
+        Assert.assertEquals("abc", m.group(1));
+        Assert.assertEquals("def", m.group(2));
+        Assert.assertEquals("ghi", m.group(3));
+    }
+    
+    @Test public void
+    testCapturingGroupsInLookNegativeAheads() {
+
+        Matcher m = this.patternFactory.compile("(?<!(abc))(def)(?!(ghi))").matcher("   xxxdefxxx   ");
+        Assert.assertTrue(m.find());
+        Assert.assertEquals(3, m.groupCount());
+
+        Assert.assertEquals("def", m.group());
+
+        Assert.assertEquals(null,  m.group(1));
+        Assert.assertEquals("def", m.group(2));
+        Assert.assertEquals(null,  m.group(3));
+    }
+
     // ========================================================================================================
 
     private void
