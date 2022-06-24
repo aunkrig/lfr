@@ -1687,10 +1687,10 @@ class Sequences {
                         matcher.offset++;
                     }
                 }
-                
+
                 while (matcher.offset < matcher.regionEnd) {
                     int o = matcher.offset;
-                    
+
                     int cp2 = matcher.subject.charAt(o++);
                     if (Character.isHighSurrogate((char) cp2) && o < matcher.regionEnd) {
                         char ls = matcher.subject.charAt(o);
@@ -1699,9 +1699,9 @@ class Sequences {
                             o++;
                         }
                     }
-                    
+
                     if (Grapheme.isBoundary(cp1,  cp2)) break;
-                    
+
                     cp1            = cp2;
                     matcher.offset = o;
                 }
@@ -1750,7 +1750,7 @@ class Sequences {
                         cp1 = Character.toCodePoint(hs, (char) cp1);
                     }
                 }
-                
+
                 int cp2 = matcher.subject.charAt(o);
                 if (Character.isHighSurrogate((char) cp2) && o <= matcher.subject.length() - 2) {
                     char ls = matcher.subject.charAt(o + 1);
@@ -1758,9 +1758,9 @@ class Sequences {
                         cp2 = Character.toCodePoint((char) cp2, ls);
                     }
                 }
-                
+
                 if (Grapheme.isBoundary(cp1, cp2)) return this.next.matches(matcher);
-                
+
                 return false;
             }
 
@@ -2069,6 +2069,146 @@ class Sequences {
                 }
 
                 return false;
+            }
+
+            /**
+             * This specialization does some very important optimizations.
+             * <ol>
+             *   <li><code>"a{3,5}b"</code> vs. {@code "aa"} => fail (not: re-attempt at position 1)
+             *   <li><code>"a{3,5}b"</code> vs. {@code "aaxxx"} => next match attempt at position 3 (not: 1)
+             *   <li><code>"a{3,5}b"</code> vs. {@code "aaaaxxx"} => next match attempt at position 5 (not: 1)
+             *   <li><code>"a{3,5}b"</code> vs. {@code "aaaaaaab..."} => match at position 2 (not: re-attempt at position 1)
+             * </ol>
+             */
+            @Override
+            public int find(MatcherImpl matcher) {
+
+                int limit = matcher.regionEnd; // TODO - this.next.minMatchLength;
+
+                // Find the next match.
+                NEXT_SOM: for (int startOfMatch = matcher.offset; startOfMatch < matcher.regionEnd;) {
+
+                    int o = startOfMatch;
+
+                    // The operand MUST match (min) times;
+                    int i;
+                    for (i = 0; i < min; i++) {
+
+                        if (o >= limit) {
+                            matcher.hitEnd = true;
+                            return -1;
+                        }
+
+                        int cp = matcher.subject.charAt(o++);
+
+                        // Special handling for UTF-16 surrogates.
+                        if (Character.isHighSurrogate((char) cp) && o < matcher.regionEnd) {
+                            char ls = matcher.subject.charAt(o);
+                            if (Character.isLowSurrogate(ls)) {
+                                cp = Character.toCodePoint((char) cp, ls);
+                                o++;
+                            }
+                        }
+
+                        if (!operand.matches(cp)) {
+
+                            // "a{3,5}b" vs. "aaxxx" => next match attempt at position 3 (not: 1)
+                            startOfMatch = o;
+                            continue NEXT_SOM;
+                        }
+                    }
+
+                    // Now try to match the operand (max-min) more times.
+                    for (; i < max; i++) {
+
+                        if (o >= limit) {
+                            matcher.hitEnd = true;
+                            break;
+                        }
+
+                        int o2 = o;
+
+                        int cp = matcher.subject.charAt(o2++);
+
+                        // Special handling for UTF-16 surrogates.
+                        if (Character.isHighSurrogate((char) cp) && o2 < matcher.regionEnd) {
+                            char ls = matcher.subject.charAt(o2);
+                            if (Character.isLowSurrogate(ls)) {
+                                cp = Character.toCodePoint((char) cp, ls);
+                                o2++;
+                            }
+                        }
+
+                        if (!operand.matches(cp)) break;
+
+                        o = o2;
+                    }
+                    int afterQuantified = o;
+                    boolean hadMax = i == max;
+
+                    // Now track back to the longest possible match.
+                    for (;; i--) {
+
+                        matcher.offset = o;
+                        if (this.next.matches(matcher)) {
+                            if (counterNumber != -1) matcher.counters[counterNumber] = i;
+                            return startOfMatch;
+                        }
+
+                        if (i <= min) break;
+
+                        o = matcher.positionMinus1(o);
+                    }
+
+                    // E.g. "a{3,5}b" vs. "aaaaEOI":
+                    if (afterQuantified == limit) return -1;
+
+                    if (hadMax) {
+
+                        // Go beyond the "max" limit, which is far more efficient than re-matching at position 1.
+                        for (;;) {
+                            int o2 = o;
+                            int cp = matcher.subject.charAt(o2++);
+                            if (
+                                Character.isHighSurrogate((char) cp)
+                                && o2 < limit
+                                && Character.isLowSurrogate(matcher.subject.charAt(o2))
+                            ) {
+                                cp = Character.toCodePoint((char) cp, matcher.subject.charAt(o2++));
+                            }
+
+                            if (!operand.matches(cp)) {
+
+                                // E.g. "a{3,5}b" vs. "aaaaaax..." => som=7
+                                startOfMatch = o2;
+                                continue NEXT_SOM;
+                            }
+
+                            startOfMatch = matcher.positionPlus1(startOfMatch);
+                            matcher.offset = o;
+                            if (this.next.matches(matcher)) {
+
+                                // E.g. "a{3,5}b" vs. "aaaaaab..." => Match at 1
+                                return startOfMatch;
+                            }
+
+                            o = o2;
+                            if (o == limit) {
+
+                                // E.g. "a{3,5}b" vs. "aaaaaaaaa" => Fail
+                                return -1;
+                            }
+                        }
+                    }
+
+                    // E.g. "a{3,5}b" vs. "aaaax..." => som=5
+                    startOfMatch = matcher.positionPlus1(o);
+                }
+
+                // We are now at the end of the region.
+                if (min > 0) return -1;
+                matcher.offset = matcher.regionEnd;
+                return this.next.matches(matcher) ? matcher.regionEnd : -1;
             }
 
             @Override public Sequence

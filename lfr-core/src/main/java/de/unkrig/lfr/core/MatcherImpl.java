@@ -919,4 +919,32 @@ class MatcherImpl implements Matcher {
 
     int
     sequenceEndMatches(int offset) { return this.end == MatcherImpl.End.ANY || offset == this.regionEnd ? offset : -1; }
+
+    public int
+    positionPlus1(int pos) {
+
+        assert pos >= this.regionStart && pos < this.regionEnd : this.regionStart + "<=" + pos + "<" + this.regionEnd;
+
+        if (
+            Character.isHighSurrogate(this.subject.charAt(pos++))
+            && pos < this.regionEnd
+            && Character.isLowSurrogate(this.subject.charAt(pos))
+        ) pos++;
+        
+        return pos;
+    }
+
+    public int
+    positionMinus1(int pos) {
+
+        assert pos > this.regionStart : pos + ">" + this.regionStart;
+
+        if (
+            Character.isLowSurrogate(this.subject.charAt(--pos))
+            && pos > this.regionStart
+            && Character.isHighSurrogate(this.subject.charAt(pos - 1))
+        ) pos--;
+        
+        return pos;
+    }
 }
