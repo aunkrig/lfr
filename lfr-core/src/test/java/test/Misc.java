@@ -130,7 +130,27 @@ class Misc extends ParameterizedWithPatternFactory {
     private void
     assertMatches(boolean expected, String regex, String subject, int flags) {
 
-        boolean actual = this.patternFactory.compile(regex, flags).matcher(subject).matches();
+        Matcher matcher;
+        try {
+            matcher = this.patternFactory.compile(regex, flags).matcher(subject);
+        } catch (PatternSyntaxException pse) {
+
+            // Pre-11 JURs don't support "\X" ("Any Unicode extended grapheme cluster").
+            if (pse.getMessage().matches("(?s)Illegal/unsupported escape sequence near index.*\\\\X.*")) return;
+            
+            // Pre-11 JURs don't support "\b{g}" (extended grapheme cluster boundary).
+            if (pse.getMessage().matches("(?s)Illegal repetition near index .*\\.\\\\b\\{g\\}.*")) return;
+
+            throw pse;
+        }
+
+        boolean actual;
+        try {
+            actual = matcher.matches();
+        } catch (UnsupportedOperationException uoe) {
+            if ("Graphemes only available in Java 9+".equals(uoe.getMessage())) return;
+            throw uoe;
+        }
 
         if (expected && !actual) {
             Assert.fail("\"" + subject + "\" does not match regex \"" + regex + "\"");
