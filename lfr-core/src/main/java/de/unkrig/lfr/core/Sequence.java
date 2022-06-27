@@ -197,23 +197,17 @@ class Sequence {
                 @Override public int
                 find(MatcherImpl matcher) {
 
-                    final int limit = matcher.hasTransparentBounds ? matcher.subject.length() : matcher.regionEnd;
+                    for (;;) {
 
-                    for (int o = matcher.offset;;) {
+                        int startOfMatch = matcher.offset;
+                        if (Sequence.this.matches(matcher)) return startOfMatch;
 
-                        matcher.offset = o;
-                        if (Sequence.this.matches(matcher)) return o;
-
-                        if (o >= matcher.regionEnd) {
+                        if (startOfMatch >= matcher.regionEnd) {
                             matcher.hitEnd = true;
                             return -1;
                         }
 
-                        if (
-                            Character.isHighSurrogate(matcher.subject.charAt(o++))
-                            && o < limit
-                            && Character.isLowSurrogate(matcher.subject.charAt(o))
-                        ) o++;
+                        matcher.offset = matcher.positionPlus1(startOfMatch);
                     }
                 }
             };

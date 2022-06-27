@@ -56,55 +56,37 @@ class CharacterClass extends CompositeSequence {
     @Override public boolean
     matches(MatcherImpl matcher) {
 
-        int o = matcher.offset;
-
-        if (o >= matcher.regionEnd) {
+        if (matcher.offset >= matcher.regionEnd) {
             matcher.hitEnd = true;
             return false;
         }
 
-        int cp = matcher.subject.charAt(o++);
+        int savedOffset = matcher.offset;
+        int cp = matcher.readChar();
 
-        // Special handling for UTF-16 surrogates.
-        if (Character.isHighSurrogate((char) cp) && o < matcher.regionEnd) {
-            char ls = matcher.subject.charAt(o);
-            if (Character.isLowSurrogate(ls)) {
-                cp = Character.toCodePoint((char) cp, ls);
-                o++;
-            }
+        if (!this.matches(cp)) {
+            matcher.offset= savedOffset;
+            return false;
         }
 
-        if (!this.matches(cp)) return false;
-
-        matcher.offset = o;
         return this.next.matches(matcher);
     }
 
     @Override public int
     find(MatcherImpl matcher) {
 
-        final int re = matcher.regionEnd;
+        while (matcher.offset < matcher.regionEnd) {
 
-        for (int o = matcher.offset; o < re;) {
+            int startOfMatch = matcher.offset;
 
-            int result = o;
-
-            int cp = matcher.subject.charAt(o++);
-
-            // Special handling for UTF-16 surrogates.
-            if (Character.isHighSurrogate((char) cp) && o < re) {
-                char ls = matcher.subject.charAt(o);
-                if (Character.isLowSurrogate(ls)) {
-                    cp = Character.toCodePoint((char) cp, ls);
-                    o++;
-                }
-            }
+            int cp = matcher.readChar();
 
             if (this.matches(cp)) {
 
                 // See if the rest of the pattern matches.
-                matcher.offset = o;
-                if (this.next.matches(matcher)) return result;
+                int savedOffset = matcher.offset;
+                if (this.next.matches(matcher)) return startOfMatch;
+                matcher.offset= savedOffset;
             }
         }
 

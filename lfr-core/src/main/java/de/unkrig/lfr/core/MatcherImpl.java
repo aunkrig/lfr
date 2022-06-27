@@ -947,4 +947,62 @@ class MatcherImpl implements Matcher {
         
         return pos;
     }
+
+    /**
+     * Gets and returns the code point at {@code this.offset} and increases {@code this.offset} by one (or two, for a
+     * non-BMP code point).
+     */
+    public int
+    readChar() {
+
+        assert this.regionStart <= this.offset && this.offset < this.regionEnd : this.regionStart + "<=" + this.offset + "<" + this.regionEnd;
+
+        int cp = this.subject.charAt(this.offset++);
+        if (Character.isHighSurrogate((char) cp) && this.offset < this.regionEnd) {
+            char ls = this.subject.charAt(this.offset);
+            if (Character.isLowSurrogate(ls)) {
+                cp = Character.toCodePoint((char) cp, ls);
+                this.offset++;
+            }
+        }
+        return cp;
+    }
+    
+    /**
+     * Gets and returns the code point at {@code this.offset} and leaves {@code this.offset} unchanged.
+     */
+    public int
+    peekChar() {
+        
+        int o = this.offset;
+        assert this.regionStart <= o && o < this.regionEnd : this.regionStart + "<=" + o + "<" + this.regionEnd;
+        
+        int cp = this.subject.charAt(o);
+        if (Character.isHighSurrogate((char) cp) && o + 1 < this.regionEnd) {
+            char ls = this.subject.charAt(o + 1);
+            if (Character.isLowSurrogate(ls)) {
+                cp = Character.toCodePoint((char) cp, ls);
+            }
+        }
+        return cp;
+    }
+
+    /**
+     * Gets and returns the code point before {@code this.offset} and leaves {@code this.offset} unchanged.
+     */
+    public int
+    peekPreviousChar() {
+        
+        int o = this.offset;
+        assert o > this.regionStart : o + ">" + this.regionStart;
+
+        int cp = this.subject.charAt(o - 1);
+        if (Character.isLowSurrogate((char) cp) && o >= this.regionStart + 2) {
+            char hs = this.subject.charAt(o - 2);
+            if (Character.isHighSurrogate(hs)) {
+                cp = Character.toCodePoint(hs, (char) cp);
+            }
+        }
+        return cp;
+    }
 }

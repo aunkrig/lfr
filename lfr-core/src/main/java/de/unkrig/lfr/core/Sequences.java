@@ -1616,31 +1616,18 @@ class Sequences {
                     return false;
                 }
 
-                int cp1 = matcher.subject.charAt(matcher.offset++);
-                if (Character.isHighSurrogate((char) cp1) && matcher.offset < matcher.regionEnd) {
-                    char ls = matcher.subject.charAt(matcher.offset);
-                    if (Character.isLowSurrogate(ls)) {
-                        cp1 = Character.toCodePoint((char) cp1, ls);
-                        matcher.offset++;
-                    }
-                }
+                int cp1 = matcher.readChar();
 
                 while (matcher.offset < matcher.regionEnd) {
-                    int o = matcher.offset;
-
-                    int cp2 = matcher.subject.charAt(o++);
-                    if (Character.isHighSurrogate((char) cp2) && o < matcher.regionEnd) {
-                        char ls = matcher.subject.charAt(o);
-                        if (Character.isLowSurrogate(ls)) {
-                            cp2 = Character.toCodePoint((char) cp2, ls);
-                            o++;
-                        }
+                    
+                    int beforeCp2 = matcher.offset;
+                    int cp2       = matcher.readChar();
+                    if (Grapheme.isBoundary(cp1,  cp2)) {
+                        matcher.offset = beforeCp2;
+                        break;
                     }
 
-                    if (Grapheme.isBoundary(cp1,  cp2)) break;
-
-                    cp1            = cp2;
-                    matcher.offset = o;
+                    cp1 = cp2;
                 }
 
                 return this.next.matches(matcher);
@@ -1680,21 +1667,8 @@ class Sequences {
                     if (o == matcher.regionStart || o == matcher.regionEnd()) return this.next.matches(matcher);
                 }
 
-                int cp1 = matcher.subject.charAt(o - 1);
-                if (Character.isLowSurrogate((char) cp1) && o >= 2) {
-                    char hs = matcher.subject.charAt(o - 2);
-                    if (Character.isHighSurrogate(hs)) {
-                        cp1 = Character.toCodePoint(hs, (char) cp1);
-                    }
-                }
-
-                int cp2 = matcher.subject.charAt(o);
-                if (Character.isHighSurrogate((char) cp2) && o <= matcher.subject.length() - 2) {
-                    char ls = matcher.subject.charAt(o + 1);
-                    if (Character.isLowSurrogate(ls)) {
-                        cp2 = Character.toCodePoint((char) cp2, ls);
-                    }
-                }
+                int cp1 = Character.codePointBefore(matcher.subject, matcher.offset);
+                int cp2 = Character.codePointAt(matcher.subject, matcher.offset);
 
                 if (Grapheme.isBoundary(cp1, cp2)) return this.next.matches(matcher);
 
@@ -1932,80 +1906,48 @@ class Sequences {
             @Override public boolean
             matches(MatcherImpl matcher) {
 
-                int o = matcher.offset;
-
                 int limit = matcher.regionEnd; // TODO - this.next.minMatchLength;
 
                 // The operand MUST match (min) times;
                 int i;
                 for (i = 0; i < min; i++) {
 
-                    if (o >= limit) {
+                    if (matcher.offset >= limit) {
                         matcher.hitEnd = true;
                         return false;
                     }
 
-                    int cp = matcher.subject.charAt(o++);
-
-                    // Special handling for UTF-16 surrogates.
-                    if (Character.isHighSurrogate((char) cp) && o < matcher.regionEnd) {
-                        char ls = matcher.subject.charAt(o);
-                        if (Character.isLowSurrogate(ls)) {
-                            cp = Character.toCodePoint((char) cp, ls);
-                            o++;
-                        }
-                    }
-
-                    matcher.offset = o;
-                    if (!operand.matches(cp)) return false;
+                    if (!operand.matches(matcher.readChar())) return false;
                 }
-                final int offsetAfterMin = o;
 
                 // Now try to match the operand (max-min) more times.
                 for (; i < max; i++) {
 
-                    if (o >= limit) {
+                    if (matcher.offset >= limit) {
                         matcher.hitEnd = true;
                         break;
                     }
 
-                    int o2 = o;
-
-                    int cp = matcher.subject.charAt(o2++);
-
-                    // Special handling for UTF-16 surrogates.
-                    if (Character.isHighSurrogate((char) cp) && o2 < matcher.regionEnd) {
-                        char ls = matcher.subject.charAt(o2);
-                        if (Character.isLowSurrogate(ls)) {
-                            cp = Character.toCodePoint((char) cp, ls);
-                            o2++;
-                        }
+                    int savedOffset = matcher.offset;
+                    if (!operand.matches(matcher.readChar())) {
+                        matcher.offset = savedOffset;
+                        break;
                     }
-
-                    if (!operand.matches(cp)) break;
-
-                    o = o2;
                 }
 
                 // Now track back to the longest possible match.
                 for (;; i--) {
 
-                    matcher.offset = o;
+                    int savedOffset = matcher.offset;
                     if (this.next.matches(matcher)) {
                         if (counterNumber != -1) matcher.counters[counterNumber] = i;
                         return true;
                     }
 
-                    if (i <= min) break;
+                    if (i <= min) return false;
 
-                    if (
-                        Character.isLowSurrogate(matcher.subject.charAt(--o))
-                        && o > offsetAfterMin
-                        && Character.isHighSurrogate(matcher.subject.charAt(o - 1))
-                    ) o--;
+                    matcher.offset = matcher.positionMinus1(savedOffset);
                 }
-
-                return false;
             }
 
             /**
@@ -2025,32 +1967,23 @@ class Sequences {
                 // Find the next match.
                 NEXT_SOM: for (int startOfMatch = matcher.offset; startOfMatch < matcher.regionEnd;) {
 
-                    int o = startOfMatch;
+                    matcher.offset = startOfMatch;
 
                     // The operand MUST match (min) times;
                     int i;
                     for (i = 0; i < min; i++) {
 
-                        if (o >= limit) {
+                        if (matcher.offset >= limit) {
                             matcher.hitEnd = true;
                             return -1;
                         }
 
-                        int cp = matcher.subject.charAt(o++);
-
-                        // Special handling for UTF-16 surrogates.
-                        if (Character.isHighSurrogate((char) cp) && o < matcher.regionEnd) {
-                            char ls = matcher.subject.charAt(o);
-                            if (Character.isLowSurrogate(ls)) {
-                                cp = Character.toCodePoint((char) cp, ls);
-                                o++;
-                            }
-                        }
+                        int cp = matcher.readChar();
 
                         if (!operand.matches(cp)) {
 
                             // "a{3,5}b" vs. "aaxxx" => next match attempt at position 3 (not: 1)
-                            startOfMatch = o;
+                            startOfMatch = matcher.offset;
                             continue NEXT_SOM;
                         }
                     }
@@ -2058,43 +1991,35 @@ class Sequences {
                     // Now try to match the operand (max-min) more times.
                     for (; i < max; i++) {
 
-                        if (o >= limit) {
+                        if (matcher.offset >= limit) {
                             matcher.hitEnd = true;
                             break;
                         }
 
-                        int o2 = o;
-
-                        int cp = matcher.subject.charAt(o2++);
-
-                        // Special handling for UTF-16 surrogates.
-                        if (Character.isHighSurrogate((char) cp) && o2 < matcher.regionEnd) {
-                            char ls = matcher.subject.charAt(o2);
-                            if (Character.isLowSurrogate(ls)) {
-                                cp = Character.toCodePoint((char) cp, ls);
-                                o2++;
-                            }
+                        int savedOffset = matcher.offset;
+                        if (!operand.matches(matcher.readChar())) {
+                            matcher.offset = savedOffset;
+                            break;
                         }
-
-                        if (!operand.matches(cp)) break;
-
-                        o = o2;
                     }
-                    int afterQuantified = o;
+                    int afterQuantified = matcher.offset;
                     boolean hadMax = i == max;
 
                     // Now track back to the longest possible match.
                     for (;; i--) {
 
-                        matcher.offset = o;
+                        int savedOffset = matcher.offset;
                         if (this.next.matches(matcher)) {
                             if (counterNumber != -1) matcher.counters[counterNumber] = i;
                             return startOfMatch;
                         }
 
-                        if (i <= min) break;
+                        if (i <= min) {
+                            matcher.offset = savedOffset;
+                            break;
+                        }
 
-                        o = matcher.positionMinus1(o);
+                        matcher.offset = matcher.positionMinus1(savedOffset);
                     }
 
                     // E.g. "a{3,5}b" vs. "aaaaEOI":
@@ -2104,42 +2029,33 @@ class Sequences {
 
                         // Go beyond the "max" limit, which is far more efficient than re-matching at position 1.
                         for (;;) {
-                            int o2 = o;
-                            int cp = matcher.subject.charAt(o2++);
-                            if (
-                                Character.isHighSurrogate((char) cp)
-                                && o2 < limit
-                                && Character.isLowSurrogate(matcher.subject.charAt(o2))
-                            ) {
-                                cp = Character.toCodePoint((char) cp, matcher.subject.charAt(o2++));
-                            }
-
-                            if (!operand.matches(cp)) {
+                            int savedOffset = matcher.offset;
+                            if (!operand.matches(matcher.readChar())) {
 
                                 // E.g. "a{3,5}b" vs. "aaaaaax..." => som=7
-                                startOfMatch = o2;
+                                startOfMatch = matcher.offset;
                                 continue NEXT_SOM;
                             }
 
                             startOfMatch = matcher.positionPlus1(startOfMatch);
-                            matcher.offset = o;
+                            savedOffset = matcher.offset;
                             if (this.next.matches(matcher)) {
 
                                 // E.g. "a{3,5}b" vs. "aaaaaab..." => Match at 1
                                 return startOfMatch;
                             }
-
-                            o = o2;
-                            if (o == limit) {
-
+                            if (savedOffset == limit) {
+                                
                                 // E.g. "a{3,5}b" vs. "aaaaaaaaa" => Fail
                                 return -1;
                             }
+
+                            matcher.offset = savedOffset;
                         }
                     }
 
                     // E.g. "a{3,5}b" vs. "aaaax..." => som=5
-                    startOfMatch = matcher.positionPlus1(o);
+                    startOfMatch = matcher.positionPlus1(matcher.offset);
                 }
 
                 // We are now at the end of the region.
@@ -2286,35 +2202,22 @@ class Sequences {
             @Override public boolean
             matches(MatcherImpl matcher) {
 
-                int o = matcher.offset;
-
                 // The operand MUST match (min) times;
                 int i;
                 for (i = 0; i < min; i++) {
 
-                    if (o >= matcher.regionEnd) {
+                    if (matcher.offset >= matcher.regionEnd) {
                         matcher.hitEnd = true;
                         return false;
                     }
 
-                    int cp = matcher.subject.charAt(o++);
-
-                    // Special handling for UTF-16 surrogates.
-                    if (Character.isHighSurrogate((char) cp) && o < matcher.regionEnd) {
-                        char ls = matcher.subject.charAt(o);
-                        if (Character.isLowSurrogate(ls)) {
-                            cp = Character.toCodePoint((char) cp, ls);
-                            o++;
-                        }
-                    }
-
-                    matcher.offset = o;
-                    if (!operand.matches(cp)) return false;
+                    if (!operand.matches(matcher.readChar())) return false;
                 }
 
                 // Now try to match the operand (max-min) more times.
                 for (;; i++) {
 
+                    int savedOffset = matcher.offset;
                     if (this.next.matches(matcher)) {
                         if (counterNumber != -1) matcher.counters[counterNumber] = i;
                         return true;
@@ -2322,22 +2225,14 @@ class Sequences {
 
                     if (i == max) return false;
 
-                    if (o >= matcher.regionEnd) {
+                    if (matcher.offset >= matcher.regionEnd) {
                         matcher.hitEnd = true;
                         return false;
                     }
+                    
+                    matcher.offset = savedOffset;
 
-                    int cp = matcher.subject.charAt(o++);
-                    if (Character.isHighSurrogate((char) cp) && o < matcher.regionEnd) {
-                        char ls = matcher.subject.charAt(o);
-                        if (Character.isLowSurrogate(ls)) {
-                            cp = Character.toCodePoint((char) cp, ls);
-                            o++;
-                        }
-                    }
-
-                    matcher.offset = o;
-                    if (!operand.matches(cp)) return false;
+                    if (!operand.matches(matcher.readChar())) return false;
                 }
             }
 
