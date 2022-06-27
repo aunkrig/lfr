@@ -679,69 +679,6 @@ class Sequences {
     }
 
     /**
-     * Implements a reluctant quantifier on an "any char" operand, followed by a literal String.
-     * <p>
-     *   Examples: <code>".*?ABC" ".{3,17}?ABC"</code>
-     * </p>
-     *
-     * @param min The "minimum count" of the quantifier
-     * @param max The "maximum count" of the quantifier (may be {@link Integer#MAX_VALUE})
-     */
-    public static CompositeSequence
-    reluctantQuantifierOnAnyCharAndLiteralString(final int min, final int max, final CharSequence ls) {
-
-        return new CompositeSequence(
-            Sequences.add(min, ls.length()),
-            Sequences.add(max, ls.length())
-        ) {
-
-            final int     len     = ls.length();
-            final IndexOf indexOf = StringUtil.indexOf(ls);
-
-            @Override public boolean
-            matches(MatcherImpl matcher) {
-
-                int o     = matcher.offset;
-                int limit = matcher.regionEnd;
-
-                if (limit - o > max) limit = o + max; // Beware of overflow!
-
-                o += min;
-
-                while (o <= limit) {
-
-                    // Find next match of the infix withing the subject string.
-                    o = this.indexOf.indexOf(matcher.subject, o, limit);
-                    if (o == -1) break;
-
-                    // See if the successor matches the rest of the subject.
-                    matcher.offset = o + this.len;
-                    if (this.next.matches(matcher)) return true;
-
-                    // Successor didn't match, continue with next character position.
-                    o++;
-                }
-
-                matcher.hitEnd = true;
-                return false;
-            }
-
-            @Override public String
-            toStringWithoutNext() {
-                return (
-                    "reluctantQuantifierOnAnyCharAndLiteralString(min="
-                    + min
-                    + ", max="
-                    + Sequences.maxToString(max)
-                    + ", ls="
-                    + this.indexOf
-                    + ")"
-                );
-            }
-        };
-    }
-
-    /**
      * Implements a "possessive" quantifier for an operand.
      *
      * @param min The "minimum count" of the quantifier
@@ -2559,6 +2496,69 @@ class Sequences {
             toStringWithoutNext() {
                 return (
                     "greedyQuantifierOnAnyCharAndLiteralString(min="
+                    + min
+                    + ", max="
+                    + Sequences.maxToString(max)
+                    + ", ls="
+                    + this.indexOf
+                    + ")"
+                );
+            }
+        };
+    }
+
+    /**
+     * Implements a reluctant quantifier on an "any char" operand, followed by a literal String.
+     * <p>
+     *   Examples: <code>".*?ABC" ".{3,17}?ABC"</code>
+     * </p>
+     *
+     * @param min The "minimum count" of the quantifier
+     * @param max The "maximum count" of the quantifier (may be {@link Integer#MAX_VALUE})
+     */
+    public static CompositeSequence
+    reluctantQuantifierOnAnyCharAndLiteralString(final int min, final int max, final CharSequence ls) {
+
+        return new CompositeSequence(
+            Sequences.add(min, ls.length()),
+            Sequences.add(max, ls.length())
+        ) {
+
+            final int     len     = ls.length();
+            final IndexOf indexOf = StringUtil.indexOf(ls);
+
+            @Override public boolean
+            matches(MatcherImpl matcher) {
+
+                int o     = matcher.offset;
+                int limit = matcher.regionEnd;
+
+                if (limit - o > max) limit = o + max; // Beware of overflow!
+
+                o += min;
+
+                while (o <= limit) {
+
+                    // Find next match of the infix withing the subject string.
+                    o = this.indexOf.indexOf(matcher.subject, o, limit);
+                    if (o == -1) break;
+
+                    // See if the successor matches the rest of the subject.
+                    matcher.offset = o + this.len;
+                    if (this.next.matches(matcher)) return true;
+
+                    // Successor didn't match, continue with next character position.
+                    o++;
+                }
+
+                matcher.hitEnd = true;
+                return false;
+            }
+
+            @Override public String
+            toStringWithoutNext() {
+                return (
+                    "reluctantQuantifierOnAnyCharAndLiteralString(min="
                     + min
                     + ", max="
                     + Sequences.maxToString(max)
