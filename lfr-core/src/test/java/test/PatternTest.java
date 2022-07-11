@@ -313,6 +313,33 @@ class PatternTest extends OracleEssentials {
     @Test public void testUnicodeCharacterClasses9()  { if (PatternTest.JRE_VERSION >= 7) this.harnessFull("\\p{IsLowerCASE}",  " abc äöü "); } // SUPPRESS CHECKSTYLE LineLength:1
     @Test public void testUnicodeCharacterClasses10() { if (PatternTest.JRE_VERSION >= 7) this.harnessFull("\\p{IsAlphabetic}", " abc äöü "); }
 
+    @Test public void
+    testSupplementaryCharacterClasses() {
+
+        // PILE OF POO
+        // = 0x0001F4A9 - 0x00010000
+        // = 0x0000F4A9
+        // = 0000 1111 0100 1010 1001
+        // = HS 00 0011 1101 + LS 00 1010 1001
+        // = D800+3D + DC00+A9
+        // = D83D+DCA9
+        
+        Assert.assertTrue(this.patternFactory.matches("[x\uD83D\uDCA9]", "x"));
+        Assert.assertFalse(this.patternFactory.matches("[x\uD83D\uDCA9]", "\uD83D"));
+        Assert.assertFalse(this.patternFactory.matches("[x\uD83D\uDCA9]", "\uDCA9"));
+        Assert.assertTrue(this.patternFactory.matches("[x\uD83D\uDCA9]", "\uD83D\uDCA9"));
+        
+        Assert.assertTrue(this.patternFactory.matches("[x\\uD83D\\uDCA9]", "x"));
+        Assert.assertFalse(this.patternFactory.matches("[x\\uD83D\\uDCA9]", "\uD83D"));
+        Assert.assertFalse(this.patternFactory.matches("[x\\uD83D\\uDCA9]", "\uDCA9"));
+        Assert.assertTrue(this.patternFactory.matches("[x\\uD83D\\uDCA9]", "\uD83D\uDCA9"));
+
+        Assert.assertTrue(this.patternFactory.matches("[x\\x{1F4A9}]", "x"));
+        Assert.assertFalse(this.patternFactory.matches("[x\\x{1F4A9}]", "\uD83D"));
+        Assert.assertFalse(this.patternFactory.matches("[x\\x{1F4A9}]", "\uDCA9"));
+        Assert.assertTrue(this.patternFactory.matches("[x\\x{1F4A9}]", "\uD83D\uDCA9"));
+    }
+
     // ======================================== END OF CHARACTER CLASSES ========================================
 
     @Test public void
