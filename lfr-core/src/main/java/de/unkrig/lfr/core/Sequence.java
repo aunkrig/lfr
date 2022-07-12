@@ -108,7 +108,7 @@ class Sequence {
      */
     public int
     find(MatcherImpl matcher) {
-        return this.find().find(matcher);
+        return this.getFind().find(matcher);
     }
 
     /**
@@ -157,6 +157,9 @@ class Sequence {
 
     private Find
     find() {
+
+        // Analyse this sequence with the "check(offset, Consumer<Integer>)" method to find out
+        // whether an optimization with the BMH algorithm is possible.
 
         final int[] ct = new int[256];
         Arrays.fill(ct, -1);
