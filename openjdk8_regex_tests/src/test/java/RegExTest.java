@@ -211,25 +211,25 @@ class RegExTest {
      */
     private static String
     fromSupplementaries(String s) {
-    	int length = s.length();
-    	StringBuffer sb = new StringBuffer(length);
-    	
-    	for (int i = 0; i < length; ) {
-    		char c = s.charAt(i++);
-    		if (
-				c >= '\ud800' && c <= '\udbff'
-				&& i < length
-				&& s.charAt(i) >= '\udc00' && s.charAt(i) <= '\udfff'
-			) {
-    			sb.append((char) (s.charAt(i) - '\udc00'));
-    			i++;
-    		} else {
-    			sb.append(c);
-    		}
-    	}
-    	return sb.toString();
+        int length = s.length();
+        StringBuffer sb = new StringBuffer(length);
+
+        for (int i = 0; i < length; ) {
+            char c = s.charAt(i++);
+            if (
+                c >= '\ud800' && c <= '\udbff'
+                && i < length
+                && s.charAt(i) >= '\udc00' && s.charAt(i) <= '\udfff'
+            ) {
+                sb.append((char) (s.charAt(i) - '\udc00'));
+                i++;
+            } else {
+                sb.append(c);
+            }
+        }
+        return sb.toString();
     }
-    
+
     // Regular expression tests
 
     // This is for bug 6178785
@@ -400,7 +400,7 @@ class RegExTest {
         int count = 1;
         try {
             for (; m.find(position); count++) {
-            	int start = m.start();
+                int start = m.start();
                 if (start == testString.length()) break;
                 if (m.find(start + 1)) {
                     position = m.start();
@@ -3820,7 +3820,7 @@ class RegExTest {
     @Test public void
     unicodePropertiesTest11() throws Exception {
 
-    	Matcher common  = RegExTest.PF.compile("\\p{script=Common}").matcher("");
+        Matcher common  = RegExTest.PF.compile("\\p{script=Common}").matcher("");
         Matcher lastSM  = common;
         Matcher unknown = RegExTest.PF.compile("\\p{IsUnknown}").matcher("");
         Character.UnicodeScript lastScript = Character.UnicodeScript.of(0);
@@ -4090,9 +4090,9 @@ class RegExTest {
     @Test public void
     unicodeClassesTest3() throws Exception {
 
-    	// 0x0180 == "LATIN SMALL LETTER B WITH STROKE"
+        // 0x0180 == "LATIN SMALL LETTER B WITH STROKE"
         // 0x0345 == "COMBINING GREEK YPOGEGRAMMENI"
-    	// 0x0400 == "CYRILLIV CAPITAL LETTER IE WITH GRAVE"
+        // 0x0400 == "CYRILLIV CAPITAL LETTER IE WITH GRAVE"
         RegExTest.twoFindIndexes(" \u0180sh\u0345erman\u0400 ", RegExTest.PF.compile("\\b").matcher(""), 1, 11);
     }
 
@@ -4117,15 +4117,15 @@ class RegExTest {
     @Test public void
     unicodeClassesTest6() throws Exception {
 
-    	Matcher bwbU = RegExTest.PF.compile("\\b\\w++\\b",     Pattern.UNICODE_CHARACTER_CLASS).matcher("");
-    	Assert.assertTrue(bwbU.reset("\u0724\u0739\u0724").matches());
+        Matcher bwbU = RegExTest.PF.compile("\\b\\w++\\b",     Pattern.UNICODE_CHARACTER_CLASS).matcher("");
+        Assert.assertTrue(bwbU.reset("\u0724\u0739\u0724").matches());
     }
 
     @Test public void
     unicodeClassesTest7() throws Exception {
 
-    	Matcher bwbEU = RegExTest.PF.compile("(?U)\\b\\w++\\b", Pattern.UNICODE_CHARACTER_CLASS).matcher("");
-    	Assert.assertTrue(bwbEU.reset("\u0724\u0739\u0724").matches());
+        Matcher bwbEU = RegExTest.PF.compile("(?U)\\b\\w++\\b", Pattern.UNICODE_CHARACTER_CLASS).matcher("");
+        Assert.assertTrue(bwbEU.reset("\u0724\u0739\u0724").matches());
     }
 
     @Test public void
