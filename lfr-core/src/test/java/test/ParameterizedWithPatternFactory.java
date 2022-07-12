@@ -37,15 +37,15 @@ public abstract
 class ParameterizedWithPatternFactory {
 
     protected final PatternFactory patternFactory;
-    
+
     public
     ParameterizedWithPatternFactory(PatternFactory patternFactory) { this.patternFactory = patternFactory; }
 
     @Parameters(name = "PatternFactory={1}") public static Iterable<Object[]>
     patternFactories() throws Exception {
-        
+
         List<Object[]> result = new ArrayList<Object[]>();
-        
+
         for (PatternFactory pf : new PatternFactory[] {
             de.unkrig.lfr.core.PatternFactory.INSTANCE,
             de.unkrig.ref4j.jur.PatternFactory.INSTANCE,
@@ -53,7 +53,7 @@ class ParameterizedWithPatternFactory {
 
         return result;
     }
-    
+
     public boolean
     isLfr() { return this.patternFactory.getId().equals("de.unkrig.lfr"); }
 }
