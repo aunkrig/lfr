@@ -118,8 +118,6 @@ class Sequences {
 
         class MyMultivalentSequence extends CompositeSequence implements MultivalentSequence {
 
-            final StringUtil.IndexOf indexOf = StringUtil.indexOf(needle);
-
             MyMultivalentSequence() { super(needle.length); }
 
             @Override public char[][]
@@ -159,33 +157,24 @@ class Sequences {
                 return true;
             }
 
-            @Override public int
-            find(MatcherImpl matcher) {
-
-                final int maxIndex = matcher.regionEnd - needle.length;
-
-                for (int o = matcher.offset;;) {
-
-                    o = this.indexOf.indexOf(matcher.subject, o, maxIndex);
-                    if (o == -1) {
-                        matcher.hitEnd = true; // TODO incorrect!
-                        return -1;
-                    }
-
-                    matcher.offset = o + needle.length;
-                    if (this.next.matches(matcher)) return o;
-
-                    o++;
-                }
-            }
-
             @Override protected void
             checkWithoutNext(int offset, Consumer<Integer> result) {
                 for (char c : needle[offset]) result.consume((int) c);
             }
 
             @Override protected String
-            toStringWithoutNext() { return this.indexOf.toString(); }
+            toStringWithoutNext() {
+
+                if (needle.length == 0) return "{zero-length-needle}";
+
+                StringBuilder sb = new StringBuilder();
+                for (int i = 0;;) {
+                    sb.append('[').append(needle[i]).append(']');
+                    if (++i >= needle.length) break;
+                    sb.append('|');
+                }
+                return sb.toString();
+            }
         }
 
         return new MyMultivalentSequence();
@@ -861,6 +850,9 @@ class Sequences {
         matches(MatcherImpl matcher) {
             return matcher.peekRead(this.cs) && this.next.matches(matcher);
         }
+
+        // This optimized method speeds up "PerformanceTests.test1()" by a factor of 4 (!). Not clear why, because
+        // the BMH finder of "Sequence.find()" is highly optimized...
 
         @Override public int
         find(MatcherImpl matcher) {
