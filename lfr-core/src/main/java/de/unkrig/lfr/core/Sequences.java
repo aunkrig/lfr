@@ -26,6 +26,8 @@
 
 package de.unkrig.lfr.core;
 
+import java.util.Arrays;
+import java.util.BitSet;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -33,6 +35,7 @@ import de.unkrig.commons.lang.CharSequences;
 import de.unkrig.commons.lang.Characters;
 import de.unkrig.commons.lang.StringUtil;
 import de.unkrig.commons.lang.StringUtil.IndexOf;
+import de.unkrig.commons.lang.StringUtil.MultiNeedleIndexOf;
 import de.unkrig.commons.lang.protocol.Consumer;
 import de.unkrig.commons.nullanalysis.Nullable;
 import de.unkrig.commons.util.ArrayUtil;
@@ -46,6 +49,8 @@ class Sequences {
     private Sequences() {}
 
     enum QuantifierNature { GREEDY, RELUCTANT, POSSESSIVE } // SUPPRESS CHECKSTYLE JavadocVariable
+
+    private static final boolean DISABLE_BMH_IN_ALTERNATIVES = true;
 
     /**
      * Matches depending on the {@link MatcherImpl#offset} and the value of {@link MatcherImpl#end}.
@@ -87,6 +92,8 @@ class Sequences {
 
     /**
      * Constructs a sequence from a <var>needle</var>, and implements lots of optimizations.
+     *
+     * @param needle {@code [x][]} are the chars matching position x
      */
     static Sequence
     multivalentSequence(final char[][] needle) {
@@ -173,6 +180,11 @@ class Sequences {
 
                     o++;
                 }
+            }
+
+            @Override protected void
+            checkWithoutNext(int offset, Consumer<Integer> result) {
+                for (char c : needle[offset]) result.consume((int) c);
             }
 
             @Override protected String
@@ -895,7 +907,116 @@ class Sequences {
 
         if (alternatives.length == 1) return alternatives[0];
 
+        // Optimize the special case where *all* alternatives are "multivalent sequences", e.g.
+        // "(?i)Tom|Sawyer" (the first MVS is "[Tt][Oo][Mm]", and the second is "[Ss][Aa][Ww][Yy][Ee][Rr]").
+        ALTERNATIVES_OF_MVS: {
+            for (Sequence alternative : alternatives) {
+                if (!(alternative instanceof MultivalentSequence)) break ALTERNATIVES_OF_MVS;
+                if (((CompositeSequence) alternative).next != Sequences.TERMINAL) break ALTERNATIVES_OF_MVS;
+            }
+            final char[][][] needles = new char[alternatives.length][][];
+            for (int i = 0; i < alternatives.length; i++) {
+                MultivalentSequence ms = (MultivalentSequence) alternatives[i];
+                needles[i] = ms.getNeedle();
+            }
+
+            if (!DISABLE_BMH_IN_ALTERNATIVES) return new CompositeSequence(minLength(needles), maxLength(needles)) {
+
+                {
+                    Sequence joiner = Sequences.joinerSequence(this);
+                    for (int i = 0; i < alternatives.length; i++) {
+                        alternatives[i] = alternatives[i].concat(joiner);
+                    }
+                }
+
+                final MultiNeedleIndexOf io = StringUtil.boyerMooreHorspoolIndexOf(needles);
+
+                @Override boolean
+                matches(MatcherImpl matcher) {
+
+                    BitSet matchingNeedleIndices = new BitSet();
+                    if (!this.io.startsWith(
+                        matcher.subject,   // haystack
+                        matchingNeedleIndices,
+                        matcher.offset,    // offset
+                        matcher.regionEnd  // limit
+                    )) return false;
+
+                    int bom = matcher.offset;
+                    for (int ni = 0; ni < needles.length; ni++) {
+                        if (!matchingNeedleIndices.get(ni)) continue;
+
+                        matcher.offset = bom + needles[ni].length;
+
+                        if (
+                            !(alternatives[ni] instanceof CompositeSequence)
+                            || ((CompositeSequence) alternatives[ni]).next.matches(matcher)
+                        ) return true;
+                    }
+
+                    return false;
+                }
+
+                @Override public int
+                find(MatcherImpl matcher) {
+
+                    for (;;) {
+                        BitSet matchingNeedleIndices = new BitSet();
+                        int matchOffset = this.io.indexOf(
+                            matcher.subject,   // haystack
+                            matchingNeedleIndices,
+                            matcher.offset,    // minIndex
+                            matcher.regionEnd, // maxIndex
+                            matcher.regionEnd  // limit
+                        );
+                        if (matchOffset == -1) return -1;
+
+                        for (int ni = 0; ni < needles.length; ni++) {
+                            if (!matchingNeedleIndices.get(ni)) continue;
+
+                            matcher.offset = matchOffset + needles[ni].length;
+
+                            if (
+                                !(alternatives[ni] instanceof CompositeSequence)
+                                || ((CompositeSequence) alternatives[ni]).next.matches(matcher)
+                            ) return matchOffset;
+                        }
+
+                        matcher.offset = matchOffset + 1;
+                    }
+                }
+
+                @Override protected void
+                checkWithoutNext(int offset, Consumer<Integer> result) {
+                    for (Sequence a : alternatives) { a.check(offset, result); }
+                }
+
+                @Override protected String
+                toStringWithoutNext() { return this.io.toString(); }
+            };
+        }
+
         return new AlternativesSequence(alternatives);
+    }
+
+    private static <T> int
+    minLength(T[][] subject) {
+        int result = subject.length;
+        for (int i = 1; i < subject.length; i++) {
+            int sl = subject[i].length;
+            if (sl < result) result = sl;
+        }
+        return result;
+    }
+
+    private static <T> int
+    maxLength(T[][] subject) {
+        int result = subject.length;
+        for (int i = 1; i < subject.length; i++) {
+            int sl = subject[i].length;
+            if (sl > result) result = sl;
+        }
+        return result;
     }
 
     /**
@@ -907,22 +1028,7 @@ class Sequences {
     class AlternativesSequence extends CompositeSequence {
 
         private final Sequence[]          alternatives;
-        protected final CompositeSequence joiner = new CompositeSequence(0) {
-
-            @Override protected String toStringWithoutNext() { return "endOfAlternative"; }
-
-            @Override boolean
-            matches(MatcherImpl matcher) { return this.next.matches(matcher); }
-
-            @Override public Sequence
-            concat(Sequence that) {
-
-                this.minMatchLength = this.next.minMatchLength;
-                this.maxMatchLength = this.next.maxMatchLength;
-
-                return this;
-            }
-        };
+        protected final Sequence joiner = Sequences.joinerSequence(this);
 
         AlternativesSequence(Sequence[] alternatives) {
             super(
@@ -971,20 +1077,10 @@ class Sequences {
         @Override public Sequence
         concat(Sequence that) {
 
-            // Catch 22: Append "that" to _the joiner_, not to each alternative.
-            this.joiner.next = this.joiner.next.concat(that);
+            this.next = this.next.concat(that);
 
-            // Recalculate the alternatives' min/maxMatchLengths by "fake-appending" the joiner.
-            this.minMatchLength = Integer.MAX_VALUE;
-            this.maxMatchLength = 0;
-            for (Sequence a : this.alternatives) {
-
-                Sequence res = a.concat(this.joiner);
-                assert res == a;
-
-                if (a.minMatchLength < this.minMatchLength) this.minMatchLength = a.minMatchLength;
-                if (a.maxMatchLength > this.maxMatchLength) this.maxMatchLength = a.maxMatchLength;
-            }
+            this.minMatchLength = AlternativesSequence.minMinMatchLength(this.alternatives);
+            this.maxMatchLength = AlternativesSequence.maxMaxMatchLength(this.alternatives);
 
             return this;
         }
@@ -996,8 +1092,29 @@ class Sequences {
 
         @Override public String
         toStringWithoutNext() {
-            return "alternatives(" + Sequences.join(this.alternatives, ", ") + ") . " + this.joiner.next;
+            return "alternatives(" + Sequences.join(this.alternatives, ", ") + ")";
         }
+    }
+
+    private static Sequence
+    joinerSequence(final CompositeSequence wrapper) {
+        return new CompositeSequence(0) {
+
+            @Override protected String toStringWithoutNext() { return "endOfAlternative"; }
+            @Override public String    toString()            { return this.toStringWithoutNext(); }
+
+            @Override boolean
+            matches(MatcherImpl matcher) { return wrapper.next.matches(matcher); }
+
+            @Override public Sequence
+            concat(Sequence that) {
+
+                this.minMatchLength = this.next.minMatchLength;
+                this.maxMatchLength = this.next.maxMatchLength;
+
+                return this;
+            }
+        };
     }
 
     /**
@@ -1064,7 +1181,6 @@ class Sequences {
                 final int savedGroupEnd   = gs[idx + 1];
                 gs[idx] = matcher.offset;
 
-
                 // The following logic is (not only a bit...) strange, but that's how JUR's capturing groups
                 // behave:
                 if (!this.next.matches(matcher)) {
@@ -1074,12 +1190,12 @@ class Sequences {
                 }
 
                 // Verify that the successor chain contained an "end" for the same capturing group.
-                assert gs[idx + 1] != -1;
+                assert gs[idx + 1] != -1 : matcher + ": groupNumber=" + groupNumber + ", groupStart=" + gs[idx];
 
                 return true;
             }
 
-            // Unfortunately this optimization is not possible, because the matcher.groups[...] is set too late :-( .
+            // Unfortunately this optimization is not possible, because the group start is set too late :-( .
 //            @Override public int
 //            find(MatcherImpl matcher) {
 //
@@ -1089,6 +1205,11 @@ class Sequences {
 //
 //                return result;
 //            }
+
+            @Override protected void
+            check(int offset, Consumer<Integer> result) {
+                this.next.check(offset, result);
+            }
 
             @Override public String
             toStringWithoutNext() { return "capturingGroupStart(" + groupNumber + ")"; }
@@ -1619,7 +1740,7 @@ class Sequences {
                 int cp1 = matcher.readChar();
 
                 while (matcher.offset < matcher.regionEnd) {
-                    
+
                     int beforeCp2 = matcher.offset;
                     int cp2       = matcher.readChar();
                     if (Grapheme.isBoundary(cp1,  cp2)) {
@@ -2045,7 +2166,7 @@ class Sequences {
                                 return startOfMatch;
                             }
                             if (savedOffset == limit) {
-                                
+
                                 // E.g. "a{3,5}b" vs. "aaaaaaaaa" => Fail
                                 return -1;
                             }
@@ -2229,7 +2350,7 @@ class Sequences {
                         matcher.hitEnd = true;
                         return false;
                     }
-                    
+
                     matcher.offset = savedOffset;
 
                     if (!operand.matches(matcher.readChar())) return false;
