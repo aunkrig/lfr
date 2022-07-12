@@ -137,7 +137,7 @@ class Misc extends ParameterizedWithPatternFactory {
 
             // Pre-11 JURs don't support "\X" ("Any Unicode extended grapheme cluster").
             if (pse.getMessage().matches("(?s)Illegal/unsupported escape sequence near index.*\\\\X.*")) return;
-            
+
             // Pre-11 JURs don't support "\b{g}" (extended grapheme cluster boundary).
             if (pse.getMessage().matches("(?s)Illegal repetition near index .*\\.\\\\b\\{g\\}.*")) return;
 
