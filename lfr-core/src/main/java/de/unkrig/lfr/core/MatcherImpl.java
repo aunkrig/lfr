@@ -930,7 +930,7 @@ class MatcherImpl implements Matcher {
             && pos < this.regionEnd
             && Character.isLowSurrogate(this.subject.charAt(pos))
         ) pos++;
-        
+
         return pos;
     }
 
@@ -944,7 +944,7 @@ class MatcherImpl implements Matcher {
             && pos > this.regionStart
             && Character.isHighSurrogate(this.subject.charAt(pos - 1))
         ) pos--;
-        
+
         return pos;
     }
 
@@ -967,16 +967,16 @@ class MatcherImpl implements Matcher {
         }
         return cp;
     }
-    
+
     /**
      * Gets and returns the code point at {@code this.offset} and leaves {@code this.offset} unchanged.
      */
     public int
     peekChar() {
-        
+
         int o = this.offset;
         assert this.regionStart <= o && o < this.regionEnd : this.regionStart + "<=" + o + "<" + this.regionEnd;
-        
+
         int cp = this.subject.charAt(o);
         if (Character.isHighSurrogate((char) cp) && o + 1 < this.regionEnd) {
             char ls = this.subject.charAt(o + 1);
@@ -992,7 +992,7 @@ class MatcherImpl implements Matcher {
      */
     public int
     peekPreviousChar() {
-        
+
         int o = this.offset;
         assert o > this.regionStart : o + ">" + this.regionStart;
 
