@@ -248,11 +248,11 @@ class Pattern implements de.unkrig.ref4j.Pattern, Serializable {
         END_OF_INPUT_BUT_FINAL_TERMINATOR,
         /** {@code \z} */
         END_OF_INPUT,
-        
+
         // Linebreak matcher.
         /** {@code \R} */
         LINEBREAK,
-        
+
         // Unicode extended grapheme matcher.
         /** {@code \X} */
         UNICODE_EXTENDED_GRAPHEME,
@@ -498,7 +498,7 @@ class Pattern implements de.unkrig.ref4j.Pattern, Serializable {
         // \R  Any Unicode linebreak sequence, is equivalent to
         //                          /u000D/u000A|[/u000A/u000B/u000C/u000D/u0085/u2028/u2029]
         ss.addRule(Pattern.DEFAULT_STATES, "\\\\R", LINEBREAK).goTo(ss.REMAIN);
-        
+
         // Unicode Extended Grapheme matcher
         // \X   Any Unicode extended grapheme cluster
         ss.addRule(Pattern.DEFAULT_STATES, "\\\\X", UNICODE_EXTENDED_GRAPHEME).goTo(ss.REMAIN);
