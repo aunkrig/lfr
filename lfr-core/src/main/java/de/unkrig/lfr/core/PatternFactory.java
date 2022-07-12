@@ -220,11 +220,10 @@ class PatternFactory extends de.unkrig.ref4j.PatternFactory {
                 List<Sequence> alternatives = new ArrayList<Sequence>();
                 alternatives.add(op1);
                 alternatives.add(this.parseSequence());
+
                 while (this.peekRead(EITHER_OR) != null) alternatives.add(this.parseSequence());
 
-                return Sequences.alternatives(
-                    alternatives.toArray(new Sequence[alternatives.size()])
-                );
+                return Sequences.alternatives(alternatives.toArray(new Sequence[alternatives.size()]));
             }
 
             private Sequence
@@ -425,11 +424,11 @@ class PatternFactory extends de.unkrig.ref4j.PatternFactory {
                 if (this.peekRead(TokenType.UNICODE_EXTENDED_GRAPHEME_CLUSTER_BOUNDARY) != null) {
                     return Sequences.unicodeExtendedGraphemeClusterBoundary();
                 }
-                
+
                 if (this.peekRead(TokenType.NON_UNICODE_EXTENDED_GRAPHEME_CLUSTER_BOUNDARY) != null) {
                     return Sequences.negate(Sequences.unicodeExtendedGraphemeClusterBoundary());
                 }
-                
+
                 if (this.peekRead(TokenType.WORD_BOUNDARY) != null) {
                     return Sequences.wordBoundary();
                 }
@@ -462,7 +461,7 @@ class PatternFactory extends de.unkrig.ref4j.PatternFactory {
                 if (this.peekRead(TokenType.LINEBREAK) != null) {
                     return Sequences.linebreak();
                 }
-                
+
                 if (this.peekRead(TokenType.UNICODE_EXTENDED_GRAPHEME) != null) {
                     return Sequences.unicodeExtendedGrapheme();
                 }
