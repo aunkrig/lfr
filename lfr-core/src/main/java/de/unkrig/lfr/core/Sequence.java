@@ -227,10 +227,8 @@ class Sequence {
                 for (int o = matcher.offset + needleLength - 1; o < matcher.regionEnd;) {
                     int ss = needleLength - 1 - charTable[0xff & matcher.subject.charAt(o)];
                     if (ss == 0) {
-                        matcher.offset = o - needleLength + 1;
-                        if (Sequence.this.matches(matcher)) {
-                            return o - needleLength + 1;
-                        }
+                        int matchPosition = (matcher.offset = o - needleLength + 1);
+                        if (Sequence.this.matches(matcher)) return matchPosition;
                         o++;
                     } else {
                         o += ss;
