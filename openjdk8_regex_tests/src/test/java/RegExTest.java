@@ -177,7 +177,8 @@ class RegExTest {
      * supplementary characters. This method does NOT fully take care
      * of the regex syntax.
      */
-    private static String toSupplementaries(String s) {
+    private static String
+    toSupplementaries(String s) {
         int length = s.length();
         StringBuffer sb = new StringBuffer(length * 2);
 
@@ -205,6 +206,30 @@ class RegExTest {
         return sb.toString();
     }
 
+    /**
+     * Inversion of {@link #toSupplementaries(String)}.
+     */
+    private static String
+    fromSupplementaries(String s) {
+    	int length = s.length();
+    	StringBuffer sb = new StringBuffer(length);
+    	
+    	for (int i = 0; i < length; ) {
+    		char c = s.charAt(i++);
+    		if (
+				c >= '\ud800' && c <= '\udbff'
+				&& i < length
+				&& s.charAt(i) >= '\udc00' && s.charAt(i) <= '\udfff'
+			) {
+    			sb.append((char) (s.charAt(i) - '\udc00'));
+    			i++;
+    		} else {
+    			sb.append(c);
+    		}
+    	}
+    	return sb.toString();
+    }
+    
     // Regular expression tests
 
     // This is for bug 6178785
@@ -1449,7 +1474,7 @@ class RegExTest {
 
         pattern = RegExTest.PF.compile(RegExTest.toSupplementaries("a+"));
         matcher = pattern.matcher(RegExTest.toSupplementaries("zzzaaaaaaaaaa"));
-        Assert.assertEquals(RegExTest.toSupplementaries("zzztest"), matcher.replaceFirst(RegExTest.toSupplementaries("test")));
+        Assert.assertEquals("zzztest", RegExTest.fromSupplementaries(matcher.replaceFirst(RegExTest.toSupplementaries("test"))));
     }
 
     @Test public void
