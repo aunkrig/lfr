@@ -26,8 +26,6 @@
 
 package de.unkrig.lfr.core;
 
-import java.util.Arrays;
-import java.util.BitSet;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -35,7 +33,6 @@ import de.unkrig.commons.lang.CharSequences;
 import de.unkrig.commons.lang.Characters;
 import de.unkrig.commons.lang.StringUtil;
 import de.unkrig.commons.lang.StringUtil.IndexOf;
-import de.unkrig.commons.lang.StringUtil.MultiNeedleIndexOf;
 import de.unkrig.commons.lang.protocol.Consumer;
 import de.unkrig.commons.nullanalysis.Nullable;
 import de.unkrig.commons.util.ArrayUtil;
@@ -50,7 +47,7 @@ class Sequences {
 
     enum QuantifierNature { GREEDY, RELUCTANT, POSSESSIVE } // SUPPRESS CHECKSTYLE JavadocVariable
 
-    private static final boolean DISABLE_BMH_IN_ALTERNATIVES = true;
+//    private static final boolean DISABLE_BMH_IN_ALTERNATIVES = false;
 
     /**
      * Matches depending on the {@link MatcherImpl#offset} and the value of {@link MatcherImpl#end}.
@@ -909,115 +906,115 @@ class Sequences {
 
         // Optimize the special case where *all* alternatives are "multivalent sequences", e.g.
         // "(?i)Tom|Sawyer" (the first MVS is "[Tt][Oo][Mm]", and the second is "[Ss][Aa][Ww][Yy][Ee][Rr]").
-        ALTERNATIVES_OF_MVS: {
-            for (Sequence alternative : alternatives) {
-                if (!(alternative instanceof MultivalentSequence)) break ALTERNATIVES_OF_MVS;
-                if (((CompositeSequence) alternative).next != Sequences.TERMINAL) break ALTERNATIVES_OF_MVS;
-            }
-            final char[][][] needles = new char[alternatives.length][][];
-            for (int i = 0; i < alternatives.length; i++) {
-                MultivalentSequence ms = (MultivalentSequence) alternatives[i];
-                needles[i] = ms.getNeedle();
-            }
-
-            if (!DISABLE_BMH_IN_ALTERNATIVES) return new CompositeSequence(minLength(needles), maxLength(needles)) {
-
-                {
-                    Sequence joiner = Sequences.joinerSequence(this);
-                    for (int i = 0; i < alternatives.length; i++) {
-                        alternatives[i] = alternatives[i].concat(joiner);
-                    }
-                }
-
-                final MultiNeedleIndexOf io = StringUtil.boyerMooreHorspoolIndexOf(needles);
-
-                @Override boolean
-                matches(MatcherImpl matcher) {
-
-                    BitSet matchingNeedleIndices = new BitSet();
-                    if (!this.io.startsWith(
-                        matcher.subject,   // haystack
-                        matchingNeedleIndices,
-                        matcher.offset,    // offset
-                        matcher.regionEnd  // limit
-                    )) return false;
-
-                    int bom = matcher.offset;
-                    for (int ni = 0; ni < needles.length; ni++) {
-                        if (!matchingNeedleIndices.get(ni)) continue;
-
-                        matcher.offset = bom + needles[ni].length;
-
-                        if (
-                            !(alternatives[ni] instanceof CompositeSequence)
-                            || ((CompositeSequence) alternatives[ni]).next.matches(matcher)
-                        ) return true;
-                    }
-
-                    return false;
-                }
-
-                @Override public int
-                find(MatcherImpl matcher) {
-
-                    for (;;) {
-                        BitSet matchingNeedleIndices = new BitSet();
-                        int matchOffset = this.io.indexOf(
-                            matcher.subject,   // haystack
-                            matchingNeedleIndices,
-                            matcher.offset,    // minIndex
-                            matcher.regionEnd, // maxIndex
-                            matcher.regionEnd  // limit
-                        );
-                        if (matchOffset == -1) return -1;
-
-                        for (int ni = 0; ni < needles.length; ni++) {
-                            if (!matchingNeedleIndices.get(ni)) continue;
-
-                            matcher.offset = matchOffset + needles[ni].length;
-
-                            if (
-                                !(alternatives[ni] instanceof CompositeSequence)
-                                || ((CompositeSequence) alternatives[ni]).next.matches(matcher)
-                            ) return matchOffset;
-                        }
-
-                        matcher.offset = matchOffset + 1;
-                    }
-                }
-
-                @Override protected void
-                checkWithoutNext(int offset, Consumer<Integer> result) {
-                    for (Sequence a : alternatives) { a.check(offset, result); }
-                }
-
-                @Override protected String
-                toStringWithoutNext() { return this.io.toString(); }
-            };
-        }
+//        ALTERNATIVES_OF_MVS: {
+//            for (Sequence alternative : alternatives) {
+//                if (!(alternative instanceof MultivalentSequence)) break ALTERNATIVES_OF_MVS;
+//                if (((CompositeSequence) alternative).next != Sequences.TERMINAL) break ALTERNATIVES_OF_MVS;
+//            }
+//            final char[][][] needles = new char[alternatives.length][][];
+//            for (int i = 0; i < alternatives.length; i++) {
+//                MultivalentSequence ms = (MultivalentSequence) alternatives[i];
+//                needles[i] = ms.getNeedle();
+//            }
+//
+//            if (!Sequences.DISABLE_BMH_IN_ALTERNATIVES) return new CompositeSequence(Sequences.minLength(needles), Sequences.maxLength(needles)) {
+//
+//                {
+//                    Sequence joiner = Sequences.joinerSequence(this);
+//                    for (int i = 0; i < alternatives.length; i++) {
+//                        alternatives[i] = alternatives[i].concat(joiner);
+//                    }
+//                }
+//
+//                final MultiNeedleIndexOf io = StringUtil.boyerMooreHorspoolIndexOf(needles);
+//
+//                @Override boolean
+//                matches(MatcherImpl matcher) {
+//
+//                    BitSet matchingNeedleIndices = new BitSet();
+//                    if (!io.startsWith(
+//                        matcher.subject,   // haystack
+//                        matchingNeedleIndices,
+//                        matcher.offset,    // offset
+//                        matcher.regionEnd  // limit
+//                    )) return false;
+//
+//                    int bom = matcher.offset;
+//                    for (int ni = 0; ni < needles.length; ni++) {
+//                        if (!matchingNeedleIndices.get(ni)) continue;
+//
+//                        matcher.offset = bom + needles[ni].length;
+//
+//                        if (
+//                            !(alternatives[ni] instanceof CompositeSequence)
+//                            || ((CompositeSequence) alternatives[ni]).next.matches(matcher)
+//                        ) return true;
+//                    }
+//
+//                    return false;
+//                }
+//
+//                @Override public int
+//                find(MatcherImpl matcher) {
+//
+//                    for (;;) {
+//                        BitSet matchingNeedleIndices = new BitSet();
+//                        int matchOffset = io.indexOf(
+//                            matcher.subject,   // haystack
+//                            matchingNeedleIndices,
+//                            matcher.offset,    // minIndex
+//                            matcher.regionEnd, // maxIndex
+//                            matcher.regionEnd  // limit
+//                        );
+//                        if (matchOffset == -1) return -1;
+//
+//                        for (int ni = 0; ni < needles.length; ni++) {
+//                            if (!matchingNeedleIndices.get(ni)) continue;
+//
+//                            matcher.offset = matchOffset + needles[ni].length;
+//
+//                            if (
+//                                !(alternatives[ni] instanceof CompositeSequence)
+//                                || ((CompositeSequence) alternatives[ni]).next.matches(matcher)
+//                            ) return matchOffset;
+//                        }
+//
+//                        matcher.offset = matchOffset + 1;
+//                    }
+//                }
+//
+//                @Override protected void
+//                checkWithoutNext(int offset, Consumer<Integer> result) {
+//                    for (Sequence a : alternatives) { a.check(offset, result); }
+//                }
+//
+//                @Override protected String
+//                toStringWithoutNext() { return io.toString(); }
+//            };
+//        }
 
         return new AlternativesSequence(alternatives);
     }
 
-    private static <T> int
-    minLength(T[][] subject) {
-        int result = subject.length;
-        for (int i = 1; i < subject.length; i++) {
-            int sl = subject[i].length;
-            if (sl < result) result = sl;
-        }
-        return result;
-    }
-
-    private static <T> int
-    maxLength(T[][] subject) {
-        int result = subject.length;
-        for (int i = 1; i < subject.length; i++) {
-            int sl = subject[i].length;
-            if (sl > result) result = sl;
-        }
-        return result;
-    }
+//    private static <T> int
+//    minLength(T[][] subject) {
+//        int result = subject.length;
+//        for (int i = 1; i < subject.length; i++) {
+//            int sl = subject[i].length;
+//            if (sl < result) result = sl;
+//        }
+//        return result;
+//    }
+//
+//    private static <T> int
+//    maxLength(T[][] subject) {
+//        int result = subject.length;
+//        for (int i = 1; i < subject.length; i++) {
+//            int sl = subject[i].length;
+//            if (sl > result) result = sl;
+//        }
+//        return result;
+//    }
 
     /**
      * Representation of a set of "alternatives", e.g. {@code "a|b|c"}.
