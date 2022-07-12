@@ -323,12 +323,12 @@ class PatternTest extends OracleEssentials {
         // = HS 00 0011 1101 + LS 00 1010 1001
         // = D800+3D + DC00+A9
         // = D83D+DCA9
-        
+
         Assert.assertTrue(this.patternFactory.matches("[x\uD83D\uDCA9]", "x"));
         Assert.assertFalse(this.patternFactory.matches("[x\uD83D\uDCA9]", "\uD83D"));
         Assert.assertFalse(this.patternFactory.matches("[x\uD83D\uDCA9]", "\uDCA9"));
         Assert.assertTrue(this.patternFactory.matches("[x\uD83D\uDCA9]", "\uD83D\uDCA9"));
-        
+
         Assert.assertTrue(this.patternFactory.matches("[x\\uD83D\\uDCA9]", "x"));
         Assert.assertFalse(this.patternFactory.matches("[x\\uD83D\\uDCA9]", "\uD83D"));
         Assert.assertFalse(this.patternFactory.matches("[x\\uD83D\\uDCA9]", "\uDCA9"));
@@ -842,21 +842,21 @@ class PatternTest extends OracleEssentials {
         Assert.assertEquals("def", m.group(2));
         Assert.assertEquals("ghi", m.group(3));
     }
-    
+
     @Test public void
     testCapturingGroupsInLookPositiveAheads2() {
-        
+
         Matcher m = this.patternFactory.compile("(?<=((abc)(def)))ghi").matcher("   abcdefghi   ");
         Assert.assertTrue(m.find());
         Assert.assertEquals(3, m.groupCount());
-        
+
         Assert.assertEquals("ghi", m.group());
-        
+
         Assert.assertEquals("abcdef", m.group(1));
         Assert.assertEquals("abc", m.group(2));
         Assert.assertEquals("def", m.group(3));
     }
-    
+
     @Test public void
     testCapturingGroupsInLookNegativeAheads() {
 
