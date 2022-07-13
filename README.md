@@ -30,13 +30,9 @@ The expression syntax is described [here](https://aunkrig.github.io/lfr/apidocs/
 
 ### API DIFFERENCES
 
-The classes `Pattern` and `Matcher` were duplicated from JUR (package `java.util.regex`) to LFR (package `de.unkrig.lfr.core`) with identical fields and methods.
+The classes `Pattern` and `Matcher` were duplicated from the JUR (package `java.util.regex`) to LFR (package `de.unkrig.lfr.core`) with identical fields and methods.
 
 The JUR `MatchResult` and `PatternSyntaxException` were re-used instead of being duplicated.
-
-All static methods of the `Pattern` class (`compile()`, `matches()` and `quote()`) were moved to the new `PatternFactory` class. E.g., instead of "`Pattern.compile(...)`" you now have to write "`PatternFactory.INSTANCE.compile(...)`".
-
-Analogously, the static method `Matcher.quoteReplacement()` was also moved to the `PatternFactory` class.
 
 There are the following differences in the API:
 
@@ -50,7 +46,7 @@ Plus:
 
 * The LFR `Pattern` class has an additional method `sequenceToString()` which returns a human-readable form of the compiled regex. For example, `compile("A.*abcdefghijklmnop", DOTALL).sequenceToString()` returns
 
-  &nbsp;&nbsp;&nbsp;`'A' . greedyQuantifierAnyChar(min=0, max=infinite, ls=knuthMorrisPratt("abcdefghijklmnop"))`
+  &nbsp;&nbsp;&nbsp;`'A' . greedyQuantifierOnAnyCharAndLiteralString(min=0, max=infinite, ls=boyerMooreHorspool("abcdefghijklmnop"))`
   
   This is useful for testing how a regex compiled, and especially which optimizations have taken place.
 
