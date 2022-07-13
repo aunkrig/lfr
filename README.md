@@ -71,13 +71,13 @@ Plus:
 
 Minus:
 
-* Regex <em>compilation</em> performance was not measured and is probably much slower than JUR. There is surely a lot of room for optimization in this area, if someone needs it.
+* Regex <em>compilation</em> performance was not measured and is probably slower than JUR. There is surely a lot of room for optimization in this area, if someone needs it.
 
 Plus:
 
-* Regex <em>evaluation</em> (`Matcher.matches()`, `find()`, `lookingAt()`, ...) is roughly 30% faster than with JUR. This was measured with the LFR test case suite; other use cases (other regexes, other subjects, other API calls, ...) may yield different results.
+* Regex <em>evaluation</em> (`Matcher.matches()`, `find()`, `lookingAt()`, ...) is roughly four times as fast as with JUR. This was measured with the LFR test case suite and [Performance comparison of regular expression engines](https://zherczeg.github.io/sljit/regex_perf.html). Other use cases (other regexes, other subjects, other API calls, ...) may yield different results.
 
-* LFR drastically improves the evaluation performance for  the following special cases:
+* LFR specifically improves the evaluation performance for the following special cases:
 
   * Patterns that start with 16 or more literal characters (for `Matcher.find()`)
 
@@ -89,7 +89,11 @@ Plus:
 
 ## Facade
 
-If you want to switch between JUR and LFR (and other, not yet written RE implementations) at *runtime*, you can use "`de.unkrig.ref4j`", the "regular expressions facade for Java".
+If you want to switch between JUR and LFR (and other, not yet written RE implementations) at *runtime*, you can use "`de.unkrig.ref4j`", the "regular expressions facade for Java":
+
+    de.unkrig.ref4j.PatternFactory pf = PatternFactory.get(); // Gets the PF designated by the system property "de.unkrig.ref4j.PatternFactory", or the first PF on the classpath
+    de.unkrig.ref4j.Pattern        p  = pf.compile(regex);
+    ...
 
 ## Integration
 
