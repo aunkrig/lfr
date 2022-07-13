@@ -44,9 +44,9 @@ Plus:
 
 * The LFR `Pattern` class has an additional method `matches(CharSequence subject, int offset)`, which is particularly fast because it does not expose the `Matcher` and can thus save some overhead.
 
-* The LFR `Pattern` class has an additional method `sequenceToString()` which returns a human-readable form of the compiled regex. For example, `compile("A.*abcdefghijklmnop", DOTALL).sequenceToString()` returns
+* The LFR `Pattern` class has an additional method `sequenceToString()` which returns a human-readable form of the compiled regex. For example, `compile("A.*abcdefghijklmn", DOTALL).sequenceToString()` returns
 
-  &nbsp;&nbsp;&nbsp;`'A' . greedyQuantifierOnAnyCharAndLiteralString(min=0, max=infinite, ls=boyerMooreHorspool("abcdefghijklmnop"))`
+  &nbsp;&nbsp;&nbsp;`'A' . greedyQuantifierOnAnyCharAndLiteralString(min=0, max=infinite, ls=boyerMooreHorspool("abcdefghijklmn"))`
   
   This is useful for testing how a regex compiled, and especially which optimizations have taken place.
 
