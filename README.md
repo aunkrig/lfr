@@ -75,7 +75,7 @@ Minus:
 
 Plus:
 
-* Regex <em>evaluation</em> (`Matcher.matches()`, `find()`, `lookingAt()`, ...) is roughly four times as fast as with JUR. This was measured with the LFR test case suite and [Performance comparison of regular expression engines](https://zherczeg.github.io/sljit/regex_perf.html). Other use cases (other regexes, other subjects, other API calls, ...) may yield different results.
+* Regex <em>evaluation</em> (`Matcher.matches()`, `find()`, `lookingAt()`, ...) is roughly [four times as fast as with JUR](https://gitcdn.link/cdn/aunkrig/lfr/master/PerformanceTestResults.html). This was measured with the LFR test case suite and [Performance comparison of regular expression engines](https://zherczeg.github.io/sljit/regex_perf.html). Other use cases (other regexes, other subjects, other API calls, ...) may yield different results.
 
 * LFR specifically improves the evaluation performance for the following special cases:
 
