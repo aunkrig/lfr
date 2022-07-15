@@ -604,6 +604,23 @@ class Pattern implements de.unkrig.ref4j.Pattern, Serializable {
     }
 
     /**
+     * Equivalent with {@link PatternFactory#compile(String) PatternFactory.compile}{@code (}<var>regex</var>{@code )}.
+     *
+     * @see java.util.regex.Pattern#compile(String)
+     */
+    public static Pattern
+    compile(String regex) { return PatternFactory.INSTANCE.compile(regex); }
+
+    /**
+     * Equivalent with {@link PatternFactory#compile(String) PatternFactory.compile}{@code (}<var>regex</var>{@code ,}
+     * <var>flags</var>{@code )}.
+     *
+     * @see java.util.regex.Pattern#compile(String, int)
+     */
+    public static Pattern
+    compile(String regex, int flags) { return PatternFactory.INSTANCE.compile(regex, flags); }
+
+    /**
      * @see java.util.regex.Pattern#pattern()
      */
     @Override public String
@@ -635,6 +652,21 @@ class Pattern implements de.unkrig.ref4j.Pattern, Serializable {
      */
     @Override public int
     flags() { return this.flags; }
+
+    /**
+     * Equivalent with {@link #compile(String) Pattern.compile(regex)}{@code .}{@link #matcher(CharSequence)
+     * matcher(input)}{@code .}{@link Matcher#matches() matches()}.
+     * <p>
+     *   If a pattern is to be used multiple times, compiling it once and reusing it will be more efficient than
+     *   invoking this method each time.
+     * </p>
+     *
+     * @see java.util.regex.Pattern#matches(String, CharSequence)
+     */
+    public static boolean
+    matches(String regex, CharSequence input) {
+        return PatternFactory.INSTANCE.compile(regex).matcher(input).matches();
+    }
 
     /**
      * @see java.util.regex.Pattern#split(CharSequence)
@@ -687,6 +719,12 @@ class Pattern implements de.unkrig.ref4j.Pattern, Serializable {
 
         return result.toArray(new String[result.size()]);
     }
+
+    /**
+     * @see java.util.regex.Pattern#quote(String)
+     */
+    public static String
+    quote(String s) { return java.util.regex.Pattern.quote(s); }
 
     /**
      * @return Whether the suffix starting at position <var>offset</var> matches this pattern

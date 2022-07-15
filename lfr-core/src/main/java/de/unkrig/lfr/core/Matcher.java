@@ -167,4 +167,10 @@ interface Matcher extends de.unkrig.ref4j.Matcher {
      */
     int
     count(int number);
+
+    /**
+     * @see java.util.regex.Matcher#quoteReplacement(String)
+     */
+    @Override public String
+    quoteReplacement(String s);
 }

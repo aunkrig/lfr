@@ -367,6 +367,9 @@ class MatcherImpl implements Matcher {
         return true;
     }
 
+    @Override public String
+    quoteReplacement(String s) { return java.util.regex.Matcher.quoteReplacement(s); }
+
     @Override public boolean
     find() {
 
