@@ -155,22 +155,18 @@ class PatternTest extends OracleEssentials {
 
     @Test public void
     testCaseInsensitive6() {
-        this.assertSequenceToString("naiveIndexOf(char[2][] { char[2] 'Aa', char[2] 'Bb' })", "ab", Pattern.CASE_INSENSITIVE); // SUPPRESS CHECKSTYLE LineLength
+        this.assertSequenceToString("[Aa]|[Bb]", "ab", Pattern.CASE_INSENSITIVE);
     }
 
     @Test public void
     testCaseInsensitive7() {
-        this.assertSequenceToString(
-            "boyerMooreHorspool(char[3][] { char[2] 'Aa', char[2] 'Bb', char[2] 'Cc' })",
-            "abc",
-            Pattern.CASE_INSENSITIVE
-        );
+        this.assertSequenceToString("[Aa]|[Bb]|[Cc]", "abc", Pattern.CASE_INSENSITIVE);
     }
 
     @Test public void
     testCaseInsensitive8() {
         this.assertSequenceToString(
-            "boyerMooreHorspool(char[26][] { char[2] 'Aa', char[2] 'Bb', char[2] 'Cc', char[2] 'Dd', char[2] 'Ee', char[2] 'Ff', char[2] 'Gg', char[2] 'Hh', char[2] 'Ii', char[2] 'Jj', ... })", // SUPPRESS CHECKSTYLE LineLength
+            "[Aa]|[Bb]|[Cc]|[Dd]|[Ee]|[Ff]|[Gg]|[Hh]|[Ii]|[Jj]|[Kk]|[Ll]|[Mm]|[Nn]|[Oo]|[Pp]|[Qq]|[Rr]|[Ss]|[Tt]|[Uu]|[Vv]|[Ww]|[Xx]|[Yy]|[Zz]", // SUPPRESS CHECKSTYLE LineLength
             "abcdefghijklmnopqrstuvwxyz",
             Pattern.CASE_INSENSITIVE
         );
@@ -178,18 +174,12 @@ class PatternTest extends OracleEssentials {
 
     @Test public void
     testBoyerMooreHorspool1() {
-        this.assertSequenceToString(
-            "boyerMooreHorspool(char[3][] { char[2] 'ak', char[1] ',', char[2] 'Öä' })",
-            "[ak][,,,,,][äÖ]"
-        );
+        this.assertSequenceToString("[ak]|[,]|[Öä]", "[ak][,,,,,][äÖ]");
     }
 
     @Test public void
     testBoyerMooreHorspool2() {
-        this.assertSequenceToString(
-            "boyerMooreHorspool(char[3][] { char[2] 'ak', char[3] 'abc', char[2] 'Öä' })",
-            "[ak][abc][äÖ]"
-        );
+        this.assertSequenceToString("[ak]|[abc]|[Öä]", "[ak][abc][äÖ]");
     }
 
     @Test public void testUnicodeCaseInsensitive1() { this.harnessFull("(?ui)A", "xxxAxxx");                         }
@@ -243,7 +233,7 @@ class PatternTest extends OracleEssentials {
     @Test public void
     testMatchFlagsNonCapturingGroup() {
         String regex = "a(?i:b)c";
-        this.assertSequenceToString("boyerMooreHorspool(char[3][] { char[1] 'a', char[2] 'Bb', char[1] 'c' })", regex); // SUPPRESS CHECKSTYLE LineLength
+        this.assertSequenceToString("[a]|[Bb]|[c]", regex); // SUPPRESS CHECKSTYLE LineLength
         this.harnessFull(regex, " abc abC aBc aBC Abc AbC ABc ABC ");
     }
 
