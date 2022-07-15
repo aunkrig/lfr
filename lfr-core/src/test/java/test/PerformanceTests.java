@@ -26,9 +26,14 @@
 
 package test;
 
+import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.IOException;
+import java.io.PrintWriter;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -42,17 +47,55 @@ import de.unkrig.commons.lang.ObjectUtil;
 public
 class PerformanceTests {
 
-    private String subject = ObjectUtil.almostNull();
+    private static final File INPUT_FILE = new File("C:/tmp/mtent12.txt");
+    private static final File HTML_FILE  = new File("PerformanceTestResults.html");
+
+    private String             subject = ObjectUtil.almostNull();
+    private static PrintWriter html    = ObjectUtil.almostNull();
 
     @Before public void
     setUp() throws IOException {
-        this.subject = Readers.readAll(new FileReader("C:/tmp/mtent12.txt"), true);
+
+        try {
+            this.subject = Readers.readAll(new FileReader(PerformanceTests.INPUT_FILE), true);
+        } catch (FileNotFoundException fnfe) {
+            System.err.printf(
+                (
+                    "These tests require the \"%s\" file, "
+                    + "which can be found at http://www.gutenberg.org/files/3200/old/mtent12.zip."
+                    + "%n"
+                ),
+                PerformanceTests.INPUT_FILE
+            );
+            throw fnfe;
+        }
+
+        {
+            boolean existed = PerformanceTests.HTML_FILE.exists();
+            PerformanceTests.html = new PrintWriter(new FileWriter(PerformanceTests.HTML_FILE, /*append*/ true), true);
+            if (!existed) {
+                PerformanceTests.html.printf(
+                    "<html><body><table>%n"
+                    + "  <tr>%n"
+                    + "    <th style=\"width:22em\">Method</th>%n"
+                    + "    <th style=\"width:20em\">Regex</th>%n"
+                    + "    <th style=\"width:7em\">JUR [ns]</th>%n"
+                    + "    <th style=\"width:6em\">LFR [ns]</th>%n"
+                    + "    <th style=\"width:5em\">LFR/JUR</th>%n"
+                    + "    <th style=\"width:600em\">Sequence</th>%n"
+                    + "  </tr>%n"
+                );
+            }
+        }
     }
 
-    /**
-     * These tests require the "mtent12.txt" file, which can be found <a
-     * href="http://www.gutenberg.org/files/3200/old/mtent12.zip">here</a>.
-     */
+    @After public void
+    tearDown() {
+        PerformanceTests.html.printf("  <tr><td></td></tr>%n");
+        PerformanceTests.html.close();
+        PerformanceTests.html = ObjectUtil.almostNull();
+    }
+
     @Test public void test1()  { PerformanceTests.findAll("Twain",                                       this.subject); } // SUPPRESS CHECKSTYLE LineLength:16
     @Test public void test2()  { PerformanceTests.findAll("(?i)Twain",                                   this.subject); }
     @Test public void test3()  { PerformanceTests.findAll("[a-z]shing",                                  this.subject); }
@@ -74,9 +117,11 @@ class PerformanceTests {
     private static void
     findAll(String regex, String subject) {
 
+        StackTraceElement ste = Thread.currentThread().getStackTrace()[2];
+
         System.out.printf("%n");
-        System.out.printf("%s:%n", Thread.currentThread().getStackTrace()[2]);
-        System.out.printf("  Regex:                                    JUR [ns]:       LFR [ns]:         Sequence:%n");
+        System.out.printf("%s:%n", ste);
+        System.out.printf("  Regex:                                    JUR [ns]:       LFR [ns]: LFR/JUR Sequence:%n");
 
         java.util.regex.Matcher    jurMatcher = java.util.regex.Pattern.compile(regex).matcher("");
 
@@ -100,13 +145,26 @@ class PerformanceTests {
                 nsLfr = System.nanoTime() - start;
             }
 
+            double timeRatio = 100. * nsLfr / nsJur;
+            String sts       = de.unkrig.lfr.core.PatternFactory.INSTANCE.compile(regex).sequenceToString();
+
             System.out.printf(
                 "  %-35s %,15d %,15d %6.2f%% %s%n",
                 regex,
                 nsJur,
                 nsLfr,
-                100. * nsLfr / nsJur,
-                de.unkrig.lfr.core.PatternFactory.INSTANCE.compile(regex).sequenceToString()
+                timeRatio,
+                sts
+            );
+
+            PerformanceTests.html.printf(
+                "  <tr><td>%s</td><td>%s</td><td>%d</td><td>%d</td><td>%g%%</td><td><nowrap>%s</nowrap></td></tr>%n",
+                ste,
+                regex,
+                nsJur,
+                nsLfr,
+                timeRatio,
+                sts
             );
         }
     }
