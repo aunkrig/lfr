@@ -248,21 +248,33 @@ class RegExTest {
     nullArgumentTest() {
 
         // Null Argument
-        RegExTest.check(new Runnable() { public void run() { RegExTest.PF.compile(null);                } });
-        RegExTest.check(new Runnable() { public void run() { RegExTest.PF.matches(null, null);          } });
-        RegExTest.check(new Runnable() { public void run() { RegExTest.PF.matches("xyz", null);         } });
-        RegExTest.check(new Runnable() { public void run() { RegExTest.PF.quote(null);                  } });
-        RegExTest.check(new Runnable() { public void run() { RegExTest.PF.compile("xyz").split(null);   } });
-        RegExTest.check(new Runnable() { public void run() { RegExTest.PF.compile("xyz").matcher(null); } });
+        RegExTest.check(new Runnable() { @Override
+        public void run() { RegExTest.PF.compile(null);                } });
+        RegExTest.check(new Runnable() { @Override
+        public void run() { RegExTest.PF.matches(null, null);          } });
+        RegExTest.check(new Runnable() { @Override
+        public void run() { RegExTest.PF.matches("xyz", null);         } });
+        RegExTest.check(new Runnable() { @Override
+        public void run() { RegExTest.PF.quote(null);                  } });
+        RegExTest.check(new Runnable() { @Override
+        public void run() { RegExTest.PF.compile("xyz").split(null);   } });
+        RegExTest.check(new Runnable() { @Override
+        public void run() { RegExTest.PF.compile("xyz").matcher(null); } });
 
         final Matcher m = RegExTest.PF.compile("xyz").matcher("xyz");
         m.matches();
-        RegExTest.check(new Runnable() { public void run() { m.appendTail(null);                  } });
-        RegExTest.check(new Runnable() { public void run() { m.replaceAll(null);                  } });
-        RegExTest.check(new Runnable() { public void run() { m.replaceFirst(null);                } });
-        RegExTest.check(new Runnable() { public void run() { m.appendReplacement(null, null);     } });
-        RegExTest.check(new Runnable() { public void run() { m.reset(null);                       } });
-        RegExTest.check(new Runnable() { public void run() { RegExTest.PF.quoteReplacement(null); } });
+        RegExTest.check(new Runnable() { @Override
+        public void run() { m.appendTail(null);                  } });
+        RegExTest.check(new Runnable() { @Override
+        public void run() { m.replaceAll(null);                  } });
+        RegExTest.check(new Runnable() { @Override
+        public void run() { m.replaceFirst(null);                } });
+        RegExTest.check(new Runnable() { @Override
+        public void run() { m.appendReplacement(null, null);     } });
+        RegExTest.check(new Runnable() { @Override
+        public void run() { m.reset(null);                       } });
+        RegExTest.check(new Runnable() { @Override
+        public void run() { RegExTest.PF.quoteReplacement(null); } });
         //check(new Runnable() { public void run() { m.usePattern(null);}});
     }
 
@@ -489,7 +501,7 @@ class RegExTest {
 
     // This test is for 6284152
     static void check(String regex, String input, String[] expected) {
-        List<String> result = new ArrayList<>();
+        List<String> result = new ArrayList<String>();
         Pattern p = RegExTest.PF.compile(regex);
         Matcher m = p.matcher(input);
 

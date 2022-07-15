@@ -1,13 +1,9 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 
-	<groupId>de.unkrig.lfr</groupId>
 	<artifactId>lfr-core</artifactId>
-	<version>1.0.1-SNAPSHOT</version>
 
 	<name>Lightning-fast regular expressions</name>
-
-	<url>https://github.com/aunkrig/lfr/</url>
 
 	<dependencies>
 		<dependency>
@@ -24,116 +20,30 @@
 		<dependency>
 			<groupId>de.unkrig.lfr</groupId>
 			<artifactId>ref4j</artifactId>
-			<version>1.0.1-SNAPSHOT</version>
+			<version>1.1.0</version>
 		</dependency>
 	</dependencies>
-	<properties>
-		<maven.compiler.source>1.6</maven.compiler.source>
-		<maven.compiler.target>1.6</maven.compiler.target>
-		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-	</properties>
-
-	<description>de.unkrig.commons - A general-purpose Java class library</description>
-
-	<organization>
-		<name>Arno Unkrig</name>
-		<url>http://unkrig.de/</url>
-	</organization>
-
-	<scm>
-		<url>https://github.com/aunkrig/lfr</url>
-	</scm>
-
-	<developers>
-		<developer>
-			<name>Arno Unkrig</name>
-			<email>arno@unkrig.de</email>
-		</developer>
-	</developers>
-
-	<licenses>
-		<license>
-			<name>New BSD License</name>
-			<url>http://unkrig.de/w/New_BSD_License</url>
-		</license>
-	</licenses>
-
-	<distributionManagement>
-		<snapshotRepository>
-			<id>ossrh</id>
-			<url>https://oss.sonatype.org/content/repositories/snapshots</url>
-		</snapshotRepository>
-	</distributionManagement>
 
 	<build>
 		<plugins>
-
-			<!-- Java jar plug-in: -->
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-jar-plugin</artifactId>
-				<version>2.4</version>
-				<executions>
-					<execution>
-						<goals><goal>test-jar</goal></goals>
-					</execution>
-				</executions>
 			</plugin>
 
-			<!-- Java source-jar plug-in: -->
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-source-plugin</artifactId>
-				<version>2.4</version>
-				<executions>
-					<execution>
-						<id>attach-sources</id>
-						<goals><goal>jar</goal></goals>
-					</execution>
-				</executions>
 			</plugin>
 
-			<!-- Maven staging plug-in: -->
-			<plugin>
-				<groupId>org.sonatype.plugins</groupId>
-				<artifactId>nexus-staging-maven-plugin</artifactId>
-				<version>1.6.7</version>
-				<extensions>true</extensions>
-				<configuration>
-					<serverId>ossrh</serverId>
-					<nexusUrl>https://oss.sonatype.org/</nexusUrl>
-					<autoReleaseAfterClose>true</autoReleaseAfterClose>
-				</configuration>
-			</plugin>
-			
-			<!-- Javadoc plug-in: -->
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-javadoc-plugin</artifactId>
-				<version>2.10.4</version>
-				<executions>
-					<execution>
-						<id>attach-javadocs</id>
-						<goals><goal>jar</goal></goals>
-					</execution>
-				</executions>
+			</plugin>
 
-				<configuration>
-					<author>false</author>
-					<use>false</use>
-					<version>false</version>
-					<additionalparam>-Xdoclint:none</additionalparam>
-					<encoding>UTF-8</encoding>
-					<quiet>true</quiet>
-					<stylesheetfile>src/main/javadoc/stylesheet.css</stylesheetfile>
-					<notimestamp>true</notimestamp>
-					<offlineLinks>
-						<offlineLink>
-							<url>http://commons.unkrig.de/commons-text/apidocs/</url>
-							<location>../../src/main/javadoc/package-lists/de.unkrig.commons/commons-text</location>
-						</offlineLink>
-					</offlineLinks>
-				</configuration>
+			<plugin>
+				<groupId>org.sonatype.plugins</groupId>
+				<artifactId>nexus-staging-maven-plugin</artifactId>
 			</plugin>
 		</plugins>
 	</build>
@@ -148,17 +58,16 @@
 					<plugin>
 						<groupId>org.apache.maven.plugins</groupId>
 						<artifactId>maven-gpg-plugin</artifactId>
-						<version>1.5</version>
-						<executions>
-							<execution>
-								<id>sign-artifacts</id>
-								<phase>verify</phase>
-								<goals><goal>sign</goal></goals>
-							</execution>
-						</executions>
 					</plugin>
 				</plugins>
 			</build>
 		</profile>
 	</profiles>
+
+	<parent>
+		<relativePath>../lfr-parent</relativePath>
+		<groupId>de.unkrig.lfr</groupId>
+		<artifactId>lfr-parent</artifactId>
+		<version>1.1.0</version>
+	</parent>
 </project>
