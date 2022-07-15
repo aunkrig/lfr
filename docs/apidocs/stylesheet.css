@@ -278,18 +278,16 @@ Page layout container styles
     list-style:none;
     padding-top:2px;
 }
-.contentContainer .description dl, .contentContainer .details dl, .serializedFormContainer dl {
-    margin-left:20px;
-}
 .contentContainer .description dl dt, .contentContainer .details dl dt, .serializedFormContainer dl dt {
     font-size:12px;
     font-weight:bold;
-    margin:0 0 0 0;
+    margin:10px 0 0 0;
     color:#4E4E4E;
 }
 .contentContainer .description dl dd, .contentContainer .details dl dd, .serializedFormContainer dl dd {
-    margin:0 0 10px 20px;
+    margin:5px 0 10px 0px;
     font-size:14px;
+    font-family:'DejaVu Sans Mono',monospace;
 }
 .serializedFormContainer dl.nameValue dt {
     margin-left:1px;
