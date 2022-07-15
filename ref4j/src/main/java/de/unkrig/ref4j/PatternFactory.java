@@ -78,6 +78,7 @@ class PatternFactory {
      */
     public abstract String
     getId();
+
     /**
      * @return The class that has the given name and extends the {@link PatternFactory} class
      */

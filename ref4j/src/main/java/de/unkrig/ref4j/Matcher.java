@@ -141,6 +141,12 @@ interface Matcher extends java.util.regex.MatchResult {
     boolean lookingAt();
 
     /**
+     * @see java.util.regex.Matcher#quoteReplacement(String)
+     */
+    public String
+    quoteReplacement(String s);
+
+    /**
      * @param appendable Must not throw any {@link IOException}s
      * @see              java.util.regex.Matcher#appendReplacement(StringBuffer, String)
      */
