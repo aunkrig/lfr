@@ -44,6 +44,7 @@ import de.unkrig.commons.lang.OptionalMethods;
 import de.unkrig.commons.lang.OptionalMethods.MethodWrapper1;
 import de.unkrig.commons.lang.protocol.Predicate;
 import de.unkrig.commons.lang.protocol.PredicateUtil;
+import de.unkrig.commons.lang.protocol.PredicateWhichThrows;
 import de.unkrig.commons.lang.protocol.ProducerUtil;
 import de.unkrig.commons.lang.protocol.ProducerWhichThrows;
 import de.unkrig.commons.nullanalysis.NotNullByDefault;
@@ -163,9 +164,12 @@ class PatternFactory extends de.unkrig.ref4j.PatternFactory {
 
         // Skip COMMENT tokens.
         ProducerWhichThrows<Token<TokenType>, ScanException>
-        filteredRs = ProducerUtil.filter(rs, new Predicate<Token<TokenType>>() {
+        filteredRs = ProducerUtil.filter(rs, new PredicateWhichThrows<Token<TokenType>, ScanException>() {
             @Override public boolean
-            evaluate(Token<TokenType> subject) {
+            evaluate(Token<TokenType> subject) throws ScanException {
+                if (subject.type == TokenType.INVALID_SEQUENCE) {
+                    throw new ScanException("Invalid character sequence \"" + subject.text + "\"");
+                }
                 return (
                     subject.type != TokenType.COMMENT
                     && subject.type != TokenType.QUOTATION_BEGIN
@@ -267,13 +271,14 @@ class PatternFactory extends de.unkrig.ref4j.PatternFactory {
                 case PLUS:     return Sequences.quantifierInfinity(op, false, this.parseQuantifierNature());
 
                 case CAPTURING_QUANTIFIER:
-                    {
+                    try {
                         final int min = Integer.parseInt(t.captured[0]);
                         final int max = (
                             t.captured[1] == null ? min               :
                             t.captured[2] == null ? Integer.MAX_VALUE :
                             Integer.parseInt(t.captured[2])
                         );
+                        if (max < min) throw new ParseException("max<min in quantifier");
                         return Sequences.capturingQuantifier(
                             op,
                             min,
@@ -281,6 +286,8 @@ class PatternFactory extends de.unkrig.ref4j.PatternFactory {
                             rs.capturingQuantifierCount++,
                             this.parseQuantifierNature()
                         );
+                    } catch (NumberFormatException nfe) {
+                        throw new ParseException(nfe.getMessage());
                     }
 
                 default:
@@ -488,8 +495,7 @@ class PatternFactory extends de.unkrig.ref4j.PatternFactory {
                 }
 
                 if (this.peekRead(TokenType.NAMED_CAPTURING_GROUP_BACK_REFERENCE) != null) {
-                    String  s           = PatternFactory.removeSpaces(t);
-                    String  groupName   = s.substring(3, s.length() - 1);
+                    String  groupName   = token.captured[0];
                     Integer groupNumber = rs.namedGroups.get(groupName);
                     if (groupNumber == null) {
                         throw new ParseException("Unknown group name \"" + groupName + "\"");
@@ -547,7 +553,7 @@ class PatternFactory extends de.unkrig.ref4j.PatternFactory {
             capturingGroupBackReference(int groupNumber) {
                 return (this.currentFlags & de.unkrig.ref4j.Pattern.CASE_INSENSITIVE) == 0
                 ? Sequences.capturingGroupBackReference(groupNumber)
-                : (this.currentFlags & de.unkrig.ref4j.Pattern.UNICODE_CASE) == 0
+                : (this.currentFlags & (de.unkrig.ref4j.Pattern.UNICODE_CASE | de.unkrig.ref4j.Pattern.UNICODE_CHARACTER_CLASS)) == 0 // UCC implies UC!
                 ? Sequences.caseInsensitiveCapturingGroupBackReference(groupNumber)
                 : Sequences.unicodeCaseInsensitiveCapturingGroupBackReference(groupNumber);
             }
@@ -563,7 +569,7 @@ class PatternFactory extends de.unkrig.ref4j.PatternFactory {
                 return (
                     (this.currentFlags & de.unkrig.ref4j.Pattern.CASE_INSENSITIVE) == 0
                     ? CharacterClasses.literalCharacter(codePoint)
-                    : (this.currentFlags & de.unkrig.ref4j.Pattern.UNICODE_CASE) == 0
+                    : (this.currentFlags & (de.unkrig.ref4j.Pattern.UNICODE_CASE | de.unkrig.ref4j.Pattern.UNICODE_CHARACTER_CLASS)) == 0 // UCC implies UC!
                     ? CharacterClasses.caseInsensitiveLiteralCharacter(codePoint)
                     : CharacterClasses.unicodeCaseInsensitiveLiteralCharacter(codePoint)
                 );
@@ -579,7 +585,7 @@ class PatternFactory extends de.unkrig.ref4j.PatternFactory {
                 return (
                     (this.currentFlags & de.unkrig.ref4j.Pattern.CASE_INSENSITIVE) == 0
                     ? CharacterClasses.range(lhsCp, rhsCp)
-                    : (this.currentFlags & de.unkrig.ref4j.Pattern.UNICODE_CASE) == 0
+                    : (this.currentFlags & (de.unkrig.ref4j.Pattern.UNICODE_CASE | de.unkrig.ref4j.Pattern.UNICODE_CHARACTER_CLASS)) == 0 // UCC implies UC!
                     ? CharacterClasses.caseInsensitiveRange(lhsCp, rhsCp)
                     : CharacterClasses.unicodeCaseInsensitiveRange(lhsCp, rhsCp)
                 );
@@ -636,6 +642,10 @@ class PatternFactory extends de.unkrig.ref4j.PatternFactory {
                     case 'u': f = de.unkrig.ref4j.Pattern.UNICODE_CASE;            break;
                     case 'x': f = de.unkrig.ref4j.Pattern.COMMENTS;                break;
                     case 'U': f = de.unkrig.ref4j.Pattern.UNICODE_CHARACTER_CLASS; break;
+
+                    // Flag "c" is not documented in the JRE 17 documentation!
+                    case 'c': throw new ParseException("Flag \"c\" (CANON_EQ) is not supported");
+
                     default:  throw new ParseException("Invalid embedded flag '" + c + "'");
                     }
                     if ((Pattern.SUPPORTED_FLAGS & f) == 0) {
@@ -890,15 +900,15 @@ class PatternFactory extends de.unkrig.ref4j.PatternFactory {
 
                     if ("sc".equals(prefix) || "script".equals(prefix)) {
                         if ((result = Characters.unicodeScriptPredicate(name)) != null) return result;
-                        new ParseException("Unknown UNICODE script \"" + name + "\"");
+                        throw new ParseException("Unknown UNICODE script \"" + name + "\"");
                     }
                     if ("gc".equals(prefix) || "general_category".equals(prefix)) {
                         if ((result = Characters.unicodeCategoryFromName(name)) != null) return result;
-                        new ParseException("Unknown UNICODE general category \"" + name + "\"");
+                        throw new ParseException("Unknown UNICODE general category \"" + name + "\"");
                     }
                     if ("blk".equals(prefix) || "block".equals(prefix)) {
                         if ((result = Characters.unicodeBlockFromName(name)) != null) return result;
-                        new ParseException("Unknown UNICODE block \"" + name + "\"");
+                        throw new ParseException("Unknown UNICODE block \"" + name + "\"");
                     }
 
                     throw new ParseException(
