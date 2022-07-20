@@ -44,6 +44,7 @@ import static de.unkrig.lfr.core.Pattern.TokenType.END_OF_INPUT_BUT_FINAL_TERMIN
 import static de.unkrig.lfr.core.Pattern.TokenType.END_OF_LINE;
 import static de.unkrig.lfr.core.Pattern.TokenType.END_OF_PREVIOUS_MATCH;
 import static de.unkrig.lfr.core.Pattern.TokenType.INDEPENDENT_NON_CAPTURING_GROUP;
+import static de.unkrig.lfr.core.Pattern.TokenType.INVALID_SEQUENCE;
 import static de.unkrig.lfr.core.Pattern.TokenType.LEFT_BRACKET;
 import static de.unkrig.lfr.core.Pattern.TokenType.LINEBREAK;
 import static de.unkrig.lfr.core.Pattern.TokenType.LITERAL_CHARACTER;
@@ -294,9 +295,9 @@ class Pattern implements de.unkrig.ref4j.Pattern, Serializable {
         QUOTATION_END,
 
         // Setting flags.
-        /** {@code (?i}<var>dmsuxU</var>{@code -}<var>idmsuxU</var>{@code )} */
+        /** {@code (?i}<var>dmsuxUc</var>{@code -}<var>idmsuxUc</var>{@code )} */
         MATCH_FLAGS,
-        /** {@code (?}<var>idmsux</var>{@code -}<var>idmsux</var>{@code :}<var>X</var>{@code )} */
+        /** {@code (?}<var>idmsuxc</var>{@code -}<var>idmsucx</var>{@code :}<var>X</var>{@code )} */
         MATCH_FLAGS_NON_CAPTURING_GROUP,
 
         // Lookahead / lookbehind.
@@ -310,6 +311,8 @@ class Pattern implements de.unkrig.ref4j.Pattern, Serializable {
         NEGATIVE_LOOKBEHIND,
 
         COMMENT,
+
+        INVALID_SEQUENCE,
     }
 
     enum ScannerState {
@@ -544,9 +547,10 @@ class Pattern implements de.unkrig.ref4j.Pattern, Serializable {
 
         // Back references
         // \n       Whatever the nth capturing group matched
-        ss.addRule(Pattern.DEFAULT_STATES, "\\\\(\\d+)",  CAPTURING_GROUP_BACK_REFERENCE).goTo(ss.REMAIN);
+        ss.addRule(Pattern.DEFAULT_STATES, "\\\\(\\d+)",                    CAPTURING_GROUP_BACK_REFERENCE).goTo(ss.REMAIN);
         // \k<name> Whatever the named-capturing group "name" matched
-        ss.addRule(Pattern.DEFAULT_STATES, "\\\\k<\\w+>", NAMED_CAPTURING_GROUP_BACK_REFERENCE).goTo(ss.REMAIN);
+        ss.addRule(Pattern.DEFAULT_STATES, "\\\\k<([A-Za-z][A-Za-z0-9]*)>", NAMED_CAPTURING_GROUP_BACK_REFERENCE).goTo(ss.REMAIN);
+        ss.addRule(Pattern.DEFAULT_STATES, "\\\\k",                         INVALID_SEQUENCE);
 
         // Quotation
         // \   Nothing, but quotes the following character
@@ -562,15 +566,15 @@ class Pattern implements de.unkrig.ref4j.Pattern, Serializable {
 
         // Special constructs (named-capturing and non-capturing)
         // (?<name>X)          X, as a named-capturing group
-        ss.addRule(ScannerState.DEFAULT,   "\\(\\?<([\\p{Lu}\\p{Ll}][\\p{Lu}\\p{Ll}\\p{Digit}]*)>", NAMED_CAPTURING_GROUP).goTo(ss.REMAIN);
-        ss.addRule(ScannerState.DEFAULT_X, "\\(\\s*\\?<\\s*(\\w+)>",                                NAMED_CAPTURING_GROUP).goTo(ss.REMAIN);
+        ss.addRule(ScannerState.DEFAULT,   "\\(\\?<([A-Za-z][A-Za-z0-9]*)>",                        NAMED_CAPTURING_GROUP).goTo(ss.REMAIN);
+        ss.addRule(ScannerState.DEFAULT_X, "\\(\\s*\\?<\\s*([A-Za-z][A-Za-z0-9]*)>",                NAMED_CAPTURING_GROUP).goTo(ss.REMAIN);
         // (?:X)               X, as a non-capturing group
         ss.addRule(ScannerState.DEFAULT,   "\\(\\?:",                                               NON_CAPTURING_GROUP).goTo(ss.REMAIN);
         ss.addRule(ScannerState.DEFAULT_X, "\\(\\s*\\?\\s*:",                                       NON_CAPTURING_GROUP).goTo(ss.REMAIN);
         // (?idmsuxU-idmsuxU)  Nothing, but turns match flags i d m s u x U on - off
-        ss.addRule(Pattern.DEFAULT_STATES, "\\(\\?[idmsuxU]*(?:-[idmsuxU]+)?\\)",                   MATCH_FLAGS).goTo(ss.REMAIN);
+        ss.addRule(Pattern.DEFAULT_STATES, "\\(\\?[idmsuxUc]*(?:-[idmsuxUc]+)?\\)",                 MATCH_FLAGS).goTo(ss.REMAIN);
         // (?idmsux-idmsux:X)  X, as a non-capturing group with the given flags i d m s u x on - off
-        ss.addRule(Pattern.DEFAULT_STATES, "\\(\\?[idmsux]*(?:-[idmsux]*)?:",                       MATCH_FLAGS_NON_CAPTURING_GROUP).goTo(ss.REMAIN);
+        ss.addRule(Pattern.DEFAULT_STATES, "\\(\\?[idmsuxc]*(?:-[idmsuxc]*)?:",                     MATCH_FLAGS_NON_CAPTURING_GROUP).goTo(ss.REMAIN);
         // (?=X)               X, via zero-width positive lookahead
         ss.addRule(Pattern.DEFAULT_STATES, "\\(\\?=",                                               POSITIVE_LOOKAHEAD).goTo(ss.REMAIN);
         // (?!X)               X, via zero-width negative lookahead
@@ -581,9 +585,11 @@ class Pattern implements de.unkrig.ref4j.Pattern, Serializable {
         ss.addRule(Pattern.DEFAULT_STATES, "\\(\\?<!",                                              NEGATIVE_LOOKBEHIND).goTo(ss.REMAIN);
         // (?>X)               X, as an independent, non-capturing group
         ss.addRule(Pattern.DEFAULT_STATES, "\\(\\?>",                                               INDEPENDENT_NON_CAPTURING_GROUP).goTo(ss.REMAIN);
+        ss.addRule(Pattern.DEFAULT_STATES, "\\(",                                                   INVALID_SEQUENCE);
 
         // Any literal character. Notice that different sets of metacharacters are in effect in sequences and character
         // classes.
+        ss.addRule(Pattern.DEFAULT_STATES, "\\\\[A-Za-z]", INVALID_SEQUENCE);
         ss.addRule(Pattern.DEFAULT_STATES, "[^{\\\\(*?+]", LITERAL_CHARACTER).goTo(ss.REMAIN);
         ss.addRule(Pattern.IN_CHAR_CLASS,  "[^\\\\]",      LITERAL_CHARACTER).goTo(ss.REMAIN);
     }
