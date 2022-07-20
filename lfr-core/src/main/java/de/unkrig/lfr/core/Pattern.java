@@ -541,9 +541,9 @@ class Pattern implements de.unkrig.ref4j.Pattern, Serializable {
         // X|Y Either X or Y
         ss.addRule(Pattern.DEFAULT_STATES, "\\|", EITHER_OR).goTo(ss.REMAIN);
         // (X) X, as a capturing group
-        ss.addRule(ScannerState.DEFAULT,   "\\((?![\\?<])",        CAPTURING_GROUP).goTo(ss.REMAIN);
-        ss.addRule(ScannerState.DEFAULT_X, "\\(\\s*(?![\\?<\\s])", CAPTURING_GROUP).goTo(ss.REMAIN);
-        ss.addRule(Pattern.DEFAULT_STATES, "\\)",                  END_GROUP).goTo(ss.REMAIN);
+        ss.addRule(ScannerState.DEFAULT,   "\\((?!\\?)",     CAPTURING_GROUP).goTo(ss.REMAIN);
+        ss.addRule(ScannerState.DEFAULT_X, "\\(\\s*(?!\\?)", CAPTURING_GROUP).goTo(ss.REMAIN);
+        ss.addRule(Pattern.DEFAULT_STATES, "\\)",            END_GROUP).goTo(ss.REMAIN);
 
         // Back references
         // \n       Whatever the nth capturing group matched
