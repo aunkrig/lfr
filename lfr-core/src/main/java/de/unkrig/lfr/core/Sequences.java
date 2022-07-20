@@ -333,6 +333,8 @@ class Sequences {
         final Sequence[] operand2   = { operand };
         final String     opToString = operand.toString();
 
+        final ThreadLocal<Integer> beforeOperandMatch = new ThreadLocal<Integer>();
+
         final CompositeSequence cs = new CompositeSequence(0, Integer.MAX_VALUE) {
 
             @Override public boolean
@@ -347,7 +349,15 @@ class Sequences {
 
                 if (greedy) {
 
-                    if (operand2[0].matches(matcher)) return true;
+                    if (matcher.offset > beforeOperandMatch.get()) {
+                        beforeOperandMatch.set(matcher.offset);
+                        if (operand2[0].matches(matcher)) {
+                            if (matcher.offset == savedOffset) {
+                                System.currentTimeMillis();
+                            }
+                            return true;
+                        }
+                    }
 
                     matcher.offset = savedOffset;
 
@@ -357,6 +367,9 @@ class Sequences {
                     if (this.next.matches(matcher)) return true;
 
                     matcher.offset = savedOffset;
+
+                    if (matcher.offset == beforeOperandMatch.get()) return false;
+                    beforeOperandMatch.set(matcher.offset);
 
                     return operand2[0].matches(matcher);
                 }
@@ -378,6 +391,8 @@ class Sequences {
 
             @Override public boolean
             matches(MatcherImpl matcher) {
+                beforeOperandMatch.set(-1);
+
                 return minIsZero ? cs.matches(matcher) : operand2[0].matches(matcher);
             }
 
