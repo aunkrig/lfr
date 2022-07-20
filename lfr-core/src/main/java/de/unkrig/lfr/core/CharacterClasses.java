@@ -904,7 +904,13 @@ class CharacterClasses {
         return new CharacterClass() {
 
             @Override public boolean
-            matches(int c) { return (c > 0x0d || c < 0x0a) && c != 0x85 && (c < 0x2028 || c > 0x2029); }
+            matches(int c) {
+                return (
+                    (c > 0x0d || c < 0x0a)
+                    && c != 0x85
+                    && (c < 0x2028 || c > 0x2029)
+                );
+            }
 
             @Override protected String
             toStringWithoutNext() { return "anyCharButLineBreak"; }
