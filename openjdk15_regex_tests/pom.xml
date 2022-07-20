@@ -1,0 +1,45 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+
+	<artifactId>openjdk15_regex_tests</artifactId>
+
+	<name>OpenJDK 15 regex test suite</name>
+	<description>http://hg.openjdk.java.net/jdk/jdk15/file/0dabbdfd97e6/test/jdk/java/util/regex</description>
+
+	<properties>
+<!-- -->
+		<maven.compiler.source>8</maven.compiler.source>
+		<maven.compiler.target>8</maven.compiler.target>
+<!-- -->
+	</properties>
+
+	<dependencies>
+		<dependency>
+			<groupId>junit</groupId>
+			<artifactId>junit</artifactId>
+			<version>4.11</version>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>de.unkrig.lfr</groupId>
+			<artifactId>lfr-core</artifactId>
+			<version>1.1.1-SNAPSHOT</version>
+			<type>jar</type>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>de.unkrig.lfr</groupId>
+			<artifactId>lfr-core</artifactId>
+			<version>1.1.1-SNAPSHOT</version>
+			<type>test-jar</type>
+			<scope>test</scope>
+		</dependency>
+	</dependencies>
+
+	<parent>
+		<groupId>de.unkrig.lfr</groupId>
+		<artifactId>lfr-parent</artifactId>
+		<version>1.1.1-SNAPSHOT</version>
+		<relativePath>../lfr-parent</relativePath>
+	</parent>
+</project>
