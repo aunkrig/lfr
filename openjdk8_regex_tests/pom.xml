@@ -4,6 +4,7 @@
 	<artifactId>openjdk8_regex_tests</artifactId>
 
 	<name>OpenJDK 8 regex test suite</name>
+	<description>http://hg.openjdk.java.net/jdk8u/jdk8u60/jdk/file/935758609767/test/java/util/regex</description>
 
 	<dependencies>
 		<dependency>
@@ -15,14 +16,14 @@
 		<dependency>
 			<groupId>de.unkrig.lfr</groupId>
 			<artifactId>lfr-core</artifactId>
-			<version>1.1.0</version>
+			<version>1.1.1-SNAPSHOT</version>
 			<type>jar</type>
 			<scope>test</scope>
 		</dependency>
 		<dependency>
 			<groupId>de.unkrig.lfr</groupId>
 			<artifactId>lfr-core</artifactId>
-			<version>1.1.0</version>
+			<version>1.1.1-SNAPSHOT</version>
 			<type>test-jar</type>
 			<scope>test</scope>
 		</dependency>
@@ -47,7 +48,7 @@
 	<parent>
 		<groupId>de.unkrig.lfr</groupId>
 		<artifactId>lfr-parent</artifactId>
-		<version>1.1.0</version>
+		<version>1.1.1-SNAPSHOT</version>
 		<relativePath>../lfr-parent</relativePath>
 	</parent>
 </project>
