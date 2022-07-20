@@ -163,24 +163,34 @@ class MatcherImpl implements Matcher {
     @Override public MatchResult
     toMatchResult() {
 
-        if (this.endOfPreviousMatch < 0) throw new IllegalStateException("No match available");
+        // It is not clearly documented, but the MR is available also in the non-match case,
+//        if (this.endOfPreviousMatch < 0) throw new IllegalStateException("No match available");
 
+        if (this.groups[0] < 0) {
+            return new MatchResult() {
+
+                final IllegalStateException ise = new IllegalStateException("No match found");
+
+                @Override public int              groupCount()           { return MatcherImpl.this.groups.length / 2 - 1; }
+                @Override public int              start()                { throw this.ise; }
+                @Override public int              end()                  { throw this.ise; }
+                @Override @Nullable public String group()                { throw this.ise; }
+                @Override public int              start(int groupNumber) { throw this.ise; } 
+                @Override public int              end(int groupNumber)   { throw this.ise; } 
+                @Override @Nullable public String group(int groupNumber) { throw this.ise; }
+            };
+        }
         return new MatchResult() {
 
-            CharSequence subject = MatcherImpl.this.subject;
-            int[]        groups = MatcherImpl.this.groups.clone();
+            final CharSequence subject = MatcherImpl.this.subject;
+            final int[]        groups  = MatcherImpl.this.groups.clone();
 
-            @Override public int groupCount() { return this.groups.length / 2 - 1; }
-
-            @Override public int              start() { return this.start(0); }
-            @Override public int              end()   { return this.end(0);   }
-            @Override @Nullable public String group() { return this.group(0); }
-
-            @Override public int
-            start(int groupNumber) { return this.groups[2 * groupNumber];     }
-
-            @Override public int
-            end(int groupNumber)   { return this.groups[2 * groupNumber + 1]; }
+            @Override public int              groupCount()           { return this.groups.length / 2 - 1;       }
+            @Override public int              start()                { return this.start(0);                    }
+            @Override public int              end()                  { return this.end(0);                      }
+            @Override @Nullable public String group()                { return this.group(0);                    }
+            @Override public int              start(int groupNumber) { return this.groups[2 * groupNumber];     }
+            @Override public int              end(int groupNumber)   { return this.groups[2 * groupNumber + 1]; }
 
             @Override @Nullable public String
             group(int groupNumber) {
@@ -402,7 +412,12 @@ class MatcherImpl implements Matcher {
             start++;
         }
 
-        return this.find(start);
+        if (!this.find(start)) {
+            this.endOfPreviousMatch = -2;
+            return false;
+        }
+
+        return true;
     }
 
     @Override public boolean
