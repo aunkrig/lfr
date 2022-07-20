@@ -1566,13 +1566,18 @@ class Sequences {
 
                 // Check for linebreak characters in a highly optimized manner.
                 if (c <= 0x0d) {
-                    if (
-                        c == '\r'
-                        && o < matcher.regionEnd - 1
-                        && matcher.subject.charAt(o + 1) == '\n'
-                    ) {
-                        matcher.offset = o + 2;
-                        return this.next.matches(matcher);
+                    if (c == '\r') {
+                        matcher.offset = o + 1;
+                        if (matcher.offset == matcher.regionEnd) matcher.hitEnd = true;
+                        if (this.next.matches(matcher)) return true;
+                        if (
+                            o < matcher.regionEnd - 1
+                            && matcher.subject.charAt(o + 1) == '\n'
+                        ) {
+                            matcher.offset = o + 2;
+                            return this.next.matches(matcher);
+                        }
+                        return false;
                     }
                     if (c >= 0x0a) {
                         matcher.offset = o + 1;
@@ -1605,6 +1610,9 @@ class Sequences {
 
     public static Sequence
     unicodeExtendedGrapheme() {
+
+        // Verify that graphemes are available (JRE 9+):
+        Grapheme.isBoundary(65, 66);
 
         return new CompositeSequence(1, Integer.MAX_VALUE) {
 
@@ -1653,6 +1661,9 @@ class Sequences {
      */
     public static Sequence
     unicodeExtendedGraphemeClusterBoundary() {
+
+        // Verify that graphemes are available (JRE 9+):
+        Grapheme.isBoundary(65, 66);
 
         return new CompositeSequence(0) {
 
@@ -2028,6 +2039,7 @@ class Sequences {
                     if (hadMax) {
 
                         // Go beyond the "max" limit, which is far more efficient than re-matching at position 1.
+                        matcher.offset = afterQuantified;
                         for (;;) {
                             int savedOffset = matcher.offset;
                             if (!operand.matches(matcher.readChar())) {
