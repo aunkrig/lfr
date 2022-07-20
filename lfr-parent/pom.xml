@@ -3,13 +3,13 @@
 
 	<groupId>de.unkrig.lfr</groupId>
 	<artifactId>lfr-parent</artifactId>
-	<version>1.1.0</version>
+	<version>1.1.1-SNAPSHOT</version>
 
 	<packaging>pom</packaging>
 
 	<name>Parent project for the LFR modules</name>
 	<url>https://github.com/aunkrig/lfr/</url>
-	<description>de.unkrig.commons - A general-purpose Java class library</description>
+	<description>de.unkrig.lfr - A 99.9% compatible reimplementation of java.util.regex with better performance</description>
 
 	<organization>
 		<name>Arno Unkrig</name>
@@ -50,7 +50,9 @@
 	<modules>
 		<module>../lfr-core</module>
 		<module>../openjdk8_regex_tests</module>
+		<module>../openjdk15_regex_tests</module>
 		<module>../ref4j</module>
+		<module>openjdk15_regex_tests</module>
 	</modules>
 
 	<build>
