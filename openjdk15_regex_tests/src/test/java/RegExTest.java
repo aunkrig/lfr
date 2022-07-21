@@ -90,17 +90,17 @@ import de.unkrig.ref4j.PatternFactory;
 @SuppressWarnings("unused")
 public class RegExTest {
 
-	private static final PatternFactory PF = de.unkrig.lfr.core.PatternFactory.INSTANCE;
-//	private static final PatternFactory PF = de.unkrig.ref4j.jur.PatternFactory.INSTANCE;
+    private static final PatternFactory PF = de.unkrig.lfr.core.PatternFactory.INSTANCE;
+//    private static final PatternFactory PF = de.unkrig.ref4j.jur.PatternFactory.INSTANCE;
 
-	private static final int JRE = getJreVersion();
-	private static int getJreVersion() {
-		String s = System.getProperty("java.specification.version");
-		if (s.startsWith("1.")) s = s.substring(2);
-		return Integer.parseInt(s);
-	}
+    private static final int JRE = getJreVersion();
+    private static int getJreVersion() {
+        String s = System.getProperty("java.specification.version");
+        if (s.startsWith("1.")) s = s.substring(2);
+        return Integer.parseInt(s);
+    }
 
-	private static Random generator = new Random(); // RandomFactory.getRandom();
+    private static Random generator = new Random(); // RandomFactory.getRandom();
 
     @Test public void
     testTestCasesTxt() throws Exception { RegExTest.processFile("TestCases.txt"); }
@@ -283,7 +283,7 @@ public class RegExTest {
     // char is an octal digit.
     @Test public void removeQEQuotingTest() throws Exception {
         Pattern pattern =
-        		PF.compile("\\011\\Q1sometext\\E\\011\\Q2sometext\\E");
+                PF.compile("\\011\\Q1sometext\\E\\011\\Q2sometext\\E");
         Matcher matcher = pattern.matcher("\t1sometext\t2sometext");
         if (!matcher.find())
             Assert.fail();
@@ -366,11 +366,11 @@ public class RegExTest {
     // Must test a slice to see if it reports hitEnd correctly
     @Test public void hitEndTest() throws Exception {
 
-    	// Basic test of Slice node
+        // Basic test of Slice node
         Matcher m = PF.compile("^squidattack").matcher("squack");
         m.find();
         Assert.assertFalse(m.hitEnd());
-        
+
         m.reset("squid");
         m.find();
         Assert.assertTrue(m.hitEnd());
@@ -486,9 +486,9 @@ public class RegExTest {
     assertFindIndexes(String subject, Pattern pattern, int... indexes) throws Exception {
         Matcher matcher = pattern.matcher(subject);
         for (int index : indexes) {
-        	Assert.assertTrue(matcher.find());
-        	Assert.assertEquals(index, index, matcher.start());
-		}
+            Assert.assertTrue(matcher.find());
+            Assert.assertEquals(index, index, matcher.start());
+        }
         Assert.assertFalse(matcher.find());
     }
 
@@ -749,9 +749,9 @@ public class RegExTest {
         flags |= Pattern.CANON_EQ;
 
         try {
-        	PF.compile("testa\u030a", flags);
+            PF.compile("testa\u030a", flags);
         } catch (IllegalArgumentException iae) {
-        	Assert.assertEquals("Unsupported flag 128", iae.getMessage());
+            Assert.assertEquals("Unsupported flag 128", iae.getMessage());
         }
         RegExTest.check(pattern, "testa\u030a", false);
         RegExTest.check(pattern, "test\u00e5", false);
@@ -801,9 +801,9 @@ public class RegExTest {
 
         String t = RegExTest.toSupplementaries("test");
         try {
-        	PF.compile(t + "a\u030a", flags);
+            PF.compile(t + "a\u030a", flags);
         } catch (IllegalArgumentException iae) {
-        	Assert.assertEquals("Unsupported flag 128", iae.getMessage());
+            Assert.assertEquals("Unsupported flag 128", iae.getMessage());
         }
         RegExTest.check(pattern, t + "a\u030a", false);
         RegExTest.check(pattern, t + "\u00e5", false);
@@ -1718,106 +1718,106 @@ public class RegExTest {
     }
 
     @Test public void splitTest() {
-    	
-    	{
-	        Pattern pattern  = PF.compile(":");
-	        Pattern patternX = PF.compile(RegExTest.toSupplementaries("X"));
-	        
-	        {
-		        String[] result = pattern.split("foo:and:boo", 2);
-		        if (!result[0].equals("foo"))
-		            Assert.fail();
-		        if (!result[1].equals("and:boo"))
-		            Assert.fail();
-		        // Supplementary character test
-		        result = patternX.split(RegExTest.toSupplementaries("fooXandXboo"), 2);
-		        if (!result[0].equals(RegExTest.toSupplementaries("foo")))
-		            Assert.fail();
-		        if (!result[1].equals(RegExTest.toSupplementaries("andXboo")))
-		            Assert.fail();
-	        }
 
-	    	{
-		        CharBuffer cb = CharBuffer.allocate(100);
-		        cb.put("foo:and:boo");
-		        cb.flip();
-		        String[] result = pattern.split(cb);
-		        if (!result[0].equals("foo"))
-		            Assert.fail();
-		        if (!result[1].equals("and"))
-		            Assert.fail();
-		        if (!result[2].equals("boo"))
-		            Assert.fail();
-	    	}
-	
-	        // Supplementary character test
-	    	{
-		        CharBuffer cbs = CharBuffer.allocate(100);
-		        cbs.put(RegExTest.toSupplementaries("fooXandXboo"));
-		        cbs.flip();
-		        String[] result = patternX.split(cbs);
-		        if (!result[0].equals(RegExTest.toSupplementaries("foo")))
-		            Assert.fail();
-		        if (!result[1].equals(RegExTest.toSupplementaries("and")))
-		            Assert.fail();
-		        if (!result[2].equals(RegExTest.toSupplementaries("boo")))
-		            Assert.fail();
-	    	}
-    	}
+        {
+            Pattern pattern  = PF.compile(":");
+            Pattern patternX = PF.compile(RegExTest.toSupplementaries("X"));
 
-    	{
-	        String source = "0123456789";
-	        for (int limit=-2; limit<3; limit++) {
-	            for (int x=0; x<10; x++) {
-	                String[] result = source.split(Integer.toString(x), limit);
-	                int expectedLength = limit < 1 ? 2 : limit;
-	
-	                if ((limit == 0) && (x == 9)) {
-	                    // expected dropping of ""
-	                    if (result.length != 1)
-	                        Assert.fail();
-	                    if (!result[0].equals("012345678")) {
-	                        Assert.fail();
-	                    }
-	                } else {
-	                    if (result.length != expectedLength) {
-	                        Assert.fail();
-	                    }
-	                    if (!result[0].equals(source.substring(0,x))) {
-	                        if (limit != 1) {
-	                            Assert.fail();
-	                        } else {
-	                            if (!result[0].equals(source.substring(0,10))) {
-	                                Assert.fail();
-	                            }
-	                        }
-	                    }
-	                    if (expectedLength > 1) { // Check segment 2
-	                        if (!result[1].equals(source.substring(x+1,10)))
-	                            Assert.fail();
-	                    }
+            {
+                String[] result = pattern.split("foo:and:boo", 2);
+                if (!result[0].equals("foo"))
+                    Assert.fail();
+                if (!result[1].equals("and:boo"))
+                    Assert.fail();
+                // Supplementary character test
+                result = patternX.split(RegExTest.toSupplementaries("fooXandXboo"), 2);
+                if (!result[0].equals(RegExTest.toSupplementaries("foo")))
+                    Assert.fail();
+                if (!result[1].equals(RegExTest.toSupplementaries("andXboo")))
+                    Assert.fail();
+            }
+
+            {
+                CharBuffer cb = CharBuffer.allocate(100);
+                cb.put("foo:and:boo");
+                cb.flip();
+                String[] result = pattern.split(cb);
+                if (!result[0].equals("foo"))
+                    Assert.fail();
+                if (!result[1].equals("and"))
+                    Assert.fail();
+                if (!result[2].equals("boo"))
+                    Assert.fail();
+            }
+
+            // Supplementary character test
+            {
+                CharBuffer cbs = CharBuffer.allocate(100);
+                cbs.put(RegExTest.toSupplementaries("fooXandXboo"));
+                cbs.flip();
+                String[] result = patternX.split(cbs);
+                if (!result[0].equals(RegExTest.toSupplementaries("foo")))
+                    Assert.fail();
+                if (!result[1].equals(RegExTest.toSupplementaries("and")))
+                    Assert.fail();
+                if (!result[2].equals(RegExTest.toSupplementaries("boo")))
+                    Assert.fail();
+            }
+        }
+
+        {
+            String source = "0123456789";
+            for (int limit=-2; limit<3; limit++) {
+                for (int x=0; x<10; x++) {
+                    String[] result = source.split(Integer.toString(x), limit);
+                    int expectedLength = limit < 1 ? 2 : limit;
+
+                    if ((limit == 0) && (x == 9)) {
+                        // expected dropping of ""
+                        if (result.length != 1)
+                            Assert.fail();
+                        if (!result[0].equals("012345678")) {
+                            Assert.fail();
+                        }
+                    } else {
+                        if (result.length != expectedLength) {
+                            Assert.fail();
+                        }
+                        if (!result[0].equals(source.substring(0,x))) {
+                            if (limit != 1) {
+                                Assert.fail();
+                            } else {
+                                if (!result[0].equals(source.substring(0,10))) {
+                                    Assert.fail();
+                                }
+                            }
+                        }
+                        if (expectedLength > 1) { // Check segment 2
+                            if (!result[1].equals(source.substring(x+1,10)))
+                                Assert.fail();
+                        }
                     }
                 }
             }
-	
-	    	// Check the case for no match found
-	        for (int limit=-2; limit<3; limit++) {
-	            String[] result = source.split("e", limit);
-	            if (result.length != 1)
-	                Assert.fail();
-	            if (!result[0].equals(source))
-	                Assert.fail();
-	        }
 
-	    	// Check the case for limit == 0, source = "";
-	        // split() now returns 0-length for empty source "" see #6559590
-	        source = "";
-	        String[] result = source.split("e", 0);
-	        if (result.length != 1)
-	            Assert.fail();
-	        if (!result[0].equals(source))
-	            Assert.fail();
-    	}
+            // Check the case for no match found
+            for (int limit=-2; limit<3; limit++) {
+                String[] result = source.split("e", limit);
+                if (result.length != 1)
+                    Assert.fail();
+                if (!result[0].equals(source))
+                    Assert.fail();
+            }
+
+            // Check the case for limit == 0, source = "";
+            // split() now returns 0-length for empty source "" see #6559590
+            source = "";
+            String[] result = source.split("e", 0);
+            if (result.length != 1)
+                Assert.fail();
+            if (!result[0].equals(source))
+                Assert.fail();
+        }
 
         // Check both split() and splitAsStraem(), especially for zero-lenth
         // input and zero-lenth match cases
@@ -1869,23 +1869,23 @@ public class RegExTest {
         };
         for (int i = 0; i < input.length; i++) {
 
-        	Pattern pattern = PF.compile(input[i][0]);
-        	String  input2  = input[i][1];
+            Pattern pattern = PF.compile(input[i][0]);
+            String  input2  = input[i][1];
 
-			String[] expected2 = expected[i];
-			Assert.assertArrayEquals(expected2, pattern.split(input2));
+            String[] expected2 = expected[i];
+            Assert.assertArrayEquals(expected2, pattern.split(input2));
 
-			if (input[i][1].length() > 0) {
+            if (input[i][1].length() > 0) {
 
-				// splitAsStream() return empty resulting array for zero-length input for now
+                // splitAsStream() return empty resulting array for zero-length input for now
 
-				Object[] actual = pattern.splitAsStream(input2).toArray();
-				Assert.assertArrayEquals(
-					"#" + i + ": pattern=\"" + pattern + "\", input=\"" + input2 + "\", expected=" + Arrays.deepToString(expected2) + ", actual=" + Arrays.deepToString(actual),
-					expected2,
-					actual
-				);
-			}
+                Object[] actual = pattern.splitAsStream(input2).toArray();
+                Assert.assertArrayEquals(
+                    "#" + i + ": pattern=\"" + pattern + "\", input=\"" + input2 + "\", expected=" + Arrays.deepToString(expected2) + ", actual=" + Arrays.deepToString(actual),
+                    expected2,
+                    actual
+                );
+            }
         }
     }
 
@@ -2581,12 +2581,12 @@ public class RegExTest {
     @Test public void ceTest() throws Exception {
         // Decomposed char outside char classes
         Pattern p;
-		try {
-			p = PF.compile("testa\u030a", Pattern.CANON_EQ);
-		} catch (IllegalArgumentException iae) {
-			if ("Unsupported flag 128".equals(iae.getMessage())) return; // LFR does not (yet) support CANON_EQ
-			throw iae;
-		}
+        try {
+            p = PF.compile("testa\u030a", Pattern.CANON_EQ);
+        } catch (IllegalArgumentException iae) {
+            if ("Unsupported flag 128".equals(iae.getMessage())) return; // LFR does not (yet) support CANON_EQ
+            throw iae;
+        }
         Matcher m = p.matcher("test\u00e5");
         if (!m.matches())
             Assert.fail();
@@ -2739,9 +2739,9 @@ public class RegExTest {
             boolean expected = (boolean) d[3];
 
             Matcher matcher = PF.compile(pn, Pattern.CANON_EQ).matcher(tt);
-			boolean ret = isFind ? matcher.find() : matcher.matches();
+            boolean ret = isFind ? matcher.find() : matcher.matches();
 
-			Assert.assertEquals("#" + i + ": Pattern=" + pn + ", subject=" + tt + ", isFind=" + isFind, expected, ret);
+            Assert.assertEquals("#" + i + ": Pattern=" + pn + ", subject=" + tt + ", isFind=" + isFind, expected, ret);
 //            if (ret != expected) {
 //                continue;
 //            }
@@ -3823,14 +3823,14 @@ public class RegExTest {
             String expectedResult = RegExTest.grabLine(r);
 
             if (!result.toString().equals(expectedResult)) {
-            	throw new AssertionError(
-        			testCases
-        			+ ", before line #" + r.getLineNumber()
-        			+ ": Pattern=" + patternString
-        			+ ", Data=" + dataString
-        			+ ", Expected=" + expectedResult + "(matches group0 groupCount groups...)"
-        			+ ", Actual=" + result
-    			);
+                throw new AssertionError(
+                    testCases
+                    + ", before line #" + r.getLineNumber()
+                    + ": Pattern=" + patternString
+                    + ", Data=" + dataString
+                    + ", Expected=" + expectedResult + "(matches group0 groupCount groups...)"
+                    + ", Actual=" + result
+                );
             }
         }
 
@@ -4140,7 +4140,7 @@ public class RegExTest {
     // This is for bug 6919132
     @Test public void nonBmpClassComplementTest() throws Exception {
 
-    	Pattern p = PF.compile("\\P{Lu}");
+        Pattern p = PF.compile("\\P{Lu}");
         Matcher m = p.matcher(new String(new int[] {0x1d400}, 0, 1));
 
         if (m.find()) Assert.assertNotEquals(1, m.start());
@@ -4158,9 +4158,9 @@ public class RegExTest {
 
         // JRE 8 doesn't know script "GRANTHA".
         if (JRE > 8) {
-	        p = PF.compile("\\P{sc=GRANTHA}");
-	        m = p.matcher(new String(new int[] {0x11350}, 0, 1));
-	        if (m.find()) Assert.assertNotEquals(1, m.start());
+            p = PF.compile("\\P{sc=GRANTHA}");
+            m = p.matcher(new String(new int[] {0x11350}, 0, 1));
+            if (m.find()) Assert.assertNotEquals(1, m.start());
         }
 
 //        RegExTest.report("NonBmpClassComplement");
@@ -4397,7 +4397,7 @@ public class RegExTest {
             // word
             assertPatternMatchesCodepoint(cp, POSIX_ASCII.isWord(cp),                    word);
 if (cp == 127280) {
-	System.currentTimeMillis();
+    System.currentTimeMillis();
 }
             assertPatternMatchesCodepoint(cp, POSIX_Unicode.isWord(cp),                  wordU);
             assertPatternMatchesCodepoint(cp, POSIX_Unicode.isWord(cp),                  wordEU);
@@ -4413,22 +4413,22 @@ if (cp == 127280) {
             assertPatternMatchesCodepoint(cp, POSIX_Unicode.isNoncharacterCodePoint(cp), nonCCPP);
             assertPatternMatchesCodepoint(cp, POSIX_Unicode.isJoinControl(cp),           joinCrtl);
             // gc_C
-			assertPatternMatchesCodepoint(cp, (
-				type == Character.CONTROL
-				|| type == Character.FORMAT
-				|| type == Character.PRIVATE_USE
-				|| type == Character.SURROGATE
-				|| type == Character.UNASSIGNED
-			), gcC);
+            assertPatternMatchesCodepoint(cp, (
+                type == Character.CONTROL
+                || type == Character.FORMAT
+                || type == Character.PRIVATE_USE
+                || type == Character.SURROGATE
+                || type == Character.UNASSIGNED
+            ), gcC);
             Assert.assertEquals(
-            	String.format("Code point %d (%08x) pattern=%s", cp, cp, gcC.pattern()),
-        		(
-    				type == Character.CONTROL
-    				|| type == Character.FORMAT
-    				|| type == Character.PRIVATE_USE
-    				|| type == Character.SURROGATE
-    				|| type == Character.UNASSIGNED
-				),
+                String.format("Code point %d (%08x) pattern=%s", cp, cp, gcC.pattern()),
+                (
+                    type == Character.CONTROL
+                    || type == Character.FORMAT
+                    || type == Character.PRIVATE_USE
+                    || type == Character.SURROGATE
+                    || type == Character.UNASSIGNED
+                ),
                 gcC.matcher(str).matches()
             );
         }
@@ -4446,63 +4446,63 @@ if (cp == 127280) {
     private void
     assertPatternMatches(boolean expected, Pattern pattern, String subject) {
         Assert.assertEquals(
-        	String.format("Subject \"%s\" pattern=%s", subject, pattern),
-    		expected,
+            String.format("Subject \"%s\" pattern=%s", subject, pattern),
+            expected,
             pattern.matcher(subject).matches()
         );
-	}
+    }
 
-	private void
+    private void
     assertPatternMatchesCodepoint(int codePoint, boolean expected, Pattern pattern) {
         Assert.assertEquals(
-        	String.format("Code point=%d(%08x, type %d) Pattern=\"%s\"", codePoint, codePoint, Character.getType(codePoint), pattern),
-    		expected,
+            String.format("Code point=%d(%08x, type %d) Pattern=\"%s\"", codePoint, codePoint, Character.getType(codePoint), pattern),
+            expected,
             pattern.matcher(new String(Character.toChars(codePoint))).matches()
         );
-	}
+    }
 
-	@Test public void unicodeCharacterNameTest() throws Exception {
+    @Test public void unicodeCharacterNameTest() throws Exception {
 
-		try {
-	        for (int cp = 0; cp < Character.MAX_CODE_POINT; cp++) {
-	
-	        	if (!Character.isValidCodePoint(cp) || Character.getType(cp) == Character.UNASSIGNED) continue;
-	
-	        	String str = new String(Character.toChars(cp));
-	
-	            // single
-            	Assert.assertTrue(PF.compile("\\N{" + Character.getName(cp) + "}").matcher(str).matches());
+        try {
+            for (int cp = 0; cp < Character.MAX_CODE_POINT; cp++) {
 
-	            // class[c]
-            	Assert.assertTrue(PF.compile("[\\N{" + Character.getName(cp) + "}]").matcher(str).matches());
-	        }
-		} catch (PatternSyntaxException pse) {
-			Assert.assertTrue(pse.getMessage().contains("\"\\N{name}\" is only supported for JRE >= 9"));
-		}
+                if (!Character.isValidCodePoint(cp) || Character.getType(cp) == Character.UNASSIGNED) continue;
+
+                String str = new String(Character.toChars(cp));
+
+                // single
+                Assert.assertTrue(PF.compile("\\N{" + Character.getName(cp) + "}").matcher(str).matches());
+
+                // class[c]
+                Assert.assertTrue(PF.compile("[\\N{" + Character.getName(cp) + "}]").matcher(str).matches());
+            }
+        } catch (PatternSyntaxException pse) {
+            Assert.assertTrue(pse.getMessage().contains("\"\\N{name}\" is only supported for JRE >= 9"));
+        }
 
         // range
         try {
-	        for (int i = 0; i < 10; i++) {
-	            int start = RegExTest.generator.nextInt(20);
-	            int end = start + RegExTest.generator.nextInt(200);
-	            String p = "[\\N{" + Character.getName(start) + "}-\\N{" + Character.getName(end) + "}]";
-	            for (int cp = start; cp < end; cp++) {
-	            	// CP in range:
-	                Assert.assertTrue(
-                		"pattern=" + p + ", cp=" + cp,
-                		PF.compile(p).matcher(new String(Character.toChars(cp))).matches()
-            		);
-	            }
-	            // CP out of range:
+            for (int i = 0; i < 10; i++) {
+                int start = RegExTest.generator.nextInt(20);
+                int end = start + RegExTest.generator.nextInt(200);
+                String p = "[\\N{" + Character.getName(start) + "}-\\N{" + Character.getName(end) + "}]";
+                for (int cp = start; cp < end; cp++) {
+                    // CP in range:
+                    Assert.assertTrue(
+                        "pattern=" + p + ", cp=" + cp,
+                        PF.compile(p).matcher(new String(Character.toChars(cp))).matches()
+                    );
+                }
+                // CP out of range:
                 int cp = end + 10;
-				String s = new String(Character.toChars(cp));
-				Assert.assertFalse(
-					"pattern=" + p + ", cp=" + cp,
-					PF.compile(p).matcher(s).matches()
-				);
-	        }
+                String s = new String(Character.toChars(cp));
+                Assert.assertFalse(
+                    "pattern=" + p + ", cp=" + cp,
+                    PF.compile(p).matcher(s).matches()
+                );
+            }
         } catch (PatternSyntaxException pse) {
-        	Assert.assertTrue(pse.getMessage().contains("\"\\N{name}\" is only supported for JRE >= 9"));
+            Assert.assertTrue(pse.getMessage().contains("\"\\N{name}\" is only supported for JRE >= 9"));
         }
 
         // slice
@@ -4523,7 +4523,7 @@ if (cp == 127280) {
             try {
                 Assert.assertTrue(PF.compile(regex).matcher(subject).matches());
             } catch (PatternSyntaxException pse) {
-            	Assert.assertTrue(pse.getMessage().contains("\"\\N{name}\" is only supported for JRE >= 9"));
+                Assert.assertTrue(pse.getMessage().contains("\"\\N{name}\" is only supported for JRE >= 9"));
             }
         }
 //        RegExTest.report("unicodeCharacterName");
@@ -4592,17 +4592,17 @@ if (cp == 127280) {
 
     @Test public void linebreakTest() throws Exception {
 
-    	String linebreaks = new String (new char[] { 0x0A, 0x0B, 0x0C, 0x0D, 0x85, 0x2028, 0x2029 });
+        String linebreaks = new String (new char[] { 0x0A, 0x0B, 0x0C, 0x0D, 0x85, 0x2028, 0x2029 });
         String crnl       = "\r\n";
 
         Assert.assertTrue(PF.compile("\\R+").matcher(linebreaks).matches());
-		Assert.assertTrue(PF.compile("\\R").matcher(crnl).matches());
-		Assert.assertTrue(PF.compile("\\Rabc").matcher(crnl + "abc").matches());
-		Assert.assertTrue(PF.compile("\\Rabc").matcher("\rabc").matches());
-		Assert.assertTrue(PF.compile("\\R\\R").matcher(crnl).matches());  // backtracking
-		Assert.assertTrue(PF.compile("\\R\\n").matcher(crnl).matches());
-		
-		Assert.assertFalse(PF.compile("((?<!\\R)\\s)*").matcher(crnl).matches()); // WTF!?
+        Assert.assertTrue(PF.compile("\\R").matcher(crnl).matches());
+        Assert.assertTrue(PF.compile("\\Rabc").matcher(crnl + "abc").matches());
+        Assert.assertTrue(PF.compile("\\Rabc").matcher("\rabc").matches());
+        Assert.assertTrue(PF.compile("\\R\\R").matcher(crnl).matches());  // backtracking
+        Assert.assertTrue(PF.compile("\\R\\n").matcher(crnl).matches());
+
+        Assert.assertFalse(PF.compile("((?<!\\R)\\s)*").matcher(crnl).matches()); // WTF!?
     }
 
     // #7189363
@@ -4730,7 +4730,7 @@ if (cp == 127280) {
             try {
                 PF.compile(regex);
             } catch (PatternSyntaxException x) {
-            	if (!x.getMessage().startsWith("Flag \"c\" (CANON_EQ) is not supported")) Assert.fail(x.getMessage());
+                if (!x.getMessage().startsWith("Flag \"c\" (CANON_EQ) is not supported")) Assert.fail(x.getMessage());
             }
         }
     }
@@ -4743,9 +4743,9 @@ if (cp == 127280) {
 //            Files.lines(Paths.get(System.getProperty("test.src", "."), "GraphemeTestCases.txt"))
 //        )
         (
-    		Files
-    		.lines(Paths.get(/*System.getProperty("test.src", ".")*/ "target/test-classes", "GraphemeTestCases.txt"))
-		).forEach(ln -> {
+            Files
+            .lines(Paths.get(/*System.getProperty("test.src", ".")*/ "target/test-classes", "GraphemeTestCases.txt"))
+        ).forEach(ln -> {
             lineNumber[0]++;
             if (ln.length() == 0 || ln.startsWith("#")) {
                 return;
@@ -4770,39 +4770,39 @@ if (cp == 127280) {
                 }
             }
             try {
-	            Pattern p = PF.compile("\\X");
-	            // (1) test \X directly
-	            Matcher m = p.matcher(src.toString());
-	            for (String g : graphemes) {
-	                // System.out.printf("     grapheme:=[%s]%n", g);
-	                String group = null;
-	                Assert.assertTrue("Not found \\X [" + ln + "] (line " + lineNumber[0] + ")", m.find());
-	                
-	                // Fails with JUR 17 /* AU */:
-//	                Assert.assertEquals("Group 0 \\X [" + ln + "] (line " + lineNumber[0] + ")", g, m.group());
-	            }
-	            // Fails with JUR 17 /* AU */:
-//            	Assert.assertFalse(m.find());
+                Pattern p = PF.compile("\\X");
+                // (1) test \X directly
+                Matcher m = p.matcher(src.toString());
+                for (String g : graphemes) {
+                    // System.out.printf("     grapheme:=[%s]%n", g);
+                    String group = null;
+                    Assert.assertTrue("Not found \\X [" + ln + "] (line " + lineNumber[0] + ")", m.find());
 
-	            // test \b{g} without \X via Pattern
-	            Pattern pbg = PF.compile("\\b{g}");
-	            m = pbg.matcher(src.toString());
-	            m.find();
-	            int prev = m.end();
-	            for (String g : graphemes) {
-	                String group = null;
-	                Assert.assertTrue("Not found \\b{g} [" + ln + "] (line " + lineNumber[0] + ")", m.find());
-	                // Fails with JUR 17 /* AU */:
-//	                Assert.assertEquals("Group 0 \\b{g} [" + ln + "] (line " + lineNumber[0] + ")", g, group);
-	                if (!"".equals(m.group())) {
-	                    Assert.fail();
-	                }
-	                prev = m.end();
-	            }
-	            // Fails with JUR 17 /* AU */:
-//      	      Assert.assertFalse(m.find());
+                    // Fails with JUR 17 /* AU */:
+//                    Assert.assertEquals("Group 0 \\X [" + ln + "] (line " + lineNumber[0] + ")", g, m.group());
+                }
+                // Fails with JUR 17 /* AU */:
+//                Assert.assertFalse(m.find());
+
+                // test \b{g} without \X via Pattern
+                Pattern pbg = PF.compile("\\b{g}");
+                m = pbg.matcher(src.toString());
+                m.find();
+                int prev = m.end();
+                for (String g : graphemes) {
+                    String group = null;
+                    Assert.assertTrue("Not found \\b{g} [" + ln + "] (line " + lineNumber[0] + ")", m.find());
+                    // Fails with JUR 17 /* AU */:
+//                    Assert.assertEquals("Group 0 \\b{g} [" + ln + "] (line " + lineNumber[0] + ")", g, group);
+                    if (!"".equals(m.group())) {
+                        Assert.fail();
+                    }
+                    prev = m.end();
+                }
+                // Fails with JUR 17 /* AU */:
+//                Assert.assertFalse(m.find());
             } catch (UnsupportedOperationException uoe) {
-            	Assert.assertEquals("Graphemes only available in Java 9+", uoe.getMessage());
+                Assert.assertEquals("Graphemes only available in Java 9+", uoe.getMessage());
             }
 
 // Cannot adapt to j.u.Scanner.hasNext(Pattern)
@@ -4835,13 +4835,13 @@ if (cp == 127280) {
 
         // some sanity checks
         try {
-	        if (!PF.compile("\\X{10}").matcher("abcdefghij").matches() ||
-	            !PF.compile("\\b{g}(?:\\X\\b{g}){5}\\b{g}").matcher("abcde").matches() ||
-	            !PF.compile("(?:\\X\\b{g}){2}").matcher("\ud800\udc00\ud801\udc02").matches())
-	            Assert.fail();
+            if (!PF.compile("\\X{10}").matcher("abcdefghij").matches() ||
+                !PF.compile("\\b{g}(?:\\X\\b{g}){5}\\b{g}").matcher("abcde").matches() ||
+                !PF.compile("(?:\\X\\b{g}){2}").matcher("\ud800\udc00\ud801\udc02").matches())
+                Assert.fail();
         } catch (UnsupportedOperationException uoe) {
-        	// Graphemes are only supported in JRE 9+. /* AU */
-        	Assert.assertEquals("Graphemes only available in Java 9+", uoe.getMessage());
+            // Graphemes are only supported in JRE 9+. /* AU */
+            Assert.assertEquals("Graphemes only available in Java 9+", uoe.getMessage());
         }
         // make sure "\b{n}" still works
         if (!PF.compile("\\b{1}hello\\b{1} \\b{1}world\\b{1}").matcher("hello world").matches())
@@ -4851,176 +4851,176 @@ if (cp == 127280) {
 
     // hangup/timeout if go into exponential backtracking
     @Test public void expoBacktracking0() throws Exception {
-    	// 6328855
-    	expoBacktracking(
-			"(.*\n*)*",
+        // 6328855
+        expoBacktracking(
+            "(.*\n*)*",
             "this little fine string lets\r\njava.lang.String.matches\r\ncrash\r\n(We don't know why but adding \r* to the regex makes it work again)",
             false
         );
     }
     @Test public void expoBacktracking1() throws Exception {
         // 6192895
-    	expoBacktracking(
+        expoBacktracking(
             " *([a-zA-Z0-9/\\-\\?:\\(\\)\\.,'\\+\\{\\}]+ *)+",
             "Hello World this is a test this is a test this is a test A",
             true
         );
     }
     @Test public void expoBacktracking2() throws Exception {
-    	expoBacktracking(
+        expoBacktracking(
             " *([a-zA-Z0-9/\\-\\?:\\(\\)\\.,'\\+\\{\\}]+ *)+",
             "Hello World this is a test this is a test this is a test \u4e00 ",
             false
         );
     }
     @Test public void expoBacktracking3() throws Exception {
-    	expoBacktracking(
+        expoBacktracking(
             " *([a-z0-9]+ *)+",
             "hello world this is a test this is a test this is a test A",
             false
         );
     }
     @Test public void expoBacktracking4() throws Exception {
-    	// 4771934 [FIXED] #5013651?
-    	expoBacktracking(
+        // 4771934 [FIXED] #5013651?
+        expoBacktracking(
             "^(\\w+([\\.-]?\\w+)*@\\w+([\\.-]?\\w+)*(\\.\\w{2,4})+[,;]?)+$",
             "abc@efg.abc,efg@abc.abc,abc@xyz.mno;abc@sdfsd.com",
             true
         );
     }
     @Test public void expoBacktracking5() throws Exception {
-    	// 4866249 [FIXED]
-    	expoBacktracking(
+        // 4866249 [FIXED]
+        expoBacktracking(
             "<\\s*" + "(meta|META)" + "(\\s|[^>])+" + "(CHARSET|charset)=" + "(\\s|[^>])+>",
             "<META http-equiv=\"Content-Type\" content=\"text/html; charset=ISO-8859-5\">",
             true
         );
     }
     @Test public void expoBacktracking6() throws Exception {
-    	expoBacktracking(
+        expoBacktracking(
             "^(\\w+([\\.-]?\\w+)*@\\w+([\\.-]?\\w+)*(\\.\\w{2,4})+[,;]?)+$",
             "abc@efg.abc,efg@abc.abc,abc@xyz.mno;sdfsd.com",
             false
         );
     }
     @Test public void expoBacktracking7() throws Exception {
-    	// 6345469
-    	expoBacktracking(
+        // 6345469
+        expoBacktracking(
             "((<[^>]+>)?(((\\s)?)*(\\&nbsp;)?)*((\\s)?)*)+",
             "&nbsp;&nbsp; < br/> &nbsp; < / p> <p> <html> <adfasfdasdf>&nbsp; </p>",
             true // --> matched
         );
     }
     @Test public void expoBacktracking8() throws Exception {
-    	expoBacktracking(
+        expoBacktracking(
             "((<[^>]+>)?(((\\s)?)*(\\&nbsp;)?)*((\\s)?)*)+",
             "&nbsp;&nbsp; < br/> &nbsp; < / p> <p> <html> <adfasfdasdf>&nbsp; p </p>",
             false
         );
     }
     @Test public void expoBacktracking9() throws Exception {
-    	// 5026912
-    	expoBacktracking(
+        // 5026912
+        expoBacktracking(
             "^\\s*" + "(\\w|\\d|[\\xC0-\\xFF]|/)+" + "\\s+|$",
             "156580451111112225588087755221111111566969655555555",
             false
         );
     }
     @Test public void expoBacktracking10() throws Exception {
-    	// 6988218
-    	expoBacktracking(
+        // 6988218
+        expoBacktracking(
             "^([+-]?((0[xX](\\p{XDigit}+))|(((\\p{Digit}+)(\\.)?((\\p{Digit}+)?)([eE][+-]?(\\p{Digit}+))?)|(\\.((\\p{Digit}+))([eE][+-]?(\\p{Digit}+))?)))|[n|N]?'([^']*(?:'')*[^']*)*')",
             "'%)) order by ANGEBOT.ID",
             false    // find
         );
     }
     @Test public void expoBacktracking11() throws Exception {
-    	// 6693451
-    	expoBacktracking(
+        // 6693451
+        expoBacktracking(
             "^(\\s*foo\\s*)*$",
             "foo foo foo foo foo foo foo foo foo foo foo foo foo foo foo foo foo foo foo foo foo foo foo foo foo foo foo foo foo foo foo foo foo foo foo foo foo foo foo foo",
             true
         );
     }
     @Test public void expoBacktracking12() throws Exception {
-    	expoBacktracking(
+        expoBacktracking(
             "^(\\s*foo\\s*)*$",
             "foo foo foo foo foo foo foo foo foo foo foo foo foo foo foo foo foo foo foo foo foo foo foo foo foo foo foo foo foo foo foo foo foo foo foo foo foo foo foo fo",
             false
         );
     }
     @Test public void expoBacktracking13() throws Exception {
-    	// 7006761
-    	expoBacktracking("(([0-9A-Z]+)([_]?+)*)*", "FOOOOO_BAAAR_FOOOOOOOOO_BA_", true);
+        // 7006761
+        expoBacktracking("(([0-9A-Z]+)([_]?+)*)*", "FOOOOO_BAAAR_FOOOOOOOOO_BA_", true);
     }
     @Test public void expoBacktracking14() throws Exception {
-    	expoBacktracking("(([0-9A-Z]+)([_]?+)*)*", "FOOOOO_BAAAR_FOOOOOOOOO_BA_ ", false);
+        expoBacktracking("(([0-9A-Z]+)([_]?+)*)*", "FOOOOO_BAAAR_FOOOOOOOOO_BA_ ", false);
     }
     @Test public void expoBacktracking15() throws Exception {
-    	// 8140212
-    	expoBacktracking(
+        // 8140212
+        expoBacktracking(
             "(?<before>.*)\\{(?<reflection>\\w+):(?<innerMethod>\\w+(\\.?\\w+(\\(((?<args>(('[^']*')|((/|\\w)+))(,(('[^']*')|((/|\\w)+)))*))?\\))?)*)\\}(?<after>.*)",
               "{CeGlobal:getSodCutoff.getGui.getAmqp.getSimpleModeEnabled()",
               false
         );
     }
     @Test public void expoBacktracking16() throws Exception {
-    	expoBacktracking("^(a+)+$", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", true);
+        expoBacktracking("^(a+)+$", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", true);
     }
     @Test public void expoBacktracking17() throws Exception {
-    	expoBacktracking("^(a+)+$", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa!", false);
+        expoBacktracking("^(a+)+$", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa!", false);
     }
     @Test public void expoBacktracking18() throws Exception {
-    	expoBacktracking("(x+)*y",  "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxy", true);
+        expoBacktracking("(x+)*y",  "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxy", true);
     }
     @Test public void expoBacktracking19() throws Exception {
-    	expoBacktracking("(x+)*y",  "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxz", false);
+        expoBacktracking("(x+)*y",  "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxz", false);
     }
     @Test public void expoBacktracking20() throws Exception {
-    	expoBacktracking("(x+x+)+y", "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxy", true);
+        expoBacktracking("(x+x+)+y", "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxy", true);
     }
     @Test public void expoBacktracking21() throws Exception {
-    	expoBacktracking("(x+x+)+y", "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxz", false);
+        expoBacktracking("(x+x+)+y", "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxz", false);
     }
     @Test public void expoBacktracking22() throws Exception {
-    	expoBacktracking("(([0-9A-Z]+)([_]?+)*)*", "--------------------------------------", false);
+        expoBacktracking("(([0-9A-Z]+)([_]?+)*)*", "--------------------------------------", false);
     }
     /* not fixed
     @Test public void expoBacktracking23() throws Exception {
-    	expoBacktracking(
+        expoBacktracking(
 
             //8132141   --->    second level exponential backtracking
             "(h|h|ih(((i|a|c|c|a|i|i|j|b|a|i|b|a|a|j))+h)ahbfhba|c|i)*",
             "hchcchicihcchciiicichhcichcihcchiihichiciiiihhcchicchhcihchcihiihciichhccciccichcichiihcchcihhicchcciicchcccihiiihhihihihichicihhcciccchihhhcchichchciihiicihciihcccciciccicciiiiiiiiicihhhiiiihchccchchhhhiiihchihcccchhhiiiiiiiicicichicihcciciihichhhhchihciiihhiccccccciciihhichiccchhicchicihihccichicciihcichccihhiciccccccccichhhhihihhcchchihihiihhihihihicichihiiiihhhhihhhchhichiicihhiiiiihchccccchichci"
-		);
-	}
+        );
+    }
     */
 
-	private static void expoBacktracking(String regex, String subject, boolean expected) {
-            
+    private static void expoBacktracking(String regex, String subject, boolean expected) {
+
 //System.out.printf("regex=%-20s, subject=%-20s expected=%s%n", "\"" + regex + "\"", "\"" + subject + "\"", expected);
-        
+
         Assert.assertEquals(
-    		"regex=" + regex + ", subject=" + subject,
-    		expected,
-    		PF.compile(regex).matcher(subject).matches()
-		);
+            "regex=" + regex + ", subject=" + subject,
+            expected,
+            PF.compile(regex).matcher(subject).matches()
+        );
     }
 
     @Test public void invalidGroupName() {
         // Invalid start of a group name
         for (String groupName : new String[] {
-    		"",
-    		".",
-    		"0",
-    		"\u0040",
-    		"\u005b",
-    		"\u0060",
-    		"\u007b",
-    		"\u0416",
+            "",
+            ".",
+            "0",
+            "\u0040",
+            "\u005b",
+            "\u0060",
+            "\u007b",
+            "\u0416",
         }) {
             for (String pat : new String[] {
-        		"(?<" + groupName + ">)",
+                "(?<" + groupName + ">)",
                 "\\k<" + groupName + ">",
             }) {
                 try {
@@ -5028,40 +5028,40 @@ if (cp == 127280) {
                     Assert.fail("PatternSyntaxException expected: pat=\"" + pat + "\"");
                 } catch (PatternSyntaxException e) {
                     String message = e.getMessage();
-					Assert.assertTrue(
-                		message,
-                		(
-            				message.startsWith("capturing group name does not start with a Latin letter")
-            				|| message.contains("Invalid character sequence")
-        				)
-            		);
+                    Assert.assertTrue(
+                        message,
+                        (
+                            message.startsWith("capturing group name does not start with a Latin letter")
+                            || message.contains("Invalid character sequence")
+                        )
+                    );
                 }
             }
         }
         // Invalid char in a group name
         for (String groupName : new String[] {
-    		"a.",
-    		"b\u0040",
-    		"c\u005b",
+            "a.",
+            "b\u0040",
+            "c\u005b",
             "d\u0060",
             "e\u007b",
             "f\u0416",
         }) {
             for (String pat : new String[] {
-        		"(?<" + groupName + ">)",
+                "(?<" + groupName + ">)",
                 "\\k<" + groupName + ">"
             }) {
                 try {
                     PF.compile(pat);
                     Assert.fail();
                 } catch (PatternSyntaxException e) {
-                	String message = e.getMessage();
-					Assert.assertTrue(
-						message,
-            			(
-        					message.startsWith("named capturing group is missing trailing '>'")
-							|| message.contains("Invalid character sequence")
-						)
+                    String message = e.getMessage();
+                    Assert.assertTrue(
+                        message,
+                        (
+                            message.startsWith("named capturing group is missing trailing '>'")
+                            || message.contains("Invalid character sequence")
+                        )
                     );
                 }
             }
@@ -5077,7 +5077,7 @@ if (cp == 127280) {
             .add(new BigInteger(80, RegExTest.generator))
             .toString();
         for (String rep : new String[] {
-//    		"", "x", ".", ",", "-1", "2,1",
+//            "", "x", ".", ",", "-1", "2,1",
             n, n + ",", "0," + n, n + "," + m, m, m + ",", "0," + m
         }) {
             String pat = ".{" + rep + "}";
@@ -5086,16 +5086,16 @@ if (cp == 127280) {
                 Assert.fail("Expected to fail. Pattern: " + pat);
             } catch (PatternSyntaxException e) {
                 Assert.assertTrue(
-            		"Unexpected error message: " + e.getMessage(),
-            		(
-        				e.getMessage().startsWith("Illegal repetition")
-        				|| e.getMessage().contains("Unexpected character \"{\"")
-        				|| e.getMessage().contains("max<min")
-        				|| e.getMessage().startsWith("For input string: \"")
-    				)
-        		);
+                    "Unexpected error message: " + e.getMessage(),
+                    (
+                        e.getMessage().startsWith("Illegal repetition")
+                        || e.getMessage().contains("Unexpected character \"{\"")
+                        || e.getMessage().contains("max<min")
+                        || e.getMessage().startsWith("For input string: \"")
+                    )
+                );
             } catch (Exception t) {
-            	t.printStackTrace();
+                t.printStackTrace();
                 Assert.fail("Unexpected exception: " + t);
             }
         }
@@ -5106,7 +5106,7 @@ if (cp == 127280) {
         try {
             PF.compile("\ud834\udd21", Pattern.CANON_EQ);
         } catch (IllegalArgumentException iae) {
-        	if (!iae.getMessage().equals("Unsupported flag 128")) throw iae;
+            if (!iae.getMessage().equals("Unsupported flag 128")) throw iae;
         }
     }
 
@@ -5167,8 +5167,8 @@ if (cp == 127280) {
         // exhaustive testing
         for (int i = 0; i < cases.length; i += 2) {
 
-        	String    patStr = (String)    cases[i];
-			Integer[] lens   = (Integer[]) cases[i + 1];
+            String    patStr = (String)    cases[i];
+            Integer[] lens   = (Integer[]) cases[i + 1];
 
             Pattern[] pats = patStr.endsWith("R")
                 ? new Pattern[] { PF.compile(patStr) }  // no quantifiers
@@ -5180,9 +5180,9 @@ if (cp == 127280) {
                 for (int len : lens) {
                     for (String in : inputs.get(len)) {
                         Assert.assertTrue(
-                    		"Case #" + (i / 2) + ": Expected to match '" + in + "' (length " + len + ") =~ /" + p + "/",
-                    		m.reset(in).matches()
-                		);
+                            "Case #" + (i / 2) + ": Expected to match '" + in + "' (length " + len + ") =~ /" + p + "/",
+                            m.reset(in).matches()
+                        );
                     }
                 }
             }
@@ -5194,7 +5194,7 @@ if (cp == 127280) {
     @Test public void caseInsensitivePMatch() {
         for (String input : new String[] { "abcd", "AbCd", "ABCD" }) {
             for (String pattern : new String[] {
-        		"abcd", "aBcD", "[a-d]{4}",
+                "abcd", "aBcD", "[a-d]{4}",
                 "(?:a|b|c|d){4}",
 //                "\\p{Lower}{4}", "\\p{Ll}{4}", "\\p{IsLl}{4}", "\\p{gc=Ll}{4}",         // Does not match for JRE 17 /* AU */
 //                "\\p{general_category=Ll}{4}", "\\p{IsLowercase}{4}", "\\p{javaLowerCase}{4}",
@@ -5210,24 +5210,24 @@ if (cp == 127280) {
 
 //                "[\\p{Upper}]{4}", "[\\p{Lu}]{4}", "[\\p{IsLu}]{4}", "[\\p{gc=Lu}]{4}",
 //                "[\\p{general_category=Lu}]{4}", "[\\p{IsUppercase}]{4}", "[\\p{javaUpperCase}]{4}",
-                
+
 //                "[\\p{Lt}]{4}", "[\\p{IsLt}]{4}", "[\\p{gc=Lt}]{4}", "[\\p{general_category=Lt}]{4}",
 //                "[\\p{IsTitlecase}]{4}", "[\\p{javaTitleCase}]{4}",
             }) {
                 Assert.assertTrue(
-            		"Expected to match: '" + input + "' =~ /" + pattern + "/",
-            		PF.compile(pattern, Pattern.CASE_INSENSITIVE).matcher(input).matches()
-        		);
+                    "Expected to match: '" + input + "' =~ /" + pattern + "/",
+                    PF.compile(pattern, Pattern.CASE_INSENSITIVE).matcher(input).matches()
+                );
             }
         }
 
         for (String input : new String[] {
-    		"\u01c7", // LATIN CAPITAL LETTER LJ
-    		"\u01c8", // LATIN CAPITAL LETTER L WITH SMALL LETTER J
-    		"\u01c9"  // LATIN SMALL LETTER LJ
+            "\u01c7", // LATIN CAPITAL LETTER LJ
+            "\u01c8", // LATIN CAPITAL LETTER L WITH SMALL LETTER J
+            "\u01c9"  // LATIN SMALL LETTER LJ
         }) {
             for (String pattern : new String[] {
-        		"\u01c7", "\u01c8", "\u01c9",
+                "\u01c7", "\u01c8", "\u01c9",
                 "[\u01c7\u01c8]", "[\u01c7\u01c9]", "[\u01c8\u01c9]",
                 "[\u01c7-\u01c8]", "[\u01c8-\u01c9]", "[\u01c7-\u01c9]",
 
@@ -5242,18 +5242,18 @@ if (cp == 127280) {
 
 //                "[\\p{Lower}]", "[\\p{Ll}]", "[\\p{IsLl}]", "[\\p{gc=Ll}]",
 //                "[\\p{general_category=Ll}]", "[\\p{IsLowercase}]", "[\\p{javaLowerCase}]",
-                
+
 //                "[\\p{Upper}]", "[\\p{Lu}]", "[\\p{IsLu}]", "[\\p{gc=Lu}]",
 //                "[\\p{general_category=Lu}]", "[\\p{IsUppercase}]", "[\\p{javaUpperCase}]",
-                
+
 //                "[\\p{Lt}]", "[\\p{IsLt}]",
 //                "[\\p{gc=Lt}]", "[\\p{general_category=Lt}]",
 //                "[\\p{IsTitlecase}]", "[\\p{javaTitleCase}]",
             }) {
                 Assert.assertTrue(
-            		"Expected to match: " + toJavaLiteral(input) + " =~ /" + toJavaLiteral(pattern) + "/",
-            		PF.compile(pattern, Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CHARACTER_CLASS) .matcher(input) .matches()
-        		);
+                    "Expected to match: " + toJavaLiteral(input) + " =~ /" + toJavaLiteral(pattern) + "/",
+                    PF.compile(pattern, Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CHARACTER_CLASS) .matcher(input) .matches()
+                );
             }
         }
 //        RegExTest.report("caseInsensitivePMatch");
@@ -5261,22 +5261,22 @@ if (cp == 127280) {
 
     private static String
     toJavaLiteral(String s) {
-    	StringBuilder sb = new StringBuilder("\"");
-    	for (int i = 0; i < s.length(); i++) {
-    		char c = s.charAt(i);
+        StringBuilder sb = new StringBuilder("\"");
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
 
-    		int idx = "\r\n\\\t".indexOf(c);
-			if (idx != -1) {
-    			sb.append('\\').append("rn\\t".charAt(idx));
-    		} else
-    		if (c >= ' ' && c <= '\377') {
-    			sb.append(c);
-    		} else
-    		{
-    			sb.append("\\u").append(String.format("%04x", 0xffff & c));
-    		}
-    	}
-    	return sb.append('"').toString();
+            int idx = "\r\n\\\t".indexOf(c);
+            if (idx != -1) {
+                sb.append('\\').append("rn\\t".charAt(idx));
+            } else
+            if (c >= ' ' && c <= '\377') {
+                sb.append(c);
+            } else
+            {
+                sb.append("\\u").append(String.format("%04x", 0xffff & c));
+            }
+        }
+        return sb.append('"').toString();
     }
     // This test is for 8237599
     @Test public void surrogatePairOverlapRegion() {

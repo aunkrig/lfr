@@ -175,8 +175,8 @@ class MatcherImpl implements Matcher {
                 @Override public int              start()                { throw this.ise; }
                 @Override public int              end()                  { throw this.ise; }
                 @Override @Nullable public String group()                { throw this.ise; }
-                @Override public int              start(int groupNumber) { throw this.ise; } 
-                @Override public int              end(int groupNumber)   { throw this.ise; } 
+                @Override public int              start(int groupNumber) { throw this.ise; }
+                @Override public int              end(int groupNumber)   { throw this.ise; }
                 @Override @Nullable public String group(int groupNumber) { throw this.ise; }
             };
         }

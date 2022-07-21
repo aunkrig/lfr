@@ -348,10 +348,10 @@ class FunctionalityEquivalencePatternFactory extends PatternFactory {
             @Override public
             Predicate<String>
             asMatchPredicate() {
-                
+
                 final Predicate<String> referenceMatchPredicate = referencePattern.asMatchPredicate();
                 final Predicate<String> subjectMatchPredicate   = subjectPattern.asMatchPredicate();
-                
+
                 return subject -> {
                     boolean expected = referenceMatchPredicate.test(subject);
                     boolean actual   = subjectMatchPredicate.test(subject);
@@ -366,7 +366,7 @@ class FunctionalityEquivalencePatternFactory extends PatternFactory {
                 final Iterator<String> subjectIterator   = subjectPattern.splitAsStream(input).iterator();
 
                 Iterator<String> matcherIterator = new Iterator<String>() {
-                    
+
                     @Override public String
                     next() {
                         String referenceNext = referenceIterator.next();
@@ -374,7 +374,7 @@ class FunctionalityEquivalencePatternFactory extends PatternFactory {
                         Assert.assertEquals(referenceNext, subjectNext);
                         return referenceNext;
                     }
-                    
+
                     @Override public boolean
                     hasNext() {
                         boolean referenceHasNext = referenceIterator.hasNext();

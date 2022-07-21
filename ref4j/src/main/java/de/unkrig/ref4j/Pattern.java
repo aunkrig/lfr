@@ -85,7 +85,7 @@ interface Pattern {
      * @see java.util.regex.Pattern#split(CharSequence, int)
      */
     String[] split(CharSequence input, int limit);
-    
+
     /**
      * Creates a predicate that tests if this pattern is found in a given input string.
      * <p>
@@ -95,7 +95,7 @@ interface Pattern {
      * <pre>
      *     s -> matcher(s).find();
      * </pre>
-     * 
+     *
      * @return The predicate which can be used for finding a match on a subsequence of a string
      * @since  JRE 1.8
      */
@@ -110,7 +110,7 @@ interface Pattern {
      * <pre>
      *     s -> matcher(s).matches();
      * </pre>
-     * 
+     *
      * @return The predicate which can be used for matching an input string against this pattern.
      * @since  JRE 11
      */

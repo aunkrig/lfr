@@ -207,13 +207,13 @@ class PatternFactory extends de.unkrig.ref4j.PatternFactory implements Serializa
             @Override public Predicate<String>
             asPredicate() { return this.jurPattern.asPredicate(); }
 
-			@Override public Predicate<String>
-			asMatchPredicate() { return subject -> matcher(subject).matches(); } // Retrofitted with JRE 8
+            @Override public Predicate<String>
+            asMatchPredicate() { return subject -> matcher(subject).matches(); } // Retrofitted with JRE 8
 
-			@Override public Stream<String>
-			splitAsStream(CharSequence input) { return this.jurPattern.splitAsStream(input); }
+            @Override public Stream<String>
+            splitAsStream(CharSequence input) { return this.jurPattern.splitAsStream(input); }
 
-			@Override public String
+            @Override public String
             toString() { return this.jurPattern.toString(); }
         }
 

@@ -1465,15 +1465,15 @@ class RegExTest {
         pattern = RegExTest.PF.compile(RegExTest.toSupplementaries("(ab)(c*)"));
         matcher = pattern.matcher(RegExTest.toSupplementaries("abccczzzabcczzzabccc"));
         Assert.assertEquals(
-    		RegExTest.toSupplementaries("testzzzabcczzzabccc"),
-    		matcher.replaceFirst(RegExTest.toSupplementaries("test"))
+            RegExTest.toSupplementaries("testzzzabcczzzabccc"),
+            matcher.replaceFirst(RegExTest.toSupplementaries("test"))
         );
 
         matcher.reset(RegExTest.toSupplementaries("zzzabccczzzabcczzzabccczzz"));
         Assert.assertEquals(
-    		RegExTest.toSupplementaries("zzztestzzzabcczzzabccczzz"),
-    		matcher.replaceFirst(RegExTest.toSupplementaries("test"))
-		);
+            RegExTest.toSupplementaries("zzztestzzzabcczzzabccczzz"),
+            matcher.replaceFirst(RegExTest.toSupplementaries("test"))
+        );
 
         matcher.reset(RegExTest.toSupplementaries("zzzabccczzzabcczzzabccczzz"));
         result = matcher.replaceFirst("$1");
@@ -2111,7 +2111,7 @@ class RegExTest {
     @Test public void
     charClassTest6() throws Exception {
 
-    	// u00b5 when UNICODE_CASE
+        // u00b5 when UNICODE_CASE
         Pattern pattern = RegExTest.PF.compile("[ab\u00b5cd]", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
         RegExTest.checkFind(pattern, "ab\u00b5cd", true);
         RegExTest.checkFind(pattern, "Ab\u039cCd", true);
@@ -2565,31 +2565,31 @@ class RegExTest {
     @Test public void
     patternMatchesTest() throws Exception {
 
-    	// matches()
+        // matches()
         Assert.assertTrue(
-    		RegExTest.PF.matches(RegExTest.toSupplementaries("ulb(c*)"), RegExTest.toSupplementaries("ulbcccccc"))
-		);
+            RegExTest.PF.matches(RegExTest.toSupplementaries("ulb(c*)"), RegExTest.toSupplementaries("ulbcccccc"))
+        );
 
         // find() but not matches()
         Assert.assertFalse(
-    		RegExTest.PF.matches(RegExTest.toSupplementaries("ulb(c*)"), RegExTest.toSupplementaries("zzzulbcccccc"))
-		);
+            RegExTest.PF.matches(RegExTest.toSupplementaries("ulb(c*)"), RegExTest.toSupplementaries("zzzulbcccccc"))
+        );
 
         // lookingAt() but not matches()
         Assert.assertFalse(
-    		RegExTest.PF.matches(RegExTest.toSupplementaries("ulb(c*)"), RegExTest.toSupplementaries("ulbccccccdef"))
-		);
+            RegExTest.PF.matches(RegExTest.toSupplementaries("ulb(c*)"), RegExTest.toSupplementaries("ulbccccccdef"))
+        );
 
         // Supplementary character test
         // matches()
         Assert.assertTrue(
-    		RegExTest.PF.matches(RegExTest.toSupplementaries("ulb(c*)"), RegExTest.toSupplementaries("ulbcccccc"))
-		);
+            RegExTest.PF.matches(RegExTest.toSupplementaries("ulb(c*)"), RegExTest.toSupplementaries("ulbcccccc"))
+        );
 
         // find() but not matches()
         Assert.assertFalse(
-    		RegExTest.PF.matches(RegExTest.toSupplementaries("ulb(c*)"), RegExTest.toSupplementaries("zzzulbcccccc"))
-		);
+            RegExTest.PF.matches(RegExTest.toSupplementaries("ulb(c*)"), RegExTest.toSupplementaries("zzzulbcccccc"))
+        );
 
         // lookingAt() but not matches()
         Assert.assertFalse(
@@ -2769,22 +2769,22 @@ class RegExTest {
         Pattern p = RegExTest.PF.compile(RegExTest.toSupplementaries("(ab)(c*)"));
         Matcher m = p.matcher(RegExTest.toSupplementaries("abccczzzabcczzzabccc"));
         Assert.assertEquals(
-    		RegExTest.toSupplementaries("testzzztestzzztest"),
-    		m.replaceAll(RegExTest.toSupplementaries("test"))
-		);
+            RegExTest.toSupplementaries("testzzztestzzztest"),
+            m.replaceAll(RegExTest.toSupplementaries("test"))
+        );
 
         m.reset(RegExTest.toSupplementaries("zzzabccczzzabcczzzabccczzz"));
         Assert.assertEquals(
-    		RegExTest.toSupplementaries("zzztestzzztestzzztestzzz"),
-    		m.replaceAll(RegExTest.toSupplementaries("test"))
-		);
+            RegExTest.toSupplementaries("zzztestzzztestzzztestzzz"),
+            m.replaceAll(RegExTest.toSupplementaries("test"))
+        );
 
         // Global substitution with groups
         m.reset(RegExTest.toSupplementaries("zzzabccczzzabcczzzabccczzz"));
         Assert.assertEquals(
-    		RegExTest.toSupplementaries("zzzabzzzabzzzabzzz"),
-    		m.replaceAll("$1")
-		);
+            RegExTest.toSupplementaries("zzzabzzzabzzzabzzz"),
+            m.replaceAll("$1")
+        );
     }
 
     /**
@@ -3501,9 +3501,9 @@ class RegExTest {
                 boolean found = m.find();
 
                 if (found) {
-                	RegExTest.postTrueMatchInvariants(m);
+                    RegExTest.postTrueMatchInvariants(m);
                 } else {
-                	RegExTest.postFalseMatchInvariants(m);
+                    RegExTest.postFalseMatchInvariants(m);
                 }
 
                 if (found) {
@@ -3584,7 +3584,7 @@ class RegExTest {
     private static Pattern
     compileTestPattern(String patternString) {
 
-    	if (!patternString.startsWith("'")) {
+        if (!patternString.startsWith("'")) {
             return RegExTest.PF.compile(patternString);
         }
 
@@ -3645,7 +3645,7 @@ class RegExTest {
 
     private static void
     checkReplaceAll(String p, String s, String r, String expected) {
-    	Assert.assertEquals(expected, RegExTest.PF.compile(p).matcher(s).replaceAll(r));
+        Assert.assertEquals(expected, RegExTest.PF.compile(p).matcher(s).replaceAll(r));
     }
 
     private static void
@@ -4229,7 +4229,7 @@ class RegExTest {
     @Test public
     void patternAsPredicate() throws Exception {
 
-    	Predicate<String> p = RegExTest.PF.compile("[a-z]+").asPredicate();
+        Predicate<String> p = RegExTest.PF.compile("[a-z]+").asPredicate();
 
         Assert.assertFalse(p.test(""));
         Assert.assertTrue(p.test("word"));
