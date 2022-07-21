@@ -82,10 +82,18 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
+import java.util.Spliterator;
+import java.util.Spliterators;
+import java.util.function.Predicate;
+import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
 import de.unkrig.commons.lang.ObjectUtil;
+import de.unkrig.commons.nullanalysis.Nullable;
 import de.unkrig.commons.text.scanner.StatefulScanner;
 
 /**
@@ -541,9 +549,9 @@ class Pattern implements de.unkrig.ref4j.Pattern, Serializable {
         // X|Y Either X or Y
         ss.addRule(Pattern.DEFAULT_STATES, "\\|", EITHER_OR).goTo(ss.REMAIN);
         // (X) X, as a capturing group
-        ss.addRule(ScannerState.DEFAULT,   "\\((?!\\?)",     CAPTURING_GROUP).goTo(ss.REMAIN);
-        ss.addRule(ScannerState.DEFAULT_X, "\\(\\s*(?!\\?)", CAPTURING_GROUP).goTo(ss.REMAIN);
-        ss.addRule(Pattern.DEFAULT_STATES, "\\)",            END_GROUP).goTo(ss.REMAIN);
+        ss.addRule(ScannerState.DEFAULT,   "\\((?!\\?)",      CAPTURING_GROUP).goTo(ss.REMAIN);
+        ss.addRule(ScannerState.DEFAULT_X, "\\(\\s*+(?!\\?)", CAPTURING_GROUP).goTo(ss.REMAIN);
+        ss.addRule(Pattern.DEFAULT_STATES, "\\)",             END_GROUP).goTo(ss.REMAIN);
 
         // Back references
         // \n       Whatever the nth capturing group matched
@@ -567,14 +575,16 @@ class Pattern implements de.unkrig.ref4j.Pattern, Serializable {
         // Special constructs (named-capturing and non-capturing)
         // (?<name>X)          X, as a named-capturing group
         ss.addRule(ScannerState.DEFAULT,   "\\(\\?<([A-Za-z][A-Za-z0-9]*)>",                        NAMED_CAPTURING_GROUP).goTo(ss.REMAIN);
-        ss.addRule(ScannerState.DEFAULT_X, "\\(\\s*\\?<\\s*([A-Za-z][A-Za-z0-9]*)>",                NAMED_CAPTURING_GROUP).goTo(ss.REMAIN);
+        ss.addRule(ScannerState.DEFAULT_X, "\\(\\s*+\\?<\\s*+([A-Za-z][A-Za-z0-9]*)>",              NAMED_CAPTURING_GROUP).goTo(ss.REMAIN);
         // (?:X)               X, as a non-capturing group
         ss.addRule(ScannerState.DEFAULT,   "\\(\\?:",                                               NON_CAPTURING_GROUP).goTo(ss.REMAIN);
-        ss.addRule(ScannerState.DEFAULT_X, "\\(\\s*\\?\\s*:",                                       NON_CAPTURING_GROUP).goTo(ss.REMAIN);
+        ss.addRule(ScannerState.DEFAULT_X, "\\(\\s*+\\?\\s*+:",                                     NON_CAPTURING_GROUP).goTo(ss.REMAIN);
         // (?idmsuxU-idmsuxU)  Nothing, but turns match flags i d m s u x U on - off
-        ss.addRule(Pattern.DEFAULT_STATES, "\\(\\?[idmsuxUc]*(?:-[idmsuxUc]+)?\\)",                 MATCH_FLAGS).goTo(ss.REMAIN);
+        ss.addRule(ScannerState.DEFAULT,   "\\(\\?[idmsuxUc]*(?:-[idmsuxUc]+)?\\)",                 MATCH_FLAGS).goTo(ss.REMAIN);
+        ss.addRule(ScannerState.DEFAULT_X, "\\(\\s*+\\?\\s*+[idmsuxUc]*(?:-[idmsuxUc]+)?\\)",       MATCH_FLAGS).goTo(ss.REMAIN);
         // (?idmsux-idmsux:X)  X, as a non-capturing group with the given flags i d m s u x on - off
-        ss.addRule(Pattern.DEFAULT_STATES, "\\(\\?[idmsuxc]*(?:-[idmsuxc]*)?:",                     MATCH_FLAGS_NON_CAPTURING_GROUP).goTo(ss.REMAIN);
+        ss.addRule(ScannerState.DEFAULT,   "\\(\\?[idmsuxc]*(?:-[idmsuxc]*)?:",                     MATCH_FLAGS_NON_CAPTURING_GROUP).goTo(ss.REMAIN);
+        ss.addRule(ScannerState.DEFAULT_X, "\\(\\s*+\\?\\s*+[idmsuxUc]*(?:-[idmsuxUc]*)?\\s*+:",    MATCH_FLAGS_NON_CAPTURING_GROUP).goTo(ss.REMAIN);
         // (?=X)               X, via zero-width positive lookahead
         ss.addRule(Pattern.DEFAULT_STATES, "\\(\\?=",                                               POSITIVE_LOOKAHEAD).goTo(ss.REMAIN);
         // (?!X)               X, via zero-width negative lookahead
@@ -744,6 +754,81 @@ class Pattern implements de.unkrig.ref4j.Pattern, Serializable {
         mi.end = MatcherImpl.End.END_OF_REGION;
 
         return this.sequence.matches(mi);
+    }
+
+    @Override public Predicate<String>
+    asPredicate() { return subject -> matcher(subject).find(); }
+
+    @Override public Predicate<String>
+    asMatchPredicate() { return subject -> matcher(subject).matches(); } // Retrofitted with JRE 8
+
+    @Override public Stream<String>
+    splitAsStream(final CharSequence input) {
+
+        class MatcherIterator implements Iterator<String> {
+
+            private final Matcher matcher = Pattern.this.matcher(input);
+
+            // The start position of the next sub-sequence of input
+            // when current == input.length there are no more elements
+            private int current;
+
+            // null if the next element, if any, needs to obtained
+            @Nullable private String nextElement;
+
+            // > 0 if there are N next empty elements
+            private int emptyElementCount = input.length() == 0 ? 1 : 0;
+
+            @Override public String
+            next() {
+
+                if (!hasNext()) throw new NoSuchElementException();
+
+                if (this.emptyElementCount > 0) {
+                    this.emptyElementCount--;
+                    return "";
+                }
+
+                String n = this.nextElement;
+                assert n != null;
+                this.nextElement = null;
+                return n;
+            }
+
+            @Override public boolean
+            hasNext() {
+
+                if (this.nextElement != null || this.emptyElementCount > 0) return true;
+
+                if (this.current == input.length()) return false;
+
+                // Consume the next matching element
+                // Count sequence of matching empty elements
+                while (this.matcher.find()) {
+
+                    String ne = (this.nextElement = input.subSequence(this.current, this.matcher.start()).toString());
+                    this.current = this.matcher.end();
+                    if (!ne.isEmpty()) return true;
+
+                    if (this.current > 0) this.emptyElementCount++;
+                }
+
+                // Consume last matching element
+                String ne = (this.nextElement = input.subSequence(this.current, input.length()).toString());
+                this.current = input.length();
+                if (!ne.isEmpty()) return true;
+
+                // Ignore a terminal sequence of matching empty elements
+                this.emptyElementCount = 0;
+                this.nextElement       = null;
+                return false;
+            }
+        }
+
+        return StreamSupport.stream(
+            Spliterators.spliteratorUnknownSize(new MatcherIterator(), Spliterator.ORDERED | Spliterator.NONNULL), // spliterator
+            false                                                                                                  // parallel
+        );
     }
 
     private void
