@@ -33,7 +33,9 @@ import java.lang.reflect.Proxy;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.function.Predicate;
 import java.util.regex.PatternSyntaxException;
+import java.util.stream.Stream;
 
 import de.unkrig.commons.lang.protocol.ConsumerWhichThrows;
 import de.unkrig.commons.lang.protocol.TransformerWhichThrows;
@@ -182,6 +184,48 @@ class PerformanceMeasurementPatternFactory extends PatternFactory {
 
             @Override public String[]
             split(CharSequence input, int limit) { throw new UnsupportedOperationException(); }
+
+            @Override public Predicate<String>
+            asPredicate() {
+
+                PerformanceMeasurement.probe(
+                    "Pattern.asPredicate()",
+                    patterns,
+                    new ConsumerWhichThrows<Pattern, RuntimeException>() {
+                        @Override public void consume(Pattern pattern) { pattern.asPredicate(); }
+                    }
+                );
+
+                return patterns[0].asPredicate();
+            }
+
+            @Override public Predicate<String>
+            asMatchPredicate() {
+
+                PerformanceMeasurement.probe(
+                    "Pattern.asMatchPredicate()",
+                    patterns,
+                    new ConsumerWhichThrows<Pattern, RuntimeException>() {
+                        @Override public void consume(Pattern pattern) { pattern.asMatchPredicate(); }
+                    }
+                );
+
+                return patterns[0].asMatchPredicate();
+            }
+
+            @Override public Stream<String>
+            splitAsStream(final CharSequence input) {
+
+                PerformanceMeasurement.probe(
+                    "Pattern.splitAsStream()",
+                    patterns,
+                    new ConsumerWhichThrows<Pattern, RuntimeException>() {
+                        @Override public void consume(Pattern pattern) { pattern.splitAsStream(input); }
+                    }
+                );
+
+                return patterns[0].splitAsStream(input);
+            }
         };
     }
 

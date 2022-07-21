@@ -26,6 +26,9 @@
 
 package de.unkrig.ref4j;
 
+import java.util.function.Predicate;
+import java.util.stream.Stream;
+
 import de.unkrig.commons.nullanalysis.NotNullByDefault;
 
 @NotNullByDefault public
@@ -82,4 +85,59 @@ interface Pattern {
      * @see java.util.regex.Pattern#split(CharSequence, int)
      */
     String[] split(CharSequence input, int limit);
+    
+    /**
+     * Creates a predicate that tests if this pattern is found in a given input string.
+     * <p>
+     *   API Note: This method creates a predicate that behaves as if it creates a matcher from the input sequence
+     *   and then calls find, for example a predicate of the form:
+     * </p>
+     * <pre>
+     *     s -> matcher(s).find();
+     * </pre>
+     * 
+     * @return The predicate which can be used for finding a match on a subsequence of a string
+     * @since  JRE 1.8
+     */
+    Predicate<String> asPredicate();
+
+    /**
+     * Creates a predicate that tests if this pattern matches a given input string.
+     * <p>
+     *   API Note: This method creates a predicate that behaves as if it creates a matcher from the input sequence and
+     *   then calls matches, for example a predicate of the form:
+     * </p>
+     * <pre>
+     *     s -> matcher(s).matches();
+     * </pre>
+     * 
+     * @return The predicate which can be used for matching an input string against this pattern.
+     * @since  JRE 11
+     */
+    Predicate<String> asMatchPredicate();
+
+    /**
+     * Creates a stream from the given input sequence around matches of this pattern. The stream returned by this
+     * method contains each substring of the input sequence that is terminated by another subsequence that matches
+     * this pattern or is terminated by the end of the input sequence. The substrings in the stream are in the order
+     * in which they occur in the input. Trailing empty strings will be discarded and not encountered in the stream.
+     * <p>
+     *   If this pattern does not match any subsequence of the input then the resulting stream has just one element,
+     *   namely the input sequence in string form.
+     * </p>
+     * <p>
+     *   When there is a positive-width match at the beginning of the input sequence then an empty leading substring
+     *   is included at the beginning of the stream. A zero-width match at the beginning however never produces such
+     *   empty leading substring.
+     * </p>
+     * <p>
+     *   If the input sequence is mutable, it must remain constant during the execution of the terminal stream
+     *   operation. Otherwise, the result of the terminal stream operation is undefined.
+     * </p>
+     *
+     * @param input The character sequence to be split
+     * @return      The stream of strings computed by splitting the input around matches of this pattern
+     * @since       JRE 1.8
+    */
+    Stream<String> splitAsStream(CharSequence input);
 }

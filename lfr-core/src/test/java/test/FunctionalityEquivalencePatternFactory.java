@@ -31,8 +31,14 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.util.Arrays;
+import java.util.Iterator;
+import java.util.Spliterator;
+import java.util.Spliterators;
+import java.util.function.Predicate;
 import java.util.regex.MatchResult;
 import java.util.regex.PatternSyntaxException;
+import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
 import org.junit.Assert;
 
@@ -323,6 +329,64 @@ class FunctionalityEquivalencePatternFactory extends PatternFactory {
                 );
 
                 return expected;
+            }
+
+            @Override public Predicate<String>
+            asPredicate() {
+
+                final Predicate<String> referencePredicate = referencePattern.asPredicate();
+                final Predicate<String> subjectPredicate   = subjectPattern.asPredicate();
+
+                return subject -> {
+                    boolean expected = referencePredicate.test(subject);
+                    boolean actual   = subjectPredicate.test(subject);
+                    Assert.assertEquals(expected, actual);
+                    return expected;
+                };
+            }
+
+            @Override public
+            Predicate<String>
+            asMatchPredicate() {
+                
+                final Predicate<String> referenceMatchPredicate = referencePattern.asMatchPredicate();
+                final Predicate<String> subjectMatchPredicate   = subjectPattern.asMatchPredicate();
+                
+                return subject -> {
+                    boolean expected = referenceMatchPredicate.test(subject);
+                    boolean actual   = subjectMatchPredicate.test(subject);
+                    Assert.assertEquals(expected, actual);
+                    return expected;
+                };
+            }
+
+            @Override public Stream<String>
+            splitAsStream(CharSequence input) {
+                final Iterator<String> referenceIterator = referencePattern.splitAsStream(input).iterator();
+                final Iterator<String> subjectIterator   = subjectPattern.splitAsStream(input).iterator();
+
+                Iterator<String> matcherIterator = new Iterator<String>() {
+                    
+                    @Override public String
+                    next() {
+                        String referenceNext = referenceIterator.next();
+                        String subjectNext   = subjectIterator.next();
+                        Assert.assertEquals(referenceNext, subjectNext);
+                        return referenceNext;
+                    }
+                    
+                    @Override public boolean
+                    hasNext() {
+                        boolean referenceHasNext = referenceIterator.hasNext();
+                        boolean subjectHasNext   = subjectIterator.hasNext();
+                        Assert.assertEquals(referenceHasNext, subjectHasNext);
+                        return referenceHasNext;
+                    }
+                };
+                return StreamSupport.stream(
+                    Spliterators.spliteratorUnknownSize(matcherIterator, Spliterator.ORDERED | Spliterator.NONNULL), // spliterator
+                    false                                                                                            // parallel
+                );
             }
         };
     }

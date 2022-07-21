@@ -1718,92 +1718,106 @@ public class RegExTest {
     }
 
     @Test public void splitTest() {
-        Pattern pattern = PF.compile(":");
-        String[] result = pattern.split("foo:and:boo", 2);
-        if (!result[0].equals("foo"))
-            Assert.fail();
-        if (!result[1].equals("and:boo"))
-            Assert.fail();
-        // Supplementary character test
-        Pattern patternX = PF.compile(RegExTest.toSupplementaries("X"));
-        result = patternX.split(RegExTest.toSupplementaries("fooXandXboo"), 2);
-        if (!result[0].equals(RegExTest.toSupplementaries("foo")))
-            Assert.fail();
-        if (!result[1].equals(RegExTest.toSupplementaries("andXboo")))
-            Assert.fail();
+    	
+    	{
+	        Pattern pattern  = PF.compile(":");
+	        Pattern patternX = PF.compile(RegExTest.toSupplementaries("X"));
+	        
+	        {
+		        String[] result = pattern.split("foo:and:boo", 2);
+		        if (!result[0].equals("foo"))
+		            Assert.fail();
+		        if (!result[1].equals("and:boo"))
+		            Assert.fail();
+		        // Supplementary character test
+		        result = patternX.split(RegExTest.toSupplementaries("fooXandXboo"), 2);
+		        if (!result[0].equals(RegExTest.toSupplementaries("foo")))
+		            Assert.fail();
+		        if (!result[1].equals(RegExTest.toSupplementaries("andXboo")))
+		            Assert.fail();
+	        }
 
-        CharBuffer cb = CharBuffer.allocate(100);
-        cb.put("foo:and:boo");
-        cb.flip();
-        result = pattern.split(cb);
-        if (!result[0].equals("foo"))
-            Assert.fail();
-        if (!result[1].equals("and"))
-            Assert.fail();
-        if (!result[2].equals("boo"))
-            Assert.fail();
+	    	{
+		        CharBuffer cb = CharBuffer.allocate(100);
+		        cb.put("foo:and:boo");
+		        cb.flip();
+		        String[] result = pattern.split(cb);
+		        if (!result[0].equals("foo"))
+		            Assert.fail();
+		        if (!result[1].equals("and"))
+		            Assert.fail();
+		        if (!result[2].equals("boo"))
+		            Assert.fail();
+	    	}
+	
+	        // Supplementary character test
+	    	{
+		        CharBuffer cbs = CharBuffer.allocate(100);
+		        cbs.put(RegExTest.toSupplementaries("fooXandXboo"));
+		        cbs.flip();
+		        String[] result = patternX.split(cbs);
+		        if (!result[0].equals(RegExTest.toSupplementaries("foo")))
+		            Assert.fail();
+		        if (!result[1].equals(RegExTest.toSupplementaries("and")))
+		            Assert.fail();
+		        if (!result[2].equals(RegExTest.toSupplementaries("boo")))
+		            Assert.fail();
+	    	}
+    	}
 
-        // Supplementary character test
-        CharBuffer cbs = CharBuffer.allocate(100);
-        cbs.put(RegExTest.toSupplementaries("fooXandXboo"));
-        cbs.flip();
-        result = patternX.split(cbs);
-        if (!result[0].equals(RegExTest.toSupplementaries("foo")))
-            Assert.fail();
-        if (!result[1].equals(RegExTest.toSupplementaries("and")))
-            Assert.fail();
-        if (!result[2].equals(RegExTest.toSupplementaries("boo")))
-            Assert.fail();
-
-        String source = "0123456789";
-        for (int limit=-2; limit<3; limit++) {
-            for (int x=0; x<10; x++) {
-                result = source.split(Integer.toString(x), limit);
-                int expectedLength = limit < 1 ? 2 : limit;
-
-                if ((limit == 0) && (x == 9)) {
-                    // expected dropping of ""
-                    if (result.length != 1)
-                        Assert.fail();
-                    if (!result[0].equals("012345678")) {
-                        Assert.fail();
-                    }
-                } else {
-                    if (result.length != expectedLength) {
-                        Assert.fail();
-                    }
-                    if (!result[0].equals(source.substring(0,x))) {
-                        if (limit != 1) {
-                            Assert.fail();
-                        } else {
-                            if (!result[0].equals(source.substring(0,10))) {
-                                Assert.fail();
-                            }
-                        }
-                    }
-                    if (expectedLength > 1) { // Check segment 2
-                        if (!result[1].equals(source.substring(x+1,10)))
-                            Assert.fail();
+    	{
+	        String source = "0123456789";
+	        for (int limit=-2; limit<3; limit++) {
+	            for (int x=0; x<10; x++) {
+	                String[] result = source.split(Integer.toString(x), limit);
+	                int expectedLength = limit < 1 ? 2 : limit;
+	
+	                if ((limit == 0) && (x == 9)) {
+	                    // expected dropping of ""
+	                    if (result.length != 1)
+	                        Assert.fail();
+	                    if (!result[0].equals("012345678")) {
+	                        Assert.fail();
+	                    }
+	                } else {
+	                    if (result.length != expectedLength) {
+	                        Assert.fail();
+	                    }
+	                    if (!result[0].equals(source.substring(0,x))) {
+	                        if (limit != 1) {
+	                            Assert.fail();
+	                        } else {
+	                            if (!result[0].equals(source.substring(0,10))) {
+	                                Assert.fail();
+	                            }
+	                        }
+	                    }
+	                    if (expectedLength > 1) { // Check segment 2
+	                        if (!result[1].equals(source.substring(x+1,10)))
+	                            Assert.fail();
+	                    }
                     }
                 }
             }
-        }
-        // Check the case for no match found
-        for (int limit=-2; limit<3; limit++) {
-            result = source.split("e", limit);
-            if (result.length != 1)
-                Assert.fail();
-            if (!result[0].equals(source))
-                Assert.fail();
-        }
-        // Check the case for limit == 0, source = "";
-        // split() now returns 0-length for empty source "" see #6559590
-        source = "";
-        result = source.split("e", 0);
-        if (result.length != 1)
-            Assert.fail();
-        if (!result[0].equals(source))
-            Assert.fail();
+	
+	    	// Check the case for no match found
+	        for (int limit=-2; limit<3; limit++) {
+	            String[] result = source.split("e", limit);
+	            if (result.length != 1)
+	                Assert.fail();
+	            if (!result[0].equals(source))
+	                Assert.fail();
+	        }
+
+	    	// Check the case for limit == 0, source = "";
+	        // split() now returns 0-length for empty source "" see #6559590
+	        source = "";
+	        String[] result = source.split("e", 0);
+	        if (result.length != 1)
+	            Assert.fail();
+	        if (!result[0].equals(source))
+	            Assert.fail();
+    	}
 
         // Check both split() and splitAsStraem(), especially for zero-lenth
         // input and zero-lenth match cases
@@ -1854,18 +1868,25 @@ public class RegExTest {
             { "f", "", "", "", "", ":" },
         };
         for (int i = 0; i < input.length; i++) {
-            pattern = PF.compile(input[i][0]);
-            if (!Arrays.equals(pattern.split(input[i][1]), expected[i])) {
-                Assert.fail();
-            }
-//            if (input[i][1].length() > 0 &&  // splitAsStream() return empty resulting
-//                                             // array for zero-length input for now
-//                !Arrays.equals(pattern.splitAsStream(input[i][1]).toArray(),                      // SMC
-//                               expected[i])) {
-//                Assert.fail();
-//            }
+
+        	Pattern pattern = PF.compile(input[i][0]);
+        	String  input2  = input[i][1];
+
+			String[] expected2 = expected[i];
+			Assert.assertArrayEquals(expected2, pattern.split(input2));
+
+			if (input[i][1].length() > 0) {
+
+				// splitAsStream() return empty resulting array for zero-length input for now
+
+				Object[] actual = pattern.splitAsStream(input2).toArray();
+				Assert.assertArrayEquals(
+					"#" + i + ": pattern=\"" + pattern + "\", input=\"" + input2 + "\", expected=" + Arrays.deepToString(expected2) + ", actual=" + Arrays.deepToString(actual),
+					expected2,
+					actual
+				);
+			}
         }
-////        RegExTest.report("Split");
     }
 
     @Test public void negationTest() {
@@ -4644,43 +4665,27 @@ if (cp == 127280) {
 //        RegExTest.report("GroupCurly backoff");
     }
 
-//    // This test is for 8012646
-//    @Test public void patternAsPredicate() throws Exception {
-//        Predicate<String> p = PF.compile("[a-z]+").asPredicate();   // SMC
-//
-//        if (p.test("")) {
-//            Assert.fail();
-//        }
-//        if (!p.test("word")) {
-//            Assert.fail();
-//        }
-//        if (p.test("1234")) {
-//            Assert.fail();
-//        }
-//        if (!p.test("word1234")) {
-//            Assert.fail();
-//        }
-////        RegExTest.report("Pattern.asPredicate");
-//    }
+    // This test is for 8012646
+    @Test public void
+    patternAsPredicate() throws Exception {
+        Predicate<String> p = PF.compile("[a-z]+").asPredicate();   // SMC
 
-//    // This test is for 8184692
-//    @Test public void patternAsMatchPredicate() throws Exception {
-//        Predicate<String> p = PF.compile("[a-z]+").asMatchPredicate();    // SMC
-//
-//        if (p.test("")) {
-//            Assert.fail();
-//        }
-//        if (!p.test("word")) {
-//            Assert.fail();
-//        }
-//        if (p.test("1234word")) {
-//            Assert.fail();
-//        }
-//        if (p.test("1234")) {
-//            Assert.fail();
-//        }
-////        RegExTest.report("Pattern.asMatchPredicate");
-//    }
+        Assert.assertFalse(p.test(""));
+        Assert.assertTrue(p.test("word"));
+        Assert.assertFalse(p.test("1234"));
+        Assert.assertTrue(p.test("word1234"));
+    }
+
+    // This test is for 8184692
+    @Test public void
+    patternAsMatchPredicate() throws Exception {
+        Predicate<String> p = PF.compile("[a-z]+").asMatchPredicate();    // SMC
+
+        Assert.assertFalse(p.test(""));
+        Assert.assertTrue(p.test("word"));
+        Assert.assertFalse(p.test("1234word"));
+        Assert.assertFalse(p.test("1234"));
+    }
 
 
     // This test is for 8035975

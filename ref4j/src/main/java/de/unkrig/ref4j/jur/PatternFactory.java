@@ -28,8 +28,10 @@ package de.unkrig.ref4j.jur;
 
 import java.io.IOException;
 import java.io.Serializable;
+import java.util.function.Predicate;
 import java.util.regex.MatchResult;
 import java.util.regex.PatternSyntaxException;
+import java.util.stream.Stream;
 
 import de.unkrig.commons.lang.OptionalMethods;
 import de.unkrig.commons.lang.OptionalMethods.MethodWrapper1;
@@ -202,7 +204,16 @@ class PatternFactory extends de.unkrig.ref4j.PatternFactory implements Serializa
             @Override public String[]
             split(CharSequence input, int limit) { return this.jurPattern.split(input, limit); }
 
-            @Override public String
+            @Override public Predicate<String>
+            asPredicate() { return this.jurPattern.asPredicate(); }
+
+			@Override public Predicate<String>
+			asMatchPredicate() { return subject -> matcher(subject).matches(); } // Retrofitted with JRE 8
+
+			@Override public Stream<String>
+			splitAsStream(CharSequence input) { return this.jurPattern.splitAsStream(input); }
+
+			@Override public String
             toString() { return this.jurPattern.toString(); }
         }
 
