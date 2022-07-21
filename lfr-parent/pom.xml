@@ -35,8 +35,8 @@
 	</licenses>
 
 	<properties>
-		<maven.compiler.source>1.6</maven.compiler.source>
-		<maven.compiler.target>1.6</maven.compiler.target>
+		<maven.compiler.source>1.8</maven.compiler.source>
+		<maven.compiler.target>1.8</maven.compiler.target>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 	</properties>
 
@@ -52,7 +52,6 @@
 		<module>../openjdk8_regex_tests</module>
 		<module>../openjdk15_regex_tests</module>
 		<module>../ref4j</module>
-		<module>openjdk15_regex_tests</module>
 	</modules>
 
 	<build>
