@@ -142,15 +142,14 @@ class Misc extends ParameterizedWithPatternFactory {
             if (pse.getMessage().matches("(?s)Illegal repetition near index .*\\.\\\\b\\{g\\}.*")) return;
 
             throw pse;
-        }
-
-        boolean actual;
-        try {
-            actual = matcher.matches();
         } catch (UnsupportedOperationException uoe) {
+
+            // LFR cannot implement graphemes in Pre-9 JREs.
             if ("Graphemes only available in Java 9+".equals(uoe.getMessage())) return;
             throw uoe;
         }
+
+        boolean actual = matcher.matches();
 
         if (expected && !actual) {
             Assert.fail("\"" + subject + "\" does not match regex \"" + regex + "\"");
