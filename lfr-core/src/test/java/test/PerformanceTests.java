@@ -89,7 +89,7 @@ class PerformanceTests {
         }
     }
 
-    @After public void
+    @SuppressWarnings("static-method") @After public void
     tearDown() {
         PerformanceTests.html.printf("  <tr><td></td></tr>%n");
         PerformanceTests.html.close();
