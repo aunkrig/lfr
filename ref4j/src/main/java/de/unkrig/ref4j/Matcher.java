@@ -27,6 +27,9 @@
 package de.unkrig.ref4j;
 
 import java.io.IOException;
+import java.util.function.Function;
+import java.util.regex.MatchResult;
+import java.util.stream.Stream;
 
 import de.unkrig.commons.nullanalysis.NotNullByDefault;
 import de.unkrig.commons.nullanalysis.Nullable;
@@ -164,9 +167,24 @@ interface Matcher extends java.util.regex.MatchResult {
     String replaceAll(String replacement);
 
     /**
+     * @see java.util.regex.Matcher#replaceAll(Function)
+     */
+    String replaceAll(Function<MatchResult, String> replacer);
+
+    /**
+     * @see java.util.regex.Matcher#results()
+     */
+    Stream<MatchResult> results();
+
+    /**
      * @see java.util.regex.Matcher#replaceFirst(String)
      */
     String replaceFirst(String replacement);
+
+    /**
+     * @see java.util.regex.Matcher#replaceFirst(Function)
+     */
+    String replaceFirst(Function<MatchResult,String> replacer);
 
     /**
      * @see java.util.regex.Matcher#region(int, int)

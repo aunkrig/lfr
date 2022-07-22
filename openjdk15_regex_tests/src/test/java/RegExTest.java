@@ -254,9 +254,9 @@ public class RegExTest {
         RegExTest.check(() -> m.appendTail((StringBuffer) null));
         RegExTest.check(() -> m.appendTail((StringBuilder)null));
         RegExTest.check(() -> m.replaceAll((String) null));
-//        RegExTest.check(() -> m.replaceAll((Function<MatchResult, String>)null));  SMC
+        RegExTest.check(() -> m.replaceAll((Function<MatchResult, String>)null));
         RegExTest.check(() -> m.replaceFirst((String)null));
-//        RegExTest.check(() -> m.replaceFirst((Function<MatchResult, String>) null));   SMC
+        RegExTest.check(() -> m.replaceFirst((Function<MatchResult, String>) null));
         RegExTest.check(() -> m.appendReplacement((StringBuffer)null, null));
         RegExTest.check(() -> m.appendReplacement((StringBuilder)null, null));
         RegExTest.check(() -> m.reset(null));
@@ -3943,20 +3943,14 @@ public class RegExTest {
             Assert.fail();
     }
 
-    private static void checkReplaceFirst(String p, String s, String r, String expected)
-    {
-        if (!expected.equals(PF.compile(p)
-                                    .matcher(s)
-                                    .replaceFirst(r)))
-            Assert.fail();
+    private static void
+    checkReplaceFirst(String p, String s, String r, String expected) {
+        Assert.assertEquals(expected, PF.compile(p).matcher(s).replaceFirst(r));
     }
 
-    private static void checkReplaceAll(String p, String s, String r, String expected)
-    {
-        if (!expected.equals(PF.compile(p)
-                                    .matcher(s)
-                                    .replaceAll(r)))
-            Assert.fail();
+    private static void
+    checkReplaceAll(String p, String s, String r, String expected) {
+        Assert.assertEquals(expected, PF.compile(p).matcher(s).replaceAll(r));
     }
 
     private static void checkExpectedFail(String p) {

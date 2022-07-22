@@ -29,8 +29,15 @@ package de.unkrig.lfr.core;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Iterator;
 import java.util.List;
+import java.util.NoSuchElementException;
+import java.util.Spliterator;
+import java.util.Spliterators;
+import java.util.function.Function;
 import java.util.regex.MatchResult;
+import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
 import de.unkrig.commons.lang.ExceptionUtil;
 import de.unkrig.commons.lang.protocol.Mapping;
@@ -679,8 +686,72 @@ class MatcherImpl implements Matcher {
     }
 
     @Override public String
+    replaceAll(Function<MatchResult, String> replacer) {
+
+        this.reset();
+
+        if (!this.find()) return this.subject.toString();
+
+        StringBuilder sb = new StringBuilder();
+        do {
+            this.appendReplacement(sb, replacer.apply(this));
+        } while (this.find());
+        this.appendTail(sb);
+
+        return sb.toString();
+    }
+
+    @Override public Stream<MatchResult>
+    results() {
+
+        class MatchResultIterator implements Iterator<MatchResult> {
+
+            // 0 for "unknown", 1 for "not found", 2 for "found"
+            int state;
+
+            @Override public MatchResult
+            next() {
+
+                if (!this.hasNext()) throw new NoSuchElementException();
+
+                this.state = 0;
+                return MatcherImpl.this.toMatchResult();
+            }
+
+            @Override public boolean
+            hasNext() {
+                if (this.state == 1) return false;
+                if (this.state == 2) return true;
+
+                boolean found = MatcherImpl.this.find();
+                this.state = found ? 2 : 1;
+                return found;
+            }
+        }
+
+        return StreamSupport.stream(
+            Spliterators.spliteratorUnknownSize(new MatchResultIterator(), Spliterator.ORDERED | Spliterator.NONNULL),
+            false
+        );
+    }
+
+    @Override public String
     replaceFirst(String replacement) {
         return this.compileReplacement(replacement).replaceFirst();
+    }
+    
+    @Override public String
+    replaceFirst(Function<MatchResult, String> replacer) {
+
+        this.reset();
+
+        if (!this.find()) return this.subject.toString();
+
+        StringBuilder sb = new StringBuilder();
+        this.appendReplacement(sb, replacer.apply(this));
+        this.appendTail(sb);
+
+        return sb.toString();
     }
 
     // REGION/BOUNDS SETTERS

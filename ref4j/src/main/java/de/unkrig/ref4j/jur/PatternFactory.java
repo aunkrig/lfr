@@ -28,10 +28,16 @@ package de.unkrig.ref4j.jur;
 
 import java.io.IOException;
 import java.io.Serializable;
+import java.util.Iterator;
+import java.util.NoSuchElementException;
+import java.util.Spliterator;
+import java.util.Spliterators;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.regex.MatchResult;
 import java.util.regex.PatternSyntaxException;
 import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
 import de.unkrig.commons.lang.OptionalMethods;
 import de.unkrig.commons.lang.OptionalMethods.MethodWrapper1;
@@ -113,13 +119,15 @@ class PatternFactory extends de.unkrig.ref4j.PatternFactory implements Serializa
             pattern() { return this.jurPattern.pattern(); }
 
             @Override public Matcher
-            matcher(CharSequence subject) {
+            matcher(final CharSequence subject) {
 
                 final java.util.regex.Matcher m = this.jurPattern.matcher(subject);
 
                 return new Matcher() {
 
-                    // SUPPRESS CHECKSTYLE LineLength:42
+                	CharSequence subject2 = subject;
+
+                	// SUPPRESS CHECKSTYLE LineLength:42
                     @Override public Matcher     useTransparentBounds(boolean b)  { m.useTransparentBounds(b);                          return this; }
                     @Override public Matcher     usePattern(Pattern newPattern)   { m.usePattern(((JurPattern) newPattern).jurPattern); return this; }
                     @Override public Matcher     useAnchoringBounds(boolean b)    { m.useAnchoringBounds(b);                            return this; }
@@ -127,12 +135,12 @@ class PatternFactory extends de.unkrig.ref4j.PatternFactory implements Serializa
                     @Override public int         start(int group)                 { return m.start(group);                                           }
                     @Override public int         start()                          { return m.start();                                                }
                     @Override public int         start(String name)               { return PatternFactory.MATCHER_START.invoke(m, name);             }
-                    @Override public Matcher     reset(CharSequence input)        { m.reset(input);                                     return this; }
+                    @Override public Matcher     reset(CharSequence input)        { m.reset(input); this.subject2 = input;              return this; }
                     @Override public Matcher     reset()                          { m.reset();                                          return this; }
                     @Override public boolean     requireEnd()                     { return m.requireEnd();                                           }
                     @Override public String      replaceFirst(String replacement) { return m.replaceFirst(replacement);                              }
                     @Override public String      replaceAll(String replacement)   { return m.replaceAll(replacement);                                }
-                    @Override public int         regionStart()                    { return m.regionStart();                                          }
+					@Override public int         regionStart()                    { return m.regionStart();                                          }
                     @Override public int         regionEnd()                      { return m.regionEnd();                                            }
                     @Override public Matcher     region(int start, int end)       { m.region(start, end);                               return this; }
                     @Override public Pattern     pattern()                        { return JurPattern.this;                                          }
@@ -187,6 +195,73 @@ class PatternFactory extends de.unkrig.ref4j.PatternFactory implements Serializa
                             throw new AssertionError(ioe);
                         }
                     }
+
+                    // Need to implement "replaceFirst(Function)", "replaceAll(Function)" and "results()" because
+                    // they are missing JUR 8.
+
+                    @Override public String
+                    replaceFirst(Function<MatchResult, String> replacer) {
+
+                    	this.reset();
+
+                    	if (!this.find()) return this.subject2.toString();
+
+                        StringBuilder sb = new StringBuilder();
+                        this.appendReplacement(sb, replacer.apply(this));
+                        this.appendTail(sb);
+
+                        return sb.toString();
+                    }
+
+                    @Override public String
+                    replaceAll(Function<MatchResult, String> replacer) {
+
+                        this.reset();
+
+                        if (!this.find()) return this.subject2.toString();
+
+                        StringBuilder sb = new StringBuilder();
+                        do {
+                            this.appendReplacement(sb, replacer.apply(this));
+                        } while (this.find());
+                        this.appendTail(sb);
+
+                        return sb.toString();
+					}
+
+                    @Override public Stream<MatchResult>
+					results() {
+
+                    	class MatchResultIterator implements Iterator<MatchResult> {
+
+                    		// 0 for "unknown", 1 for "not found", 2 for "found"
+				            int state;
+
+				            @Override public MatchResult
+				            next() {
+
+				                if (!this.hasNext()) throw new NoSuchElementException();
+
+				                this.state = 0;
+				                return toMatchResult();
+				            }
+
+				            @Override public boolean
+				            hasNext() {
+				            	if (this.state == 1) return false;
+				            	if (this.state == 2) return true;
+
+				                boolean found = find();
+				                this.state = found ? 2 : 1;
+				                return found;
+				            }
+				        }
+
+                    	return StreamSupport.stream(
+                			Spliterators.spliteratorUnknownSize(new MatchResultIterator(), Spliterator.ORDERED | Spliterator.NONNULL),
+                			false
+            			);
+					}
                 };
             }
 

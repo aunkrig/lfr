@@ -268,9 +268,9 @@ class RegExTest {
         RegExTest.check(new Runnable() { @Override
         public void run() { m.appendTail(null);                  } });
         RegExTest.check(new Runnable() { @Override
-        public void run() { m.replaceAll(null);                  } });
+        public void run() { m.replaceAll((String) null);         } });
         RegExTest.check(new Runnable() { @Override
-        public void run() { m.replaceFirst(null);                } });
+        public void run() { m.replaceFirst((String) null);       } });
         RegExTest.check(new Runnable() { @Override
         public void run() { m.appendReplacement(null, null);     } });
         RegExTest.check(new Runnable() { @Override
@@ -3267,8 +3267,8 @@ class RegExTest {
 
     private static void doBnM(int baseCharacter) throws Exception {
 
-        Method method = Random.class.getDeclaredMethod("seedUniquifier");
-        method.setAccessible(true);
+//        Method method = Random.class.getDeclaredMethod("seedUniquifier");
+//        method.setAccessible(true);
 //        long seed = (Long) method.invoke(null) ^ System.nanoTime();
 //        System.out.println("seed=" + seed);
 //        Random generator = new Random(seed);
