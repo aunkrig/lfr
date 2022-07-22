@@ -21,9 +21,6 @@
  * questions.
  */
 
-import java.util.HashMap;
-import java.util.Locale;
-
 public final class POSIX_Unicode {
 
     public static boolean isAlpha(int ch) {
