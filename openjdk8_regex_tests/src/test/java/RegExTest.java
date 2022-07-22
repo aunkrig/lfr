@@ -1662,13 +1662,13 @@ class RegExTest {
         flags = Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE;
         for (int i = 0; i < patterns.length; i++) {
             Pattern pattern = RegExTest.PF.compile(patterns[i], flags);
-            Assert.assertTrue("<2> Failed at " + i, pattern.matcher(texts[i]).matches());
+            Assert.assertTrue("pattern=\"" + patterns[i] + "\", subject=\"" + texts[i] + "\"", pattern.matcher(texts[i]).matches());
         }
         // flag unicode_case alone should do nothing
         flags = Pattern.UNICODE_CASE;
         for (int i = 0; i < patterns.length; i++) {
             Pattern pattern = RegExTest.PF.compile(patterns[i], flags);
-            Assert.assertTrue("<3> Failed at " + i, pattern.matcher(texts[i]).matches());
+            Assert.assertFalse("pattern=\"" + patterns[i] + "\", subject=\"" + texts[i] + "\"", pattern.matcher(texts[i]).matches());
         }
     }
 
@@ -3838,9 +3838,11 @@ class RegExTest {
                  m  = RegExTest.PF.compile("\\p{block=" + block.toString() + "}").matcher(str);
             }
             Assert.assertTrue(m.matches());
-            Matcher other = (block == Character.UnicodeBlock.BASIC_LATIN)? greek : latin;
+
+            Matcher other = block == Character.UnicodeBlock.BASIC_LATIN ? greek : latin;
             other.reset(str);
-            Assert.assertTrue(other.matches());
+            Assert.assertFalse(other.matches());
+
             lastBM = m;
             lastBlock = block;
         }
@@ -4172,7 +4174,11 @@ class RegExTest {
 
         String crnl = "\r\n";
         Assert.assertTrue(RegExTest.PF.compile("\\R").matcher(crnl).matches());
-        Assert.assertFalse(RegExTest.PF.compile("\\R\\R").matcher(crnl).matches());
+
+        // The regex tests of version 8 and version 15 appear to have different opinions here: 15 expects a
+        // "true" result (explanation: "backtracking"), and 8 expects "false". Summarized, JUR15 and LFR expect
+        // "true", and JUR 8 expects "false". Thus we disable this test:
+//        Assert.assertFalse(RegExTest.PF.compile("\\R\\R").matcher(crnl).matches());
     }
 
     // #7189363
