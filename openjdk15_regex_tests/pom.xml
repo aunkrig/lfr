@@ -17,20 +17,19 @@
 		<dependency>
 			<groupId>junit</groupId>
 			<artifactId>junit</artifactId>
-			<version>4.11</version>
 			<scope>test</scope>
 		</dependency>
 		<dependency>
 			<groupId>de.unkrig.lfr</groupId>
 			<artifactId>lfr-core</artifactId>
-			<version>1.1.1-SNAPSHOT</version>
+			<version>${project.parent.version}</version>
 			<type>jar</type>
 			<scope>test</scope>
 		</dependency>
 		<dependency>
 			<groupId>de.unkrig.lfr</groupId>
 			<artifactId>lfr-core</artifactId>
-			<version>1.1.1-SNAPSHOT</version>
+			<version>${project.parent.version}</version>
 			<type>test-jar</type>
 			<scope>test</scope>
 		</dependency>
@@ -39,7 +38,7 @@
 	<parent>
 		<groupId>de.unkrig.lfr</groupId>
 		<artifactId>lfr-parent</artifactId>
-		<version>1.1.1-SNAPSHOT</version>
+		<version>1.2.0</version>
 		<relativePath>../lfr-parent</relativePath>
 	</parent>
 </project>

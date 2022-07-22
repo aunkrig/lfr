@@ -3,7 +3,7 @@
 
 	<groupId>de.unkrig.lfr</groupId>
 	<artifactId>lfr-parent</artifactId>
-	<version>1.1.1-SNAPSHOT</version>
+	<version>1.2.0</version>
 
 	<packaging>pom</packaging>
 
@@ -38,6 +38,9 @@
 		<maven.compiler.source>1.8</maven.compiler.source>
 		<maven.compiler.target>1.8</maven.compiler.target>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+
+		<de.unkrig.commons-version>1.2.17</de.unkrig.commons-version>
+		<junit-version>4.11</junit-version>
 	</properties>
 
 	<distributionManagement>
@@ -47,12 +50,26 @@
 		</snapshotRepository>
 	</distributionManagement>
 
-	<modules>
-		<module>../lfr-core</module>
-		<module>../openjdk8_regex_tests</module>
-		<module>../openjdk15_regex_tests</module>
-		<module>../ref4j</module>
-	</modules>
+	<dependencyManagement>
+		<dependencies>
+			<dependency>
+				<groupId>de.unkrig.commons</groupId>
+				<artifactId>commons-text</artifactId>
+				<version>${de.unkrig.commons-version}</version>
+			</dependency>
+			<dependency>
+				<groupId>de.unkrig.commons</groupId>
+				<artifactId>commons-util</artifactId>
+				<version>${de.unkrig.commons-version}</version>
+			</dependency>
+			<dependency>
+				<groupId>junit</groupId>
+				<artifactId>junit</artifactId>
+				<version>${junit-version}</version>
+				<scope>test</scope>
+			</dependency>
+		</dependencies>
+	</dependencyManagement>
 
 	<build>
 		<plugins>
@@ -113,7 +130,7 @@
 					<configuration>
 						<serverId>ossrh</serverId>
 						<nexusUrl>https://oss.sonatype.org/</nexusUrl>
-						<autoReleaseAfterClose>true</autoReleaseAfterClose>
+						<autoReleaseAfterClose>false</autoReleaseAfterClose>
 					</configuration>
 				</plugin>
 
@@ -157,4 +174,11 @@
 			</build>
 		</profile>
 	</profiles>
+
+	<modules>
+		<module>../lfr-core</module>
+		<module>../openjdk8_regex_tests</module>
+		<module>../openjdk15_regex_tests</module>
+		<module>../ref4j</module>
+	</modules>
 </project>
