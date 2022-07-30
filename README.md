@@ -2,7 +2,7 @@
 
 Lightning-fast Regular Expressions ("LFR") is a 99.9%-complete reimplementation of `java.util.regex` ("JUR") with better `match()` and `find()` performance. Yet the design is much cleaner and easier to understand and extend.
 
-LFR is (successfully) tested against the official OpenJDK 8 regex regression test suite.
+LFR is (successfully) tested against the official OpenJDK 15 regex regression test suite.
 
 ## Differences between LFR and JUR
   
@@ -38,7 +38,7 @@ There are the following differences in the API:
 
 Minus:
 
-* Methods that depend on JRE classes and interfaces that were added after Java 6: `Pattern.asPredicate()`, `Pattern.asMatchPredicate()`, `Pattern.splitAsStream(CharSequence)`, `Matcher.replaceFirst(Function<MatchResult, String>)`, `Matcher.replaceAll(Function<MatchResult, String>)`, `Matcher.results()`.
+* Some JRE methods implicitly use JUR, and cannot be retrofitted to use LFR. However, all these methods use `Pattern.compile()`, so you don't want to use them in performance-critical applications. (Actually not a minus in the LFR API, but in the JRE APIs.)
 
 Plus:
 
@@ -50,28 +50,20 @@ Plus:
   
   This is useful for testing how a regex compiled, and especially which optimizations have taken place.
 
-* LFR only requires JRE 1.6+, but makes some later features available for earlier JREs.
-  * JUR features that appeared in JRE 1.7:
-    * `\x{h...h}` (code point escapes)
-    * UNICODE scripts like `\p{IsLatin}` (only if executed in a JRE 7+)
-    * UNICODE binary properties like `\p{IsAlphabetic}` (some of which only if executed in a JRE 7+)
-    * Named groups (e.g. `(?<name>X)`) and named group backreferences (e.g. `\k<name>`)
-    * The `UNICODE_CHARACTER_CLASS` compilation flag, and its in-line equivalent `(?U)`
-  * JUR features that appeared in JRE 1.8:
-    * Additional predefined character classes: `\h`, `\v`, and their upper-case counterparts
-    * The linebreak matcher `\R`
-    * New binary property "Unicode Join Control"
+* LFR only requires JRE 1.8+, but makes some later features available for earlier JREs:
   * JUR features that appeared in JRE 1.9:
     * Named Unicode characters, e.g. `\N{LATIN SMALL LETTER O}` (only if executed in a JRE 9+)
     * (Unicode extended graphemes -- are not (yet) supported.)
   * JUR features that appeared in JREs 10, 11, 12, 13, 14, 15, 16 and 17:
     * (None.)
 
+* Although LFR requires only JRE 8+, the methods that were added later (namely with Java 9: `Matcher.replaceFirst(Function<MatchResult, String>)`, `Matcher.replaceAll(Function<MatchResult, String>)`, `Matcher.results()`) are always available.
+
 ## Performance
 
 Minus:
 
-* Regex <em>compilation</em> performance was not measured and is probably slower than JUR. There is surely a lot of room for optimization in this area, if someone needs it.
+* Regex <em>compilation</em> performance was not measured and is probably quite slow (as with JUR). There is surely a lot of room for optimization in this area, if someone needs it.
 
 Plus:
 
@@ -79,9 +71,9 @@ Plus:
 
 * LFR specifically improves the evaluation performance for the following special cases:
 
-  * Patterns that start with 16 or more literal characters (for `Matcher.find()`)
+  * Patterns that start with literal characters (or character classes, or alternatives) (for `Matcher.find()`)
 
-  * Patterns that contain a greedy or reluctant quantifier of ANY, followed by 16 or more literal characters; e.g. `"xxx.*ABCDEFGHIJKLMNOPxxx"` or `"xxx.{4,39}?ABCDEFGHIJKLMNOPxxx"`
+  * Patterns that contain a greedy or reluctant quantifier of ANY, followed by literal characters (or character classes, or alternatives); e.g. `"xxx.*ABCDEFGHIJKLMNOPxxx"` (or `"(?i)xxx.+foobar"`, or `"xxx.{4,39}?(?:alpha|beta|gamma)"`)
 
   * Patterns that contain a possessive quantifier of ANY; e.g. `"xxx.++xxx"`
 
