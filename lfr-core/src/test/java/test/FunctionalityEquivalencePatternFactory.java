@@ -304,10 +304,28 @@ class FunctionalityEquivalencePatternFactory extends PatternFactory {
             }
 
             @Override public boolean
-            matches(final CharSequence subject, final int offset) {
+            matches(CharSequence subject) {
 
-                boolean expected = referencePattern.matches(subject, offset);
-                boolean actual   = subjectPattern.matches(subject, offset);
+                boolean expected = referencePattern.matches(subject);
+                boolean actual   = subjectPattern.matches(subject);
+
+                Assert.assertEquals(expected, actual);
+                return expected;
+            }
+            @Override public boolean
+            matches(final CharSequence subject, final int regionStart) {
+
+                boolean expected = referencePattern.matches(subject, regionStart);
+                boolean actual   = subjectPattern.matches(subject, regionStart);
+
+                Assert.assertEquals(expected, actual);
+                return expected;
+            }
+            @Override public boolean
+            matches(CharSequence subject, int regionStart, int regionEnd) {
+
+                boolean expected = referencePattern.matches(subject, regionStart, regionEnd);
+                boolean actual   = subjectPattern.matches(subject, regionStart, regionEnd);
 
                 Assert.assertEquals(expected, actual);
                 return expected;
