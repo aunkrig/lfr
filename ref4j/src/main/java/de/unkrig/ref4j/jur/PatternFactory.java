@@ -269,11 +269,21 @@ class PatternFactory extends de.unkrig.ref4j.PatternFactory implements Serializa
             flags() { return this.jurPattern.flags(); }
 
             @Override public boolean
-            matches(CharSequence subject, int offset) {
-                return this.jurPattern.matcher(subject.subSequence(offset, subject.length())).matches();
+            matches(CharSequence subject) {
+                return this.jurPattern.matcher(subject).matches();
+			}
+
+			@Override public boolean
+            matches(CharSequence subject, int regionStart) {
+                return this.jurPattern.matcher(subject).region(regionStart, subject.length()).matches();
             }
 
-            @Override public String[]
+            @Override public boolean
+            matches(CharSequence subject, int regionStart, int regionEnd) {
+                return this.jurPattern.matcher(subject).region(regionStart, regionEnd).matches();
+			}
+
+			@Override public String[]
             split(CharSequence input) { return this.jurPattern.split(input); }
 
             @Override public String[]
