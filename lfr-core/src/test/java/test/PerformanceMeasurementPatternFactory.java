@@ -166,16 +166,42 @@ class PerformanceMeasurementPatternFactory extends PatternFactory {
             }
 
             @Override public boolean
-            matches(final CharSequence subject, final int offset) {
+            matches(CharSequence subject) {
+                
+                PerformanceMeasurement.probe(
+                    "Pattern.matches()",
+                    patterns,
+                    new ConsumerWhichThrows<Pattern, RuntimeException>() {
+                        @Override public void consume(Pattern pattern) { pattern.matches(subject); }
+                    }
+                );
+                
+                return PerformanceMeasurementPatternFactory.this.delegates[0].matches(regex, subject);
+            }
+            @Override public boolean
+            matches(final CharSequence subject, final int regionStart) {
 
                 PerformanceMeasurement.probe(
                     "Pattern.matches()",
                     patterns,
                     new ConsumerWhichThrows<Pattern, RuntimeException>() {
-                        @Override public void consume(Pattern pattern) { pattern.matches(subject, offset); }
+                        @Override public void consume(Pattern pattern) { pattern.matches(subject, regionStart); }
                     }
                 );
 
+                return PerformanceMeasurementPatternFactory.this.delegates[0].matches(regex, subject);
+            }
+            @Override public boolean
+            matches(CharSequence subject, int regionStart, int regionEnd) {
+                
+                PerformanceMeasurement.probe(
+                    "Pattern.matches()",
+                    patterns,
+                    new ConsumerWhichThrows<Pattern, RuntimeException>() {
+                        @Override public void consume(Pattern pattern) { pattern.matches(subject, regionStart, regionEnd); }
+                    }
+                );
+                
                 return PerformanceMeasurementPatternFactory.this.delegates[0].matches(regex, subject);
             }
 
