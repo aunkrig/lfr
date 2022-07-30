@@ -73,8 +73,8 @@ class OracleEssentials extends ParameterizedWithPatternFactory {
     }
 
     /**
-     * Verifies that the <var>regex</var> and the <var>subject</var> yield exactly the same matches with
-     * {@code java.util.regex} and {@code de.unkrig.lfr.core} regular expressions.
+     * Verifies that {@link PatternFactory#compile(String, int)}, {@link Matcher#lookingAt()}, {@link Matcher#matches()} and
+     * {@link Matcher#find()} don't throw any exceptions.
      *
      * @param flags             Regex compilation flags, see {@link java.util.regex.Pattern#compile(String, int)}
      * @param regionStart       Optional: The non-default region to use for the matcher; see {@link
