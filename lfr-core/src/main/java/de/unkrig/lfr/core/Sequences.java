@@ -1581,20 +1581,22 @@ class Sequences {
 
                 // Check for linebreak characters in a highly optimized manner.
                 if (c <= 0x0d) {
+
+                    // Super-special case "\r\n" -- check this case first (because we are "greedy").
                     if (c == '\r') {
-                        matcher.offset = o + 1;
-                        if (matcher.offset == matcher.regionEnd) matcher.hitEnd = true;
-                        if (this.next.matches(matcher)) return true;
-                        if (
-                            o < matcher.regionEnd - 1
-                            && matcher.subject.charAt(o + 1) == '\n'
-                        ) {
+
+                        if (o + 1 >= matcher.regionEnd) {
+                            matcher.hitEnd = true;
+                        } else
+                        if (matcher.subject.charAt(o + 1) == '\n') {
                             matcher.offset = o + 2;
-                            return this.next.matches(matcher);
+                            if (this.next.matches(matcher)) return true;
                         }
-                        return false;
                     }
+
                     if (c >= 0x0a) {
+                        
+                        // All of 0x0a ... 0x0d match "\R".
                         matcher.offset = o + 1;
                         return this.next.matches(matcher);
                     }
