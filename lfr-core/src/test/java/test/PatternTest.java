@@ -48,39 +48,29 @@ import de.unkrig.ref4j.PatternFactory;
  * Tests the {@link Pattern} class (and its relative {@link Matcher}).
  */
 @RunWith(Parameterized.class) public
-class PatternTest extends OracleEssentials {
+class PatternTest extends ParameterizedWithPatternFactory {
 
     public
     PatternTest(PatternFactory patternFactory, String patternFactoryId) { super(patternFactory); }
 
-    /**
-     * 6, 7, 8, ...
-     */
-    private static final int JRE_VERSION;
-    static {
+    @Test public void testMatches1() {  Assert.assertTrue(this.patternFactory.compile("abc",  0).matcher("abc").matches());       }
+    @Test public void testMatches2() { Assert.assertFalse(this.patternFactory.compile("abc",  0).matcher("abcxx").matches());     }
+    @Test public void testMatches3() { Assert.assertFalse(this.patternFactory.compile("abc",  0).matcher("xxabc").matches());     }
+    @Test public void testMatches4() {  Assert.assertTrue(this.patternFactory.compile("a.c",  0).matcher("aBc").matches());       }
+    @Test public void testMatches5() { Assert.assertFalse(this.patternFactory.compile("a.c",  0).matcher("aBcxx").matches());     }
+    @Test public void testMatches6() {  Assert.assertTrue(this.patternFactory.compile("a.*c", 0).matcher("axxxc").matches());     }
+    @Test public void testMatches7() {  Assert.assertTrue(this.patternFactory.compile("a.*c", 0).matcher("axxxcxxxc").matches()); }
+    @Test public void testMatches8() { Assert.assertFalse(this.patternFactory.compile("a.*c", 0).matcher("axxx").matches());      }
 
-        String jsv = System.getProperty("java.specification.version");
-
-        // For Java 1.0 through 8, the string has the formt "1.x"; since Java 9 "x".
-        if (jsv.startsWith("1.")) jsv = jsv.substring(2);
-
-        JRE_VERSION = Integer.parseInt(jsv);
-    }
-
-    @Test public void testMatches1() { this.patternFactory.compile("abc", 0).matcher("abc").matches();        }
-    @Test public void testMatches2() { this.patternFactory.compile("abc", 0).matcher("abcxx").matches();      }
-    @Test public void testMatches3() { this.patternFactory.compile("abc", 0).matcher("xxabc").matches();      }
-    @Test public void testMatches4() { this.patternFactory.compile("a.c", 0).matcher("aBc").matches();        }
-    @Test public void testMatches5() { this.patternFactory.compile("a.c", 0).matcher("aBcxx").matches();      }
-    @Test public void testMatches6() { this.patternFactory.compile("a.*c", 0).matcher("axxxc").matches();     }
-    @Test public void testMatches7() { this.patternFactory.compile("a.*c", 0).matcher("axxxcxxxc").matches(); }
-    @Test public void testMatches8() { this.patternFactory.compile("a.*c", 0).matcher("axxx").matches();      }
-
-    @Test public void testLiteralOctals1() { this.patternFactory.compile("\\00xx",   0).matcher("\0xx").matches();    }
-    @Test public void testLiteralOctals2() { this.patternFactory.compile("\\01xx",   0).matcher("\01xx").matches();   }
-    @Test public void testLiteralOctals3() { this.patternFactory.compile("\\011xx",  0).matcher("\011xx").matches();  }
-    @Test public void testLiteralOctals4() { this.patternFactory.compile("\\0101xx", 0).matcher("Axx").matches();     }
-    @Test public void testLiteralOctals5() { this.patternFactory.compile("\\0111xx", 0).matcher("\0111xx").matches(); }
+    @Test public void testLiteralOctals1() {  Assert.assertTrue(this.patternFactory.compile("\\00xx",   0).matcher("\0xx").matches());    }
+    @Test public void testLiteralOctals2() {  Assert.assertTrue(this.patternFactory.compile("\\01xx",   0).matcher("\01xx").matches());   }
+    @Test public void testLiteralOctals3() {  Assert.assertTrue(this.patternFactory.compile("\\011xx",  0).matcher("\011xx").matches());  }
+    @Test public void testLiteralOctals4() {  Assert.assertTrue(this.patternFactory.compile("\\0101xx", 0).matcher("Axx").matches());     }
+    @Test public void testLiteralOctals5() { Assert.assertFalse(this.patternFactory.compile("\\0101xx", 0).matcher("\0111xx").matches()); }
+    
+    @Test public void testFastMatches1() {  Assert.assertTrue(this.patternFactory.compile("ABC",      0).matches("   ABC   ", 3, 6)); }
+    @Test public void testFastMatches2() {  Assert.assertTrue(this.patternFactory.compile("^ABC$",    0).matches("   ABC   ", 3, 6)); }
+    @Test public void testFastMatches3() { Assert.assertFalse(this.patternFactory.compile("ABC(?=D)", 0).matches("   ABCD  ", 3, 6)); }
 
     @Test public void
     testShortStringLiterals() {
@@ -92,9 +82,16 @@ class PatternTest extends OracleEssentials {
         this.assertSequenceToString("naive(\"ABCDEFGHIJKLMNO\")", regex);
 
         Producer<String> rsp = PatternTest.randomSubjectProducer(infix);
-        for (int i = 0; i < 10; i++) {
-            this.harnessFull(regex, AssertionUtil.notNull(rsp.produce()));
-        }
+        this.assertFind(6, regex, AssertionUtil.notNull(rsp.produce()));
+        this.assertFind(3, regex, AssertionUtil.notNull(rsp.produce()));
+        this.assertFind(5, regex, AssertionUtil.notNull(rsp.produce()));
+        this.assertFind(2, regex, AssertionUtil.notNull(rsp.produce()));
+        this.assertFind(2, regex, AssertionUtil.notNull(rsp.produce()));
+        this.assertFind(2, regex, AssertionUtil.notNull(rsp.produce()));
+        this.assertFind(2, regex, AssertionUtil.notNull(rsp.produce()));
+        this.assertFind(1, regex, AssertionUtil.notNull(rsp.produce()));
+        this.assertFind(2, regex, AssertionUtil.notNull(rsp.produce()));
+        this.assertFind(3, regex, AssertionUtil.notNull(rsp.produce()));
     }
 
     @Test public void
@@ -107,9 +104,16 @@ class PatternTest extends OracleEssentials {
         this.assertSequenceToString("boyerMooreHorspool(\"ABCDEFGHIJKLMNOP\")", regex);
 
         Producer<String> rsp = PatternTest.randomSubjectProducer(infix);
-        for (int i = 0; i < 10; i++) {
-            this.harnessFull(regex, AssertionUtil.notNull(rsp.produce()));
-        }
+        this.assertFind(3, regex, AssertionUtil.notNull(rsp.produce()));
+        this.assertFind(0, regex, AssertionUtil.notNull(rsp.produce()));
+        this.assertFind(1, regex, AssertionUtil.notNull(rsp.produce()));
+        this.assertFind(3, regex, AssertionUtil.notNull(rsp.produce()));
+        this.assertFind(0, regex, AssertionUtil.notNull(rsp.produce()));
+        this.assertFind(2, regex, AssertionUtil.notNull(rsp.produce()));
+        this.assertFind(1, regex, AssertionUtil.notNull(rsp.produce()));
+        this.assertFind(2, regex, AssertionUtil.notNull(rsp.produce()));
+        this.assertFind(4, regex, AssertionUtil.notNull(rsp.produce()));
+        this.assertFind(3, regex, AssertionUtil.notNull(rsp.produce()));
     }
 
     private static Producer<String>
@@ -135,23 +139,23 @@ class PatternTest extends OracleEssentials {
         };
     }
 
-    @Test public void testFind1() { this.harnessFull("abc",   "abc");            }
-    @Test public void testFind2() { this.harnessFull("abc",   "xxabcxx");        }
-    @Test public void testFind3() { this.harnessFull("abc",   "xxaBcxx");        }
-    @Test public void testFind4() { this.harnessFull("a.c",   "xxabcxx");        }
-    @Test public void testFind5() { this.harnessFull("a.*b",  "xxaxxbxxbxxbxx"); }
-    @Test public void testFind6() { this.harnessFull("a.*?b", "xxaxxbxxbxxbxx"); }
-    @Test public void testFind7() { this.harnessFull("a.*+b", "xxaxxbxxbxxbxx"); }
+    @Test public void testFind1() { this.assertMatches(true, "abc",   "abc");            }
+    @Test public void testFind2() { this.assertMatches(false, "abc",   "xxabcxx");        }
+    @Test public void testFind3() { this.assertMatches(false, "abc",   "xxaBcxx");        }
+    @Test public void testFind4() { this.assertMatches(false, "a.c",   "xxabcxx");        }
+    @Test public void testFind5() { this.assertMatches(false, "a.*b",  "xxaxxbxxbxxbxx"); }
+    @Test public void testFind6() { this.assertMatches(false, "a.*?b", "xxaxxbxxbxxbxx"); }
+    @Test public void testFind7() { this.assertMatches(false, "a.*+b", "xxaxxbxxbxxbxx"); }
 
-    @Test public void testLookingAt1() { this.patternFactory.compile("abc").matcher("abcdef").lookingAt(); }
-    @Test public void testLookingAt2() { this.patternFactory.compile("aBc").matcher("abcdef").lookingAt(); }
-    @Test public void testLookingAt3() { this.patternFactory.compile("a.c").matcher("abcdef").lookingAt(); }
+    @Test public void testLookingAt1() { this.assertLookingAt(true,  "abc", "abcdef"); }
+    @Test public void testLookingAt2() { this.assertLookingAt(false, "aBc", "abcdef"); }
+    @Test public void testLookingAt3() { this.assertLookingAt(true,  "a.c", "abcdef"); }
 
-    @Test public void testCaseInsensitive1() { this.harnessFull("(?i)A", "xxxAxxx");                          }
-    @Test public void testCaseInsensitive2() { this.harnessFull("(?i)A", "xxxaxxx");                          }
-    @Test public void testCaseInsensitive3() { this.harnessFull("(?i)Ä", "xxxäxxx");                          }
-    @Test public void testCaseInsensitive4() { Assert.assertTrue(this.patternFactory.matches("(?i)Ä",  "Ä")); }
-    @Test public void testCaseInsensitive5() { Assert.assertFalse(this.patternFactory.matches("(?i)Ä", "ä")); }
+    @Test public void testCaseInsensitive1() { this.assertMatches(false, "(?i)A", "xxxAxxx"); }
+    @Test public void testCaseInsensitive2() { this.assertMatches(false, "(?i)A", "xxxaxxx"); }
+    @Test public void testCaseInsensitive3() { this.assertMatches(false, "(?i)Ä", "xxxäxxx"); }
+    @Test public void testCaseInsensitive4() { this.assertMatches(true,  "(?i)Ä",  "Ä"     ); }
+    @Test public void testCaseInsensitive5() { this.assertMatches(false, "(?i)Ä",  "ä"     ); }
 
     @Test public void
     testCaseInsensitive6() {
@@ -166,7 +170,7 @@ class PatternTest extends OracleEssentials {
     @Test public void
     testCaseInsensitive8() {
         this.assertSequenceToString(
-            "[Aa]|[Bb]|[Cc]|[Dd]|[Ee]|[Ff]|[Gg]|[Hh]|[Ii]|[Jj]|[Kk]|[Ll]|[Mm]|[Nn]|[Oo]|[Pp]|[Qq]|[Rr]|[Ss]|[Tt]|[Uu]|[Vv]|[Ww]|[Xx]|[Yy]|[Zz]", // SUPPRESS CHECKSTYLE LineLength
+            "[Aa]|[Bb]|[Cc]|[Dd]|[Ee]|[Ff]|[Gg]|[Hh]|[Ii]|[Jj]|[Kk]|[Ll]|[Mm]|[Nn]|[Oo]|[Pp]|[Qq]|[Rr]|[Ss]|[Tt]|[Uu]|[Vv]|[Ww]|[Xx]|[Yy]|[Zz]",
             "abcdefghijklmnopqrstuvwxyz",
             Pattern.CASE_INSENSITIVE
         );
@@ -182,126 +186,104 @@ class PatternTest extends OracleEssentials {
         this.assertSequenceToString("[ak]|[abc]|[Öä]", "[ak][abc][äÖ]");
     }
 
-    @Test public void testUnicodeCaseInsensitive1() { this.harnessFull("(?ui)A", "xxxAxxx");                         }
-    @Test public void testUnicodeCaseInsensitive2() { this.harnessFull("(?ui)A", "xxxaxxx");                         }
-    @Test public void testUnicodeCaseInsensitive3() { this.harnessFull("(?ui)Ä", "xxxäxxx");                         }
-    @Test public void testUnicodeCaseInsensitive4() { Assert.assertTrue(this.patternFactory.matches("(?ui)Ä", "Ä")); }
-    @Test public void testUnicodeCaseInsensitive5() { Assert.assertTrue(this.patternFactory.matches("(?ui)Ä", "ä")); }
+    @Test public void testUnicodeCaseInsensitive1() { this.assertFind(1, "(?ui)A", "xxxAxxx");    }
+    @Test public void testUnicodeCaseInsensitive2() { this.assertFind(1, "(?ui)A", "xxxaxxx");    }
+    @Test public void testUnicodeCaseInsensitive3() { this.assertFind(1, "(?ui)Ä", "xxxäxxx");    }
+    @Test public void testUnicodeCaseInsensitive4() { this.assertMatches(true, "(?ui)Ä", "Ä"); }
+    @Test public void testUnicodeCaseInsensitive5() { this.assertMatches(true, "(?ui)Ä", "ä"); }
 
-    @Test public void testDotall1() { this.harnessFull(".",     " \r  ");                 }
-    @Test public void testDotall2() { this.harnessFull(".",     " \r  ", Pattern.DOTALL); }
-    @Test public void testDotall3() { this.harnessFull("(?s).", " \r  ");                 }
+    @Test public void testDotall1() { this.assertFind(3, ".",     0,              " \r  "); }
+    @Test public void testDotall2() { this.assertFind(4, ".",     Pattern.DOTALL, " \r  "); }
+    @Test public void testDotall3() { this.assertFind(4, "(?s).", 0,              " \r  "); }
 
-    @Test public void testLiteralRegex1() { this.harnessFull("$\\*",      "$\\*xxx$\\*xxx", Pattern.LITERAL);                            } // SUPPRESS CHECKSTYLE LineLength:3
-    @Test public void testLiteralRegex2() { this.harnessFull("a\\",       "a\\xxxA\\xxx",   Pattern.LITERAL | Pattern.CASE_INSENSITIVE); }
-    @Test public void testLiteralRegex3() { this.harnessFull(".\\Q.\\E.", " ___ ");                                                      }
-    @Test public void testLiteralRegex4() { this.harnessFull(".\\Q.\\E.", " _._ ");                                                      }
+    @Test public void testLiteralRegex1() { this.assertFind(2, "$\\*",      Pattern.LITERAL,                            "$\\*xxx$\\*xxx"); }
+    @Test public void testLiteralRegex2() { this.assertFind(2, "a\\",       Pattern.LITERAL | Pattern.CASE_INSENSITIVE, "a\\xxxA\\xxx");   }
+    @Test public void testLiteralRegex3() { this.assertFind(0, ".\\Q.\\E.", 0,                                          " ___ ");          }
+    @Test public void testLiteralRegex4() { this.assertFind(1, ".\\Q.\\E.", 0,                                          " _._ ");          }
 
-    @Test public void testBoundaries1()  { this.harnessFull("^.",   "___\r___\r\n___\u2028___");                    } // SUPPRESS CHECKSTYLE LineLength:15
-    @Test public void testBoundaries2()  { this.harnessFull(".$",   "___\r___\r\n___\u2028___");                    }
-    @Test public void testBoundaries3()  { this.harnessFull("^.",   "___\r___\r\n___\u2028___", Pattern.MULTILINE); }
-    @Test public void testBoundaries4()  { this.harnessFull(".$",   "___\r___\r\n___\u2028___", Pattern.MULTILINE); }
-    @Test public void testBoundaries5()  { this.harnessFull("\\b",  " a b c");                                      }
-    @Test public void testBoundaries6()  { this.harnessFull("\\B",  " a b c");                                      }
-    @Test public void testBoundaries7()  { this.harnessFull("\\A",  "bla\rbla");                                    }
-    @Test public void testBoundaries8()  { this.harnessFull("\\Ga", "aaabbb");                                      }
-    @Test public void testBoundaries9()  { this.harnessFull(".\\Z", "abc");                                         }
-    @Test public void testBoundaries10() { this.harnessFull(".\\Z", "abc\n");                                       }
-    @Test public void testBoundaries11() { this.harnessFull(".\\Z", "abc\r\nd");                                    }
-    @Test public void testBoundaries12() { this.harnessFull(".\\z", "abc\n");                                       }
-    //@Test public void testBoundaries13() { this.harnessFull(".\\z", "abc\r\nd");                                    } JRE says !requireEnd !?
-    @Test public void testBoundaries14() { this.harnessFull(".",    "abc",                      Pattern.MULTILINE); }
-    @Test public void testBoundaries15() { this.harnessFull(".",    "abc\n",                    Pattern.MULTILINE); }
-    @Test public void testBoundaries16() { this.harnessFull(".",    "abc\r\nd",                 Pattern.MULTILINE); }
+    @Test public void testBoundaries1()  { this.assertFind(1, "^.",   0,                 "___\r___\r\n___\u2028___"); }
+    @Test public void testBoundaries2()  { this.assertFind(1, ".$",   0,                 "___\r___\r\n___\u2028___"); }
+    @Test public void testBoundaries3()  { this.assertFind(4, "^.",   Pattern.MULTILINE, "___\r___\r\n___\u2028___"); }
+    @Test public void testBoundaries4()  { this.assertFind(4, ".$",   Pattern.MULTILINE, "___\r___\r\n___\u2028___"); }
+    @Test public void testBoundaries5()  { this.assertFind(6, "\\b",  0,                 " a b c");                   }
+    @Test public void testBoundaries6()  { this.assertFind(1, "\\B",  0,                 " a b c");                   }
+    @Test public void testBoundaries7()  { this.assertFind(1, "\\A",  0,                 "bla\rbla");                 }
+    @Test public void testBoundaries8()  { this.assertFind(3, "\\Ga", 0,                 "aaabbb");                   }
+    @Test public void testBoundaries9()  { this.assertFind(1, ".\\Z", 0,                 "abc");                      }
+    @Test public void testBoundaries10() { this.assertFind(1, ".\\Z", 0,                 "abc\n");                    }
+    @Test public void testBoundaries11() { this.assertFind(1, ".\\Z", 0,                 "abc\r\nd");                 }
+    @Test public void testBoundaries12() { this.assertFind(0, ".\\z", 0,                 "abc\n");                    }
+    //@Test public void testBoundaries13() { this.assertFind(2, ".\\z", "abc\r\nd");                                    } JRE says !requireEnd !?
+    @Test public void testBoundaries14() { this.assertFind(3, ".",    Pattern.MULTILINE, "abc");                      }
+    @Test public void testBoundaries15() { this.assertFind(3, ".",    Pattern.MULTILINE, "abc\n");                    }
+    @Test public void testBoundaries16() { this.assertFind(4, ".",    Pattern.MULTILINE, "abc\r\nd");                 }
 
-    @Test public void
-    testMatchFlagsGroup() {
-        this.harnessFull("a(?i)b", " ab Ab aB AB ");
-    }
+    @Test public void testMatchFlagsGroup() { this.assertFind(2, "a(?i)b", " ab Ab aB AB "); }
 
-    @Test public void
-    testMatchFlagsCapturingGroup1() {
-        this.harnessFull("a((?i)b)c",       " abc abC aBc aBC Abc AbC ABc ABC ");
-    }
+    @Test public void testMatchFlagsCapturingGroup1() { this.assertFind(2, "a((?i)b)c",       " abc abC aBc aBC Abc AbC ABc ABC "); }
 
-    @Test public void
-    testMatchFlagsCapturingGroup2() {
-        if (PatternTest.JRE_VERSION < 7) return;
-        this.harnessFull("a(?<xxx>(?i)b)c", " abc abC aBc aBC Abc AbC ABc ABC ");
-    }
+    @Test public void testMatchFlagsCapturingGroup2() { this.assertFind(2, "a(?<xxx>(?i)b)c", " abc abC aBc aBC Abc AbC ABc ABC "); }
 
     @Test public void
     testMatchFlagsNonCapturingGroup() {
         String regex = "a(?i:b)c";
-        this.assertSequenceToString("[a]|[Bb]|[c]", regex); // SUPPRESS CHECKSTYLE LineLength
-        this.harnessFull(regex, " abc abC aBc aBC Abc AbC ABc ABC ");
+        this.assertSequenceToString("[a]|[Bb]|[c]", regex);
+        this.assertFind(2, regex, " abc abC aBc aBC Abc AbC ABc ABC ");
     }
 
     @Test public void
     testAlternatives1() {
-        this.harnessFull("a|b",        " a b c ");
-        this.harnessFull("a(?:b|bb)c", " ac abc abbc abbbc ");
+        this.assertFind(2, "a|b",        " a b c ");
+        this.assertFind(2, "a(?:b|bb)c", " ac abc abbc abbbc ");
     }
 
-    @Test public void
-    testAlternatives2() {
-        this.harnessFull("a|aa|aaa", " aaaa ");
-        this.harnessFull("a|aaa|aa", " aaaa ");
-        this.harnessFull("aa|a|aaa", " aaaa ");
-        this.harnessFull("aa|aaa|a", " aaaa ");
-        this.harnessFull("aaa|a|aa", " aaaa ");
-        this.harnessFull("aaa|aa|a", " aaaa ");
-    }
+    @Test public void testAlternatives2a() { this.assertFind(4, "a|aa|aaa", " aaaa "); }
+    @Test public void testAlternatives2b() { this.assertFind(4, "a|aaa|aa", " aaaa "); }
+    @Test public void testAlternatives2c() { this.assertFind(2, "aa|a|aaa", " aaaa "); }
+    @Test public void testAlternatives2d() { this.assertFind(2, "aa|aaa|a", " aaaa "); }
+    @Test public void testAlternatives2e() { this.assertFind(2, "aaa|a|aa", " aaaa "); }
+    @Test public void testAlternatives2f() { this.assertFind(2, "aaa|aa|a", " aaaa "); }
 
-    @Test public void
-    testIndependentGroup() {
-        this.harnessFull("(?>a|b)",    " a b c ");
-        this.harnessFull("a(?>b|bb)c", " ac abc abbc abbbc ");
-    }
+    @Test public void testIndependentGroup1() { this.assertFind(2, "(?>a|b)",    " a b c ");             }
+    @Test public void testIndependentGroup2() { this.assertFind(1, "a(?>b|bb)c", " ac abc abbc abbbc "); }
 
     // ======================================== CHARACTER CLASSES ========================================
 
-    @Test public void testPredefinedCharacterClasses1() {                                   this.harnessFull("\\w",     " abc äöü "); } // SUPPRESS CHECKSTYLE LineLength:3
-    @Test public void testPredefinedCharacterClasses2() { if (PatternTest.JRE_VERSION >= 7) this.harnessFull("(?U)\\w", " abc äöü "); }
-    @Test public void testPredefinedCharacterClasses3() {                                   this.harnessFull("\\W",     " abc äöü "); }
-    @Test public void testPredefinedCharacterClasses4() { if (PatternTest.JRE_VERSION >= 7) this.harnessFull("(?U)\\W", " abc äöü "); }
+    @Test public void testPredefinedCharacterClasses1() { this.assertFind(3, "\\w",     " abc äöü "); }
+    @Test public void testPredefinedCharacterClasses2() { this.assertFind(6, "(?U)\\w", " abc äöü "); }
+    @Test public void testPredefinedCharacterClasses3() { this.assertFind(6, "\\W",     " abc äöü "); }
+    @Test public void testPredefinedCharacterClasses4() { this.assertFind(3, "(?U)\\W", " abc äöü "); }
 
-    @Test public void testPosixCharacterClasses1() {                                   this.harnessFull("\\p{Lower}",     " abc äöü "); } // SUPPRESS CHECKSTYLE LineLength:3
-    @Test public void testPosixCharacterClasses2() { if (PatternTest.JRE_VERSION >= 7) this.harnessFull("(?U)\\p{Lower}", " abc äöü "); }
-    @Test public void testPosixCharacterClasses3() {                                   this.harnessFull("\\P{Lower}",     " abc äöü "); }
-    @Test public void testPosixCharacterClasses4() { if (PatternTest.JRE_VERSION >= 7) this.harnessFull("(?U)\\P{Lower}", " abc äöü "); }
+    @Test public void testPosixCharacterClasses1() { this.assertFind(3, "\\p{Lower}",     " abc äöü "); }
+    @Test public void testPosixCharacterClasses2() { this.assertFind(6, "(?U)\\p{Lower}", " abc äöü "); }
+    @Test public void testPosixCharacterClasses3() { this.assertFind(6, "\\P{Lower}",     " abc äöü "); }
+    @Test public void testPosixCharacterClasses4() { this.assertFind(3, "(?U)\\P{Lower}", " abc äöü "); }
 
-    @Test public void
-    testJavaCharacterClasses1() {
-        this.harnessFull("\\p{javaLowerCase}", " a B c ä Ä ");
-    }
+    @Test public void testJavaCharacterClasses1() { this.assertFind(3, "\\p{javaLowerCase}", " a B c ä Ä "); }
 
-    @Test public void
-    testJavaCharacterClasses2() {
-        this.harnessFull("\\P{javaLowerCase}", " a B c ä Ä ");
-        this.assertPatternSyntaxException("\\P{JavaLowerCase}");
-        this.assertPatternSyntaxException("\\P{JAVALOWERCASE}");
-        this.assertPatternSyntaxException("\\P{javalowercase}");
-        this.assertPatternSyntaxException("\\P{IsJavaLowerCase}");
-    }
+    @Test public void testJavaCharacterClasses2a() { this.assertFind(8, "\\P{javaLowerCase}", " a B c ä Ä ");   }
+    @Test public void testJavaCharacterClasses2b() { this.assertPatternSyntaxException("\\P{JavaLowerCase}");   }
+    @Test public void testJavaCharacterClasses2c() { this.assertPatternSyntaxException("\\P{JAVALOWERCASE}");   }
+    @Test public void testJavaCharacterClasses2e() { this.assertPatternSyntaxException("\\P{javalowercase}");   }
+    @Test public void testJavaCharacterClasses2f() { this.assertPatternSyntaxException("\\P{IsJavaLowerCase}"); }
 
     // By "UNICODE script":
-    @Test public void testUnicodeCharacterClasses1() {  if (PatternTest.JRE_VERSION >= 7) this.harnessFull("\\p{IsLatin}",       " a B c ä Ä "); } // SUPPRESS CHECKSTYLE LineLength
+    @Test public void testUnicodeCharacterClasses1() { this.assertFind(5, "\\p{IsLatin}",       " a B c ä Ä "); }
 
     // By "UNICODE block":
-    @Test public void testUnicodeCharacterClasses2() { this.harnessFull("\\p{InGreek}",       " \u03b1 ");    } // SUPPRESS CHECKSTYLE LineLength:2
-    @Test public void testUnicodeCharacterClasses3() { this.harnessFull("\\p{InBasicLatin}",  " a B c ä Ä "); }
-    @Test public void testUnicodeCharacterClasses4() { this.harnessFull("\\P{InBasicLatin}",  " a B c ä Ä "); }
+    @Test public void testUnicodeCharacterClasses2() { this.assertFind(1, "\\p{InGreek}",       " \u03b1 ");    }
+    @Test public void testUnicodeCharacterClasses3() { this.assertFind(9, "\\p{InBasicLatin}",  " a B c ä Ä "); }
+    @Test public void testUnicodeCharacterClasses4() { this.assertFind(2, "\\P{InBasicLatin}",  " a B c ä Ä "); }
 
     // By "UNICODE category":
-    @Test public void testUnicodeCharacterClasses5() { this.harnessFull("\\p{Lu}",            " a B c ä Ä "); } // SUPPRESS CHECKSTYLE LineLength:3
-    @Test public void testUnicodeCharacterClasses6() { this.harnessFull("\\P{Lu}",            " a B c ä Ä "); }
-    @Test public void testUnicodeCharacterClasses7() { this.harnessFull("\\p{Sc}",            " a $ ");       }
-    @Test public void testUnicodeCharacterClasses8() { this.harnessFull("\\P{Sc}",            " a $ ");       }
+    @Test public void testUnicodeCharacterClasses5() { this.assertFind(2, "\\p{Lu}",            " a B c ä Ä "); }
+    @Test public void testUnicodeCharacterClasses6() { this.assertFind(9, "\\P{Lu}",            " a B c ä Ä "); }
+    @Test public void testUnicodeCharacterClasses7() { this.assertFind(1, "\\p{Sc}",            " a $ ");       }
+    @Test public void testUnicodeCharacterClasses8() { this.assertFind(4, "\\P{Sc}",            " a $ ");       }
 
     // By "UNICODE property":
-    @Test public void testUnicodeCharacterClasses9()  { if (PatternTest.JRE_VERSION >= 7) this.harnessFull("\\p{IsLowerCASE}",  " abc äöü "); } // SUPPRESS CHECKSTYLE LineLength:1
-    @Test public void testUnicodeCharacterClasses10() { if (PatternTest.JRE_VERSION >= 7) this.harnessFull("\\p{IsAlphabetic}", " abc äöü "); }
+    @Test public void testUnicodeCharacterClasses9()  { this.assertFind(6, "\\p{IsLowerCASE}",  " abc äöü "); }
+    @Test public void testUnicodeCharacterClasses10() { this.assertFind(6, "\\p{IsAlphabetic}", " abc äöü "); }
 
     @Test public void
     testSupplementaryCharacterClasses() {
@@ -332,20 +314,12 @@ class PatternTest extends OracleEssentials {
 
     // ======================================== END OF CHARACTER CLASSES ========================================
 
-    @Test public void
-    testCapturingGroups() {
-        this.harnessFull("((a+)(b+))", " abbb aabb aaab ");
-    }
+    @Test public void testCapturingGroups() { this.assertFind(3, "((a+)(b+))", " abbb aabb aaab "); }
 
-    @Test public void
-    testNamedCapturingGroups1() {
-        if (PatternTest.JRE_VERSION >= 7) this.harnessFull("(?<xxx>a+)", " a aa aaa");
-    }
+    @Test public void testNamedCapturingGroups1() { this.assertFind(3, "(?<xxx>a+)", " a aa aaa"); }
 
     @Test public void
     testNamedCapturingGroups2() {
-
-        if (PatternTest.JRE_VERSION < 7) return;
 
         Matcher matcher = this.patternFactory.compile("(?<xxx>a+)").matcher(" a aa aaa");
 
@@ -368,91 +342,85 @@ class PatternTest extends OracleEssentials {
         this.patternFactory.compile("(\\d\\d)\\2").matcher(" a aa aaa").replaceAll("x");
     }
 
-    @Test public void
-    testNamedCapturingGroupsBackreference1() {
-        if (PatternTest.JRE_VERSION >= 7) this.harnessFull("(?<first>\\w)\\k<first>", " a aa aaa");
-    }
+    @Test public void testNamedCapturingGroupsBackreference1() { this.assertFind(2, "(?<first>\\w)\\k<first>", " a aa aaa"); }
 
     @Test public void
     testNamedCapturingGroupsBackreference2() {
 
         // Backreference to inexistent named group.
-        if (PatternTest.JRE_VERSION >= 7) this.assertPatternSyntaxException("(?<first>\\w)\\k<bla>");
+        this.assertPatternSyntaxException("(?<first>\\w)\\k<bla>");
     }
 
-    @Test public void testPositiveLookahead1() { this.harnessFull("a(?=b)",   " a aba abba a"); }
-    @Test public void testPositiveLookahead2() { this.harnessFull("a(?=(b))", " a aba abba a"); }
+    @Test public void testPositiveLookahead1() { this.assertFind(2, "a(?=b)",   " a aba abba a"); }
+    @Test public void testPositiveLookahead2() { this.assertFind(2, "a(?=(b))", " a aba abba a"); }
 
-    @Test public void testNegativeLookahead1() { this.harnessFull("a(?!b)",   " a aba abba a"); }
-    @Test public void testNegativeLookahead2() { this.harnessFull("a(?!(b))", " a aba abba a"); }
+    @Test public void testNegativeLookahead1() { this.assertFind(4, "a(?!b)",   " a aba abba a"); }
+    @Test public void testNegativeLookahead2() { this.assertFind(4, "a(?!(b))", " a aba abba a"); }
 
-    @Test public void testPositiveLookbehind1() {                                   this.harnessFull("(?<=b)a",     " a aba abba a"); } // SUPPRESS CHECKSTYLE LineLength:4
-    @Test public void testPositiveLookbehind2() {                                   this.harnessFull("(?<=(b))a",   " a aba abba a"); }
-    @Test public void testPositiveLookbehind3() { if (PatternTest.JRE_VERSION >= 8) this.harnessFull("(?<=\\R )a",  " \r\n a ");      }
-    @Test public void testPositiveLookbehind4() { if (PatternTest.JRE_VERSION >= 8) this.harnessFull("(?<=\\R )a",  " \r a ");        }
-    @Test public void testPositiveLookbehind5() { if (PatternTest.JRE_VERSION >= 8) this.harnessFull("(?<=\\R )a",  " \n a ");        }
+    @Test public void testPositiveLookbehind1() { this.assertFind(2, "(?<=b)a",     " a aba abba a"); }
+    @Test public void testPositiveLookbehind2() { this.assertFind(2, "(?<=(b))a",   " a aba abba a"); }
+    @Test public void testPositiveLookbehind3() { this.assertFind(1, "(?<=\\R )a",  " \r\n a ");      }
+    @Test public void testPositiveLookbehind4() { this.assertFind(1, "(?<=\\R )a",  " \r a ");        }
+    @Test public void testPositiveLookbehind5() { this.assertFind(1, "(?<=\\R )a",  " \n a ");        }
 
-    @Test public void
-    testPositiveLookbehind6() {
-        this.harnessFull("(?<=^\t*)\t", "\t\t\tpublic static void main()");
-    }
+    @Test public void testPositiveLookbehind6() { this.assertFind(3, "(?<=^\t*)\t", "\t\t\tpublic static void main()"); }
 
     @Test public void
     testPositiveLookbehind7() {
         this.patternFactory.compile("(?<=^\\s*)    ").matcher("        public static void main()").replaceAll("\t");
     }
 
-    @Test public void testNegativeLookbehind1() { this.harnessFull("(?<!b)a",     " a aba abba a"); }
-    @Test public void testNegativeLookbehind2() { this.harnessFull("(?<!(b))a",   " a aba abba a"); }
-    @Test public void testNegativeLookbehind3() { this.harnessFull("(?<!(?:b))a", " a aba abba a"); }
-    @Test public void testNegativeLookbehind4() { this.harnessFull("(?<!b)a",     " a aba abba a"); }
+    @Test public void testNegativeLookbehind1() { this.assertFind(4, "(?<!b)a",     " a aba abba a"); }
+    @Test public void testNegativeLookbehind2() { this.assertFind(4, "(?<!(b))a",   " a aba abba a"); }
+    @Test public void testNegativeLookbehind3() { this.assertFind(4, "(?<!(?:b))a", " a aba abba a"); }
+    @Test public void testNegativeLookbehind4() { this.assertFind(4, "(?<!b)a",     " a aba abba a"); }
 
-    @Test public void testRegion1() { this.harnessFull("a", "__a__ a aba abba __a__", 0, 5, 17);               } // SUPPRESS CHECKSTYLE LineLength:5
-    @Test public void testRegion2() { this.harnessFull("^", "__a__ a aba abba __a__", 0, 5, 17);               }
-    @Test public void testRegion3() { this.harnessFull("^", "__a__ a aba abba __a__", 0, 5, 17, false, false); }
-    @Test public void testRegion4() { this.harnessFull("^", "__a__ a aba abba __a__", 0, 5, 17, false, true);  }
-    @Test public void testRegion5() { this.harnessFull("^", "__a__ a aba abba __a__", 0, 5, 17, true,  false); }
-    @Test public void testRegion6() { this.harnessFull("^", "__a__ a aba abba __a__", 0, 5, 17, true,  true);  }
+    @Test public void testRegion1() { this.assertFind(5, "a", 0, "__a__ a aba abba __a__", 5, 17);               }
+    @Test public void testRegion2() { this.assertFind(1, "^", 0, "__a__ a aba abba __a__", 5, 17);               }
+    @Test public void testRegion3() { this.assertFind(0, "^", 0, "__a__ a aba abba __a__", 5, 17, false, false); }
+    @Test public void testRegion4() { this.assertFind(1, "^", 0, "__a__ a aba abba __a__", 5, 17, false, true);  }
+    @Test public void testRegion5() { this.assertFind(0, "^", 0, "__a__ a aba abba __a__", 5, 17, true,  false); }
+    @Test public void testRegion6() { this.assertFind(1, "^", 0, "__a__ a aba abba __a__", 5, 17, true,  true);  }
 
-    @Test public void testTransparentBounds1() { this.harnessFull("\\b",     "__a__ a aba abba __a__", 0, 5, 17, true); } // SUPPRESS CHECKSTYLE LineLength
+    @Test public void testTransparentBounds1() { this.assertFind(8, "\\b",     0, "__a__ a aba abba __a__", 5, 17, true); }
 
     // Lookahead.
-    @Test public void testTransparentBounds2() { this.harnessFull(" (?=_)",  "__a__ a aba abba __a__", 0, 5, 17, true); } // SUPPRESS CHECKSTYLE LineLength:1
-    @Test public void testTransparentBounds3() { this.harnessFull(" (?!_)",  "__a__ a aba abba __a__", 0, 5, 17, true); }
+    @Test public void testTransparentBounds2() { this.assertFind(1, " (?=_)",  0, "__a__ a aba abba __a__", 5, 17, true); }
+    @Test public void testTransparentBounds3() { this.assertFind(3, " (?!_)",  0, "__a__ a aba abba __a__", 5, 17, true); }
 
     // Lookbehind.
-    @Test public void testTransparentBounds4() { this.harnessFull("(?<=_) ", "__a__ a aba abba __a__", 0, 5, 17, true); } // SUPPRESS CHECKSTYLE LineLength:1
-    @Test public void testTransparentBounds5() { this.harnessFull("(?<!_) ", "__a__ a aba abba __a__", 0, 5, 17, true); }
+    @Test public void testTransparentBounds4() { this.assertFind(1, "(?<=_) ", 0, "__a__ a aba abba __a__", 5, 17, true); }
+    @Test public void testTransparentBounds5() { this.assertFind(3, "(?<!_) ", 0, "__a__ a aba abba __a__", 5, 17, true); }
 
-    @Test public void testAnchoringBounds1() { this.harnessFull("^",  "__a__ a aba abba __a__", 0, 5, 17, null, false); } // SUPPRESS CHECKSTYLE LineLength:1
-    @Test public void testAnchoringBounds2() { this.harnessFull("$",  "__a__ a aba abba __a__", 0, 5, 17, null, false); }
+    @Test public void testAnchoringBounds1() { this.assertFind(0, "^", 0, "__a__ a aba abba __a__", 5, 17, null, false); }
+    @Test public void testAnchoringBounds2() { this.assertFind(0, "$", 0, "__a__ a aba abba __a__", 5, 17, null, false); }
 
-    @Test public void testUnixLines1() { if (PatternTest.JRE_VERSION >= 8) this.harnessFull("\\R",  "  \n  \r\n \u2028 ");                     } // SUPPRESS CHECKSTYLE LineLength:3
-    @Test public void testUnixLines2() { if (PatternTest.JRE_VERSION >= 8) this.harnessFull("\\R",  "  \n  \r\n \u2028 ", Pattern.UNIX_LINES); }
-    @Test public void testUnixLines3() {                                   this.harnessFull("^",    "  \n  \r\n \u2028 ");                     }
-    @Test public void testUnixLines4() {                                   this.harnessFull("^",    "  \n  \r\n \u2028 ", Pattern.UNIX_LINES); }
+    @Test public void testUnixLines1() { this.assertFind(3, "\\R", 0,                  "  \n  \r\n \u2028 "); }
+    @Test public void testUnixLines2() { this.assertFind(3, "\\R", Pattern.UNIX_LINES, "  \n  \r\n \u2028 "); }
+    @Test public void testUnixLines3() { this.assertFind(1, "^",   0,                  "  \n  \r\n \u2028 "); }
+    @Test public void testUnixLines4() { this.assertFind(1, "^",   Pattern.UNIX_LINES, "  \n  \r\n \u2028 "); }
 
-    @Test public void testQuantifiers1a() { this.harnessFull("a?",     " aaa "); }
-    @Test public void testQuantifiers1b() { this.harnessFull("a??",    " aaa "); }
-    @Test public void testQuantifiers1c() { this.harnessFull("a?+",    " aaa "); }
-    @Test public void testQuantifiers2a() { this.harnessFull("a*",     " aaa "); }
-    @Test public void testQuantifiers2b() { this.harnessFull("a*?",    " aaa "); }
-    @Test public void testQuantifiers2c() { this.harnessFull("a*+",    " aaa "); }
-    @Test public void testQuantifiers3a() { this.harnessFull("a+",     " aaa "); }
-    @Test public void testQuantifiers3b() { this.harnessFull("a+?",    " aaa "); }
-    @Test public void testQuantifiers3c() { this.harnessFull("a++",    " aaa "); }
-    @Test public void testQuantifiers4a() { this.harnessFull("a{0}",   " aaa "); }
-    @Test public void testQuantifiers4b() { this.harnessFull("a{0}?",  " aaa "); }
-    @Test public void testQuantifiers4c() { this.harnessFull("a{0}+",  " aaa "); }
-    @Test public void testQuantifiers5a() { this.harnessFull("a{1}",   " aaa "); }
-    @Test public void testQuantifiers5b() { this.harnessFull("a{1}?",  " aaa "); }
-    @Test public void testQuantifiers5c() { this.harnessFull("a{1}+",  " aaa "); }
-    @Test public void testQuantifiers6a() { this.harnessFull("a{2}",   " aaa "); }
-    @Test public void testQuantifiers6b() { this.harnessFull("a{2}?",  " aaa "); }
-    @Test public void testQuantifiers6c() { this.harnessFull("a{2}+",  " aaa "); }
-    @Test public void testQuantifiers7a() { this.harnessFull("a{0,}",  " aaa "); }
-    @Test public void testQuantifiers7b() { this.harnessFull("a{0,}?", " aaa "); }
-    @Test public void testQuantifiers7c() { this.harnessFull("a{0,}+", " aaa "); }
+    @Test public void testQuantifiers1a() { this.assertFind(6, "a?",     " aaa "); }
+    @Test public void testQuantifiers1b() { this.assertFind(6, "a??",    " aaa "); }
+    @Test public void testQuantifiers1c() { this.assertFind(6, "a?+",    " aaa "); }
+    @Test public void testQuantifiers2a() { this.assertFind(4, "a*",     " aaa "); }
+    @Test public void testQuantifiers2b() { this.assertFind(6, "a*?",    " aaa "); }
+    @Test public void testQuantifiers2c() { this.assertFind(4, "a*+",    " aaa "); }
+    @Test public void testQuantifiers3a() { this.assertFind(1, "a+",     " aaa "); }
+    @Test public void testQuantifiers3b() { this.assertFind(3, "a+?",    " aaa "); }
+    @Test public void testQuantifiers3c() { this.assertFind(1, "a++",    " aaa "); }
+    @Test public void testQuantifiers4a() { this.assertFind(6, "a{0}",   " aaa "); }
+    @Test public void testQuantifiers4b() { this.assertFind(6, "a{0}?",  " aaa "); }
+    @Test public void testQuantifiers4c() { this.assertFind(6, "a{0}+",  " aaa "); }
+    @Test public void testQuantifiers5a() { this.assertFind(3, "a{1}",   " aaa "); }
+    @Test public void testQuantifiers5b() { this.assertFind(3, "a{1}?",  " aaa "); }
+    @Test public void testQuantifiers5c() { this.assertFind(3, "a{1}+",  " aaa "); }
+    @Test public void testQuantifiers6a() { this.assertFind(1, "a{2}",   " aaa "); }
+    @Test public void testQuantifiers6b() { this.assertFind(1, "a{2}?",  " aaa "); }
+    @Test public void testQuantifiers6c() { this.assertFind(1, "a{2}+",  " aaa "); }
+    @Test public void testQuantifiers7a() { this.assertFind(4, "a{0,}",  " aaa "); }
+    @Test public void testQuantifiers7b() { this.assertFind(6, "a{0,}?", " aaa "); }
+    @Test public void testQuantifiers7c() { this.assertFind(4, "a{0,}+", " aaa "); }
 
     @Test public void
     testLongLiteralString() {
@@ -528,37 +496,15 @@ class PatternTest extends OracleEssentials {
     static char   clefLowSurrogate  = PatternTest.lowSurrogateOf(PatternTest.clef);
     static String clefUnicode       = "" + PatternTest.clefHighSurrogate + PatternTest.clefLowSurrogate;
 
-    @Test public void
-    testSurrogates1() {
-        this.harnessFull(PatternTest.clefUnicode,       PatternTest.clefUnicode);
-    }
-
-    @Test public void
-    testSurrogates2() {
-        this.harnessFull(PatternTest.clefUnicode + "?", "");
-    }
-
-    @Test public void
-    testSurrogates3() {
-//        this.harnessFull(PatternTest.clefUnicode + "?", "" + PatternTest.clefHighSurrogate);
-    }
-
-    @Test public void
-    testSurrogates4() {
-        this.harnessFull(PatternTest.clefUnicode + "?", "" + PatternTest.clefLowSurrogate);
-    }
-
-    @Test public void
-    testSurrogates5() {
-        this.harnessFull(
-            PatternTest.clefUnicode + "?",
-            PatternTest.clefUnicode
-        );
-    }
+    @Test public void testSurrogates1() { this.assertFind(1, PatternTest.clefUnicode,       PatternTest.clefUnicode);            }
+    @Test public void testSurrogates2() { this.assertFind(1, PatternTest.clefUnicode + "?", "");                                 }
+//    @Test public void testSurrogates3() { this.assertFind(1, PatternTest.clefUnicode + "?", "" + PatternTest.clefHighSurrogate); } 
+    @Test public void testSurrogates4() { this.assertFind(2, PatternTest.clefUnicode + "?", "" + PatternTest.clefLowSurrogate);  } 
+    @Test public void testSurrogates5() { this.assertFind(2, PatternTest.clefUnicode + "?", PatternTest.clefUnicode);            }
 
     @Test public void
     testSurrogates6() {
-//        this.harnessFull(
+//        this.assertFind(1, 
 //            PatternTest.clefUnicode + "?",
 //            "" + PatternTest.clefLowSurrogate + PatternTest.clefHighSurrogate // <= high/low surrogates reversed!
 //        );
@@ -568,49 +514,50 @@ class PatternTest extends OracleEssentials {
     testPreviousMatchBoundary() {
 
         // From: http://stackoverflow.com/questions/2708833
-        this.harnessFull(
+        this.assertFind(
+            3,
             "(?<=\\G\\d{3})(?=\\d)" + "|" + "(?<=^-?\\d{1,3})(?=(?:\\d{3})+(?!\\d))",
             "-1234567890.1234567890"
         );
     }
 
-    @Test public void testAtomicGroups1() { this.harnessFull("^a(bc|b)c$",   "abc");  }
-    @Test public void testAtomicGroups2() { this.harnessFull("^a(bc|b)c$",   "abcc"); }
-    @Test public void testAtomicGroups3() { this.harnessFull("^a(?>bc|b)c$", "abc");  }
-    @Test public void testAtomicGroups4() { this.harnessFull("^a(?>bc|b)c$", "abcc"); }
+    @Test public void testAtomicGroups1() { this.assertFind(1, "^a(bc|b)c$",   "abc");  }
+    @Test public void testAtomicGroups2() { this.assertFind(1, "^a(bc|b)c$",   "abcc"); }
+    @Test public void testAtomicGroups3() { this.assertFind(0, "^a(?>bc|b)c$", "abc");  }
+    @Test public void testAtomicGroups4() { this.assertFind(1, "^a(?>bc|b)c$", "abcc"); }
 
     /**
      * @see <a href="http://stackoverflow.com/questions/17618812">Clarification about requireEnd Matcher's method</a>
      */
-    @Test public void testRequireEnd1() { this.harnessFull("cat$",           "I have a cat");     }
-    @Test public void testRequireEnd2() { this.harnessFull("cat$",           "I have a catflap"); }
-    @Test public void testRequireEnd3() { this.harnessFull("cat",            "I have a cat");     }
-    @Test public void testRequireEnd4() { this.harnessFull("cat",            "I have a catflap"); }
-    @Test public void testRequireEnd5() { this.harnessFull("\\d+\\b|[><]=?", "1234");             }
-    @Test public void testRequireEnd6() { this.harnessFull("\\d+\\b|[><]=?", ">=");               }
-    @Test public void testRequireEnd7() { this.harnessFull("\\d+\\b|[><]=?", "<");                }
+    @Test public void testRequireEnd1() { this.assertFind(1, "cat$",           "I have a cat");     }
+    @Test public void testRequireEnd2() { this.assertFind(0, "cat$",           "I have a catflap"); }
+    @Test public void testRequireEnd3() { this.assertFind(1, "cat",            "I have a cat");     }
+    @Test public void testRequireEnd4() { this.assertFind(1, "cat",            "I have a catflap"); }
+    @Test public void testRequireEnd5() { this.assertFind(1, "\\d+\\b|[><]=?", "1234");             }
+    @Test public void testRequireEnd6() { this.assertFind(1, "\\d+\\b|[><]=?", ">=");               }
+    @Test public void testRequireEnd7() { this.assertFind(1, "\\d+\\b|[><]=?", "<");                }
 
-    @Test public void testComments1()  {                                   this.harnessFull(" a# comment \nb ",    " ab a# comment \nb", Pattern.COMMENTS); } // SUPPRESS CHECKSTYLE LineLength:20
-    @Test public void testComments2()  {                                   this.harnessFull("(?x)  a  ",           " a ");                                  }
-    @Test public void testComments3()  {                                   this.harnessFull("(?x)  a  (?-x) b",    " ab ");                                 }
-    @Test public void testComments4()  {                                   this.harnessFull("(?x)  a  (?-x) b",    " a b ");                                }
-    @Test public void testComments5()  {                                   this.harnessFull("(?x)  a#\n  (?-x) b", " ab ");                                 }
-    @Test public void testComments6()  {                                   this.harnessFull("(?x)  a#\n  (?-x) b", " a b ");                                }
-    @Test public void testComments7()  {                                   this.harnessFull("(?x)  (a)",           " a b ");                                }
-    @Test public void testComments8()  {                                   this.harnessFull("(?x)  (?:a)",         " a b ");                                }
-    @Test public void testComments9()  {                                   this.harnessFull("(?x)  ( ?:a)",        " a b ");                                }
-    @Test public void testComments10() {                                   this.harnessFull("(?x)  (?: a)",        " a b ");                                }
-    @Test public void testComments11() {                                   this.harnessFull("(?x)  (? : a)",       " a b ");                                }
-    @Test public void testComments12() {                                   this.harnessFull("(?x)  ( ? :a)",       " a b ");                                }
-    @Test public void testComments13() {                                   this.harnessFull("(?x)  ( ?: a)",       " a b ");                                }
-    @Test public void testComments14() {                                   this.harnessFull("(?x)  ( ? : a)",      " a b ");                                }
-    @Test public void testComments15() { if (PatternTest.JRE_VERSION >= 7) this.harnessFull("(?x)  (?<name>a)",    " a b ");                                }
-    @Test public void testComments16() { if (PatternTest.JRE_VERSION >= 7) this.harnessFull("(?x)  ( ?<name>a)",   " a b ");                                }
-    @Test public void testComments17() { if (PatternTest.JRE_VERSION >= 7) this.assertPatternSyntaxException("(?x)  (? <name>a)");                          }
-    @Test public void testComments18() { if (PatternTest.JRE_VERSION >= 7) this.harnessFull("(?x)  (?< name>a)", " a b ");                                  }
-    @Test public void testComments19() { if (PatternTest.JRE_VERSION >= 7) this.assertPatternSyntaxException("(?x)  (? < name>a)");                         }
-    @Test public void testComments20() { if (PatternTest.JRE_VERSION >= 7) this.harnessFull("(?x)  ( ?< name>a)", " a b ");                                 }
-    @Test public void testComments21() { if (PatternTest.JRE_VERSION >= 7) this.assertPatternSyntaxException("(?x)  ( ? < name>a)");                        }
+    @Test public void testComments1()  { this.assertFind(1, " a# comment \nb ",    Pattern.COMMENTS, " ab a# comment \nb"); }
+    @Test public void testComments2()  { this.assertFind(1, "(?x)  a  ",           0,                " a ");                                  }
+    @Test public void testComments3()  { this.assertFind(0, "(?x)  a  (?-x) b",    0,                " ab ");                                 }
+    @Test public void testComments4()  { this.assertFind(1, "(?x)  a  (?-x) b",    0,                " a b ");                                }
+    @Test public void testComments5()  { this.assertFind(0, "(?x)  a#\n  (?-x) b", 0,                " ab ");                                 }
+    @Test public void testComments6()  { this.assertFind(1, "(?x)  a#\n  (?-x) b", 0,                " a b ");                                }
+    @Test public void testComments7()  { this.assertFind(1, "(?x)  (a)",           0,                " a b ");                                }
+    @Test public void testComments8()  { this.assertFind(1, "(?x)  (?:a)",         0,                " a b ");                                }
+    @Test public void testComments9()  { this.assertFind(1, "(?x)  ( ?:a)",        0,                " a b ");                                }
+    @Test public void testComments10() { this.assertFind(1, "(?x)  (?: a)",        0,                " a b ");                                }
+    @Test public void testComments11() { this.assertFind(1, "(?x)  (? : a)",       0,                " a b ");                                }
+    @Test public void testComments12() { this.assertFind(1, "(?x)  ( ? :a)",       0,                " a b ");                                }
+    @Test public void testComments13() { this.assertFind(1, "(?x)  ( ?: a)",       0,                " a b ");                                }
+    @Test public void testComments14() { this.assertFind(1, "(?x)  ( ? : a)",      0,                " a b ");                                }
+    @Test public void testComments15() { this.assertFind(1, "(?x)  (?<name>a)",    0,                " a b ");                                }
+    @Test public void testComments16() { this.assertFind(1, "(?x)  ( ?<name>a)",   0,                " a b ");                                }
+    @Test public void testComments17() { this.assertPatternSyntaxException("(?x)  (? <name>a)");   }
+    @Test public void testComments18() { this.assertFind(1, "(?x)  (?< name>a)",   0,                " a b ");                                }
+    @Test public void testComments19() { this.assertPatternSyntaxException("(?x)  (? < name>a)");  }
+    @Test public void testComments20() { this.assertFind(1, "(?x)  ( ?< name>a)",  0,                " a b ");                                }
+    @Test public void testComments21() { this.assertPatternSyntaxException("(?x)  ( ? < name>a)"); }
 
     @Test public void
     testReplaceAll1() {
@@ -625,11 +572,9 @@ class PatternTest extends OracleEssentials {
     @Test public void
     testReplaceAll3() {
 
-        PatternFactory pf = PatternTest.JRE_VERSION < 7 ? this.patternFactory : this.patternFactory;
-
         Assert.assertEquals(
             " <<a>>bc ",
-            pf.compile("(?<grp>a)").matcher(" abc ").replaceAll("<<${grp}>>")
+            this.patternFactory.compile("(?<grp>a)").matcher(" abc ").replaceAll("<<${grp}>>")
         );
     }
 
@@ -711,7 +656,7 @@ class PatternTest extends OracleEssentials {
         Assert.assertEquals("== Hello bar and foo!", sb.toString());
     }
 
-    @Test public void testCharacterClassOptimizations1() { this.assertSequenceToString("'A'",                                            "[A]");                } // SUPPRESS CHECKSTYLE LineLength:6
+    @Test public void testCharacterClassOptimizations1() { this.assertSequenceToString("'A'",                                            "[A]");                }
     @Test public void testCharacterClassOptimizations2() { this.assertSequenceToString("oneOfTwoChars('A', 'B')",                        "[AB]");               }
     @Test public void testCharacterClassOptimizations3() { this.assertSequenceToString("oneOfTwoChars('A', 'K')",                        "[AK]");               }
     @Test public void testCharacterClassOptimizations4() { this.assertSequenceToString("bitSet('A', 'C', 'E', 'G', 'I', 'K')",           "[ACEGIK]");           }
@@ -719,7 +664,7 @@ class PatternTest extends OracleEssentials {
     @Test public void testCharacterClassOptimizations6() { this.assertSequenceToString("bitSet('D', 'E', 'F', 'G', 'H', 'I', 'J', 'K')", "[A-K&&D-Z]");         }
     @Test public void testCharacterClassOptimizations7() { this.assertSequenceToString(PatternTest.jurpc("set\\('.'(?:, '.'){63}\\)"),   "[A-Za-z0-9_\u0400]"); }
 
-    @Test public void testQuantifierOptimizations1()  { this.assertSequenceToString("'A'",                                                                                                      "A");                      } // SUPPRESS CHECKSTYLE LineLength:12
+    @Test public void testQuantifierOptimizations1()  { this.assertSequenceToString("'A'",                                                                                                      "A");                      }
     @Test public void testQuantifierOptimizations2()  { this.assertSequenceToString("'A' . greedyQuantifierOnCharacterClass(operand=anyCharButLineBreak, min=0, max=infinite) . 'B'",           "A.*B");                   }
     @Test public void testQuantifierOptimizations3()  { this.assertSequenceToString("'A' . greedyQuantifierOnCharacterClass(operand=anyCharButLineBreak, min=0, max=infinite) . naive(\"BC\")", "A.*BC");                  }
     @Test public void testQuantifierOptimizations4()  { this.assertSequenceToString("'A' . greedyQuantifierOnAnyCharAndLiteralString(min=0, max=infinite, ls=naive(\"BC\"))",                   "A.*BC",  Pattern.DOTALL); }
@@ -768,8 +713,8 @@ class PatternTest extends OracleEssentials {
         char[] tripleCaseLetters = { 452, 453, 454, 455, 456, 457, 458, 459, 460, 497, 498, 499 };
 
         for (char c : tripleCaseLetters) {
-            this.harnessFull(new String(new char[] { c }), new String(tripleCaseLetters));
-            this.harnessFull(new String(new char[] { c }), new String(tripleCaseLetters), Pattern.CASE_INSENSITIVE); // SUPPRESS CHECKSTYLE LineLength
+            this.assertFind(1, new String(new char[] { c }), 0,                        new String(tripleCaseLetters));
+            this.assertFind(1, new String(new char[] { c }), Pattern.CASE_INSENSITIVE, new String(tripleCaseLetters));
         }
     }
 
@@ -926,4 +871,90 @@ class PatternTest extends OracleEssentials {
 
     private static java.util.regex.Pattern
     jurpc(String regex) { return java.util.regex.Pattern.compile(regex); }
+
+    private Matcher
+    assertFind(int expected, String regex, String subject) {
+        return this.assertFind(expected, regex, 0 /*flags*/, subject);
+    }
+    
+    private Matcher
+    assertFind(int expected, String regex, int flags, String subject) {
+        return this.assertFind(expected, regex, flags, subject, null /*regionStart*/, -1 /*regionEnd*/);
+    }
+    
+    private Matcher
+    assertFind(int expected, String regex, int flags, String subject, @Nullable Integer regionStart, int regionEnd) {
+        return this.assertFind(
+            expected,
+            regex,
+            flags,
+            subject,
+            regionStart,
+            regionEnd,
+            null /*transparentBounds*/
+        );
+    }
+    
+    private Matcher
+    assertFind(
+        int               expected,
+        String            regex,
+        int               flags,
+        String            subject,
+        @Nullable Integer regionStart,
+        int               regionEnd,
+        @Nullable Boolean transparentBounds
+    ) {
+        return this.assertFind(
+            expected,
+            regex,
+            flags,
+            subject,
+            regionStart,
+            regionEnd,
+            transparentBounds,
+            null /*anchoringBounds*/
+        );
+    }
+
+    private Matcher
+    assertFind(
+        int               expected,
+        String            regex,
+        int               flags,
+        String            subject,
+        @Nullable Integer regionStart,
+        int               regionEnd,
+        @Nullable Boolean transparentBounds,
+        @Nullable Boolean anchoringBounds
+    ) {
+        assert subject != null;
+        
+        Matcher m = this.patternFactory.compile(regex, flags).matcher(subject);
+        
+        if (regionStart != null) m.region(regionStart, regionEnd);
+
+        if (transparentBounds != null) m.useTransparentBounds(transparentBounds);
+        if (anchoringBounds   != null) m.useAnchoringBounds(anchoringBounds);
+
+        int count = 0;
+        while (m.find()) count++;
+        Assert.assertEquals(expected, count);
+        
+        return m;
+    }
+
+    private Matcher
+    assertMatches(boolean expected, String regex, String subject) {
+        Matcher m = this.patternFactory.compile(regex).matcher(subject);
+        Assert.assertEquals(expected, m.matches());
+        return m;
+    }
+    
+    private Matcher
+    assertLookingAt(boolean expected, String regex, String subject) {
+        Matcher m = this.patternFactory.compile(regex).matcher(subject);
+        Assert.assertEquals(expected, m.lookingAt());
+        return m;
+    }
 }
