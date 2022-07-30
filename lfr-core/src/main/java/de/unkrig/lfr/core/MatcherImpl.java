@@ -170,7 +170,7 @@ class MatcherImpl implements Matcher {
     @Override public MatchResult
     toMatchResult() {
 
-        // It is not clearly documented, but the MR is available also in the non-match case,
+        // It is not clearly documented, but the MR is available also in the non-match case.
 //        if (this.endOfPreviousMatch < 0) throw new IllegalStateException("No match available");
 
         if (this.groups[0] < 0) {
