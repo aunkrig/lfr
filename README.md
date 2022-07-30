@@ -38,11 +38,11 @@ There are the following differences in the API:
 
 Minus:
 
-* Some JRE methods implicitly use JUR, and cannot be retrofitted to use LFR. However, all these methods use `Pattern.compile()`, so you don't want to use them in performance-critical applications. (Actually not a minus in the LFR API, but in the JRE APIs.)
+* Some JRE classes use JUR internally, and cannot be retrofitted to use LFR. However, all these methods use `Pattern.compile()`, so you don't want to use them in performance-critical applications. Examples: `String.matches(regex)`, `String.replaceFirst(regex, replacement)`, `String.replaceAll(regex, replacement)`, `String.split(regex[, limit])`, `java.util.Scanner.next(Pattern)` (Actually not a minus in the LFR API, but in the JRE APIs.)
 
 Plus:
 
-* The LFR `Pattern` class has an additional method `matches(CharSequence subject, int offset)`, which is particularly fast because it does not expose the `Matcher` and can thus save some overhead.
+* The LFR `Pattern` class has three additional methods `matches(CharSequence subject[, regionStart[, regionEnd]])`, which are particularly fast because they do not expose the `Matcher` object and can thus save some overhead.
 
 * The LFR `Pattern` class has an additional method `sequenceToString()` which returns a human-readable form of the compiled regex. For example, `compile("A.*abcdefghijklmn", DOTALL).sequenceToString()` returns
 
