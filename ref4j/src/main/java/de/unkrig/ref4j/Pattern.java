@@ -70,11 +70,35 @@ interface Pattern {
      */
     int flags();
 
+	/**
+     * Equivalent with {@code pattern.}{@link #matcher(CharSequence) matcher}{@code (}<var>subject</var>{@code ).}{@link
+     * Matcher#matches() matches}{@code ()}, but is slightly faster because it does not expose the {@link Matcher} object and
+     * can thus save some overhead.
+	 *
+	 * @return Whether the <var>subject</var> matches this pattern
+	 */
+	boolean matches(CharSequence subject);
+
+	/**
+     * Equivalent with {@code pattern.}{@link #matcher(CharSequence) matcher}{@code (}<var>subject</var>{@code
+     * ).}{@link Matcher#region(int, int) region}{@code (}<var>regionStart</var>{@code ,} <var>subject</var>{@code
+     * .length()).}{@link Matcher#matches() matches}{@code ()}, but is slightly faster because it does not expose the {@link
+     * Matcher} object and can thus save some overhead.
+	 *
+	 * @return Whether the substring of the <var>subject</var>, starting at <var>regionStart</var>, matches this pattern
+	 */
+    boolean matches(CharSequence subject, int regionStart);
+    
     /**
-     * @return Whether the suffix starting at position <var>offset</var> matches {@code this} pattern
-     * @see    java.util.regex.Pattern#matches(String, CharSequence)
+     * Equivalent with {@code pattern.}{@link #matcher(CharSequence) matcher}{@code (}<var>subject</var>{@code
+     * ).}{@link Matcher#region(int, int) region}{@code (}<var>regionStart</var>{@code ,} <var>regionEnd</var>{@code
+     * ).}{@link Matcher#matches() matches}{@code ()}, but is slightly faster because it does not expose the {@link Matcher}
+     * object and can thus save some overhead.
+     *
+     * @return Whether the substring of the <var>subject</var>, designated by <var>regionStart</var> and <var>regionEnd</var>,
+     * matches this pattern
      */
-    boolean matches(CharSequence subject, int offset);
+    boolean matches(CharSequence subject, int regionStart, int regionEnd);
 
     /**
      * @see java.util.regex.Pattern#split(CharSequence)
