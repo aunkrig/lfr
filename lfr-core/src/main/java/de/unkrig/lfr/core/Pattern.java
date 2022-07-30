@@ -743,15 +743,37 @@ class Pattern implements de.unkrig.ref4j.Pattern, Serializable {
     quote(String s) { return java.util.regex.Pattern.quote(s); }
 
     /**
+     * Equivalent with {@code pattern.matcher(subject).matches()}, but is slightly faster because it does not expose the
+     * {@link Matcher} and can thus save some overhead.
+     *
      * @return Whether the suffix starting at position <var>offset</var> matches this pattern
-     * @see    java.util.regex.Pattern#matches(String, CharSequence)
      */
     @Override public boolean
-    matches(CharSequence subject, int offset) {
+    matches(CharSequence subject) { return this.matches(subject, 0, subject.length()); }
+
+    @Override public boolean
+    matches(CharSequence subject, int regionStart) { return this.matches(subject, regionStart, subject.length()); }
+
+    @Override public boolean
+    matches(CharSequence subject, int regionStart, int regionEnd) {
+
+        if (regionStart < 0)              throw new IndexOutOfBoundsException();
+        if (regionEnd < regionStart)      throw new IndexOutOfBoundsException();
+        if (regionEnd > subject.length()) throw new IndexOutOfBoundsException();
+
+        int regionLength = regionEnd - regionStart;
+
+        // Optimization: Test whether there are enough characters left so that the sequence can possibly match.
+        if (this.sequence.minMatchLength > regionLength) return false;
+
+        // Optimization: Test whether the sequence can possibly match all remaining chars.
+        if (this.sequence.maxMatchLength < regionLength) return false;
 
         MatcherImpl mi = new MatcherImpl(this, subject);
-
-        mi.end = MatcherImpl.End.END_OF_REGION;
+        mi.regionStart = regionStart;
+        mi.regionEnd   = regionEnd;
+        mi.offset      = regionStart;
+        mi.end         = MatcherImpl.End.END_OF_REGION;
 
         return this.sequence.matches(mi);
     }
