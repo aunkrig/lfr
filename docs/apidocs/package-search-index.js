@@ -1,0 +1,1 @@
+packageSearchIndex = [{"l":"All Packages","u":"allpackages-index.html"},{"l":"de.unkrig.lfr.core"},{"l":"de.unkrig.ref4j"}];updateSearchResults();
