@@ -26,8 +26,6 @@
 
 package de.unkrig.lfr.core;
 
-import de.unkrig.commons.text.expression.Parser;
-
 /**
  * Adds some "advanced" methods to the {@link de.unkrig.ref4j.Matcher} interface.
  */
@@ -96,47 +94,22 @@ interface Matcher extends de.unkrig.ref4j.Matcher {
     /**
      * Pre-compiles a replacement string for later use by {@link #appendReplacement(Appendable, String)}, {@link
      * #replaceAll(String)} and {@link #replaceFirst(String)}.
-     *
      * <p>
-     *   Supports the following JRE6-compatible constructs:
-     * </p>
-     *
-     * <dl>
-     *   <dt>
-     *     {@code \}<var>x</var>
-     *     <br />
-     *     <var>x</var>
-     *   </dt>
-     *   <dd>
-     *     The character <var>x</var>, literally.
-     *   </dd>
-     *   <dt>{@code $}<var>n</var></dt>
-     *   <dd>
-     *     The value of the <var>n</var>th capturing group, or {@code ""} if that group is not set.
-     *   </dd>
-     * </dl>
-     *
-     * <p>
-     *   Supports the following JRE7-compatible constructs:
-     * </p>
-     *
-     * <dl>
-     *   <dt><code>${</code><var>name</var><code>}</code></dt>
-     *   <dd>
-     *     The value of the named capturing group "<var>name</var>", or {@code ""} if that group is not set.
-     *   </dd>
-     * </dl>
-     *
-     * <p>
-     *   Supports the following additional constructs:
-     * </p>
-     * <dl>
-     *   <dt><code>${</code><var>expression</var><code>}</code></dt>
-     *   <dd>
-     *     The value of the <var>expression</var>. The named groups of the pattern are available as expression
-     *     variables; the matcher is available as variable "m". For the expression syntax, see {@link Parser}.
-     *   </dd>
-     * </dl>
+     *   Supports the following constructs:
+     *  </p>
+     * <table border=1>
+     *   <tr><td>{@code $}<var>n</var></td><td>Capturing group reference</td></tr>
+     *   <tr><td><code>${</code><var>capturing-group-name</var><code>}</code></td><td>Named capturing group reference</td></tr>
+     *   <tr><td><code>${</code><var>expr</var><code>}</code></td><td>Java-like expression</td></tr>
+     *   <tr><td>{@code \0} {@code \0}<var>n</var> {@code \0}<var>nn</var> {@code \0}<var>mnn</var></td><td>Octal literal</td></tr>
+     *   <tr><td>{@code \x}<var>hh</var></td><td>Hex literal (0-0xFF)</td></tr>
+     *   <tr><td>{@code \}{@code u}<var>hhhh</var></td><td>Hex literal (0-0xFFFF)</td></tr>
+     *   <tr><td><code>\x{</code><var>h...h</var><code>}</code></td><td>Hex literal (0-0x110000)</td></tr>
+     *   <tr><td>{@code \Q}<var>any</var>{@code \E}</td><td>Literal text</td></tr>
+     *   <tr><td>{@code \Q}<var>any</var></td><td>Literal text</td></tr>
+     *   <tr><td>{@code \t \n \r \f \a \e \b}</td><td>TAB NL CR FF BEL ESC BACKSPACE</td></tr>
+     *   <tr><td>{@code \c}<var>C</var></td><td>Control character (A-Z)</td></tr>
+     * </table>
      */
     CompiledReplacement
     compileReplacement(String replacement);
