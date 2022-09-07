@@ -806,6 +806,53 @@ class PatternTest extends ParameterizedWithPatternFactory {
         Assert.assertEquals(null,  m.group(3));
     }
 
+    @Test public void
+    testReplacements() {
+
+        this.assertReplaceAllThrows(IllegalArgumentException.class, "(?<ncg>.)", "a", "${a + + b}"); // Parse erroe
+        this.assertReplaceAllThrows(IllegalArgumentException.class, "(?<ncg>.)", "a", "${x}");       // Unknown variable
+
+        this.assertReplaceAllEquals("A", "(?<ncg>.)", "a",      "A"); // Simple replacement
+        this.assertReplaceAllEquals("a", "(?<ncg>.)", "a", "${ncg}"); // Named capturing group reference
+        this.assertReplaceAllEquals("z", "(?<ncg>.)", "a",    "\\z"); // Redundant backslash (\z has no special meaning)
+        this.assertReplaceAllEquals("$", "(?<ncg>.)", "a",    "\\$"); // Masked dollar sign
+
+        if (!this.patternFactory.getId().equals("java.util.regex")) {
+
+            // Extended replacement constructs (supported by lfr, but not by jur).
+            this.assertReplaceAllEquals("A",                 "(?<ncg>.)", "a", "\\0101");                      // Octal literal
+            this.assertReplaceAllEquals("A",                 "(?<ncg>.)", "a", "${m.group(1).toUpperCase()}"); // Expression
+            this.assertReplaceAllEquals("A",                 "(?<ncg>.)", "a", "\\x41");                       // Hex literal
+            this.assertReplaceAllEquals("A",                 "(?<ncg>.)", "a", "\\u0041");                     // Hex literal
+            this.assertReplaceAllEquals("A",                 "(?<ncg>.)", "a", "\\x{41}");                     // Hex literal
+            this.assertReplaceAllEquals("A",                 "(?<ncg>.)", "a", "\\x{00000041}");               // Hex literal
+            this.assertReplaceAllEquals("\\\\",              "(?<ncg>.)", "a", "\\Q\\\\E\\\\");                // Literal text
+            this.assertReplaceAllEquals("\\",                "(?<ncg>.)", "a", "\\Q\\");                       // Literal text
+            this.assertReplaceAllEquals("\t\n\r\f\07\033\b", "(?<ncg>.)", "a", "\\t\\n\\r\\f\\a\\e\\b");       // TAB NL CR FF BEL ESC BACKSPACE
+            this.assertReplaceAllEquals("\3",                "(?<ncg>.)", "a", "\\cC");                        // Control character
+            this.assertReplaceAllEquals("_A_A_\\x41_X_",     "(?<ncg>.)", "a", "_\\0101_${m.group(1).toUpperCase()}_\\Q\\x41\\E_\\X_");
+        }
+    }
+s
+    private void
+    assertReplaceAllEquals(String expected, String regex, String subject, String replacement) {
+        Assert.assertEquals(expected, this.patternFactory.compile(regex).matcher(subject).replaceAll(replacement));
+    }
+
+    private void
+    assertReplaceAllThrows(Class<? extends Throwable> expectedException, String regex, String subject, String replacement) {
+        try {
+            this.patternFactory.compile(regex).matcher(subject).replaceAll(replacement);
+            Assert.fail("Exception expected");
+        } catch (Exception e) {
+            if (expectedException.isAssignableFrom(e.getClass())) {
+                ;
+            } else {
+                Assert.fail(expectedException.getName() + " expected instead of " + e.getClass().getName());
+            }
+        }
+    }
+
     // ========================================================================================================
 
     private void
