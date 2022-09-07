@@ -500,13 +500,15 @@ class MatcherImpl implements Matcher {
         final PredicateWhichThrows<String, NoException>
         isValidVariableName = Mappings.<String, Object>containsKeyPredicate(variables);
 
-        final List<Producer<?>> segments = new ArrayList<Producer<?>>();
+        final List<Producer<String>> segments = new ArrayList<Producer<String>>();
 
         for (int cursor = 0; cursor < replacement.length();) {
 
-            char c = replacement.charAt(cursor++);
+            char c = replacement.charAt(cursor);
 
             if (c == '$') {
+                cursor++;
+
                 if (cursor == replacement.length()) {
                     throw new IllegalArgumentException("Illegal group reference: group index is missing");
                 }
@@ -514,38 +516,37 @@ class MatcherImpl implements Matcher {
                 if (replacement.charAt(cursor) == '{') {
 
                     // "${expr}".
-                    final CharSequence spec = replacement.subSequence(++cursor, replacement.length());
-                    final Expression   expression;
-
+                    final Expression expression;
                     {
-                        final int[] offset = new int[1];
+                        final int[] offset = { cursor + 1 };
                         try {
-                            expression = new ExpressionEvaluator(isValidVariableName).parsePart(spec, offset);
+                            expression = new ExpressionEvaluator(isValidVariableName).parsePart(replacement, offset);
                         } catch (ParseException pe) {
                             throw ExceptionUtil.wrap((
                                 "Parsing expression \""
-                                + spec
+                                + replacement.substring(cursor + 1)
                                 + "\" in replacement string"
                             ), pe, IllegalArgumentException.class);
                         }
-                        cursor += offset[0];
+                        cursor = offset[0];
                     }
 
+                    // Skip closing "}".
                     if (cursor == replacement.length() || replacement.charAt(cursor) != '}') {
                         throw new IllegalArgumentException("expression is missing trailing '}'");
                     }
                     cursor++;
 
-                    segments.add(new Producer<Object>() {
+                    segments.add(new Producer<String>() {
 
-                        @Override @Nullable public Object
+                        @Override @Nullable public String
                         produce() {
                             try {
-                                return expression.evaluate(variables);
+                                return expression.evaluateTo(variables, String.class);
                             } catch (EvaluationException ee) {
                                 throw ExceptionUtil.wrap((
                                     "Evaluating expression \""
-                                    + spec
+                                    + expression
                                     + "\" in replacement string"
                                 ), ee, IllegalArgumentException.class);
                             }
@@ -569,9 +570,9 @@ class MatcherImpl implements Matcher {
                     }
 
                     final int finalGroupNumber = groupNumber;
-                    segments.add(new Producer<Object>() {
+                    segments.add(new Producer<String>() {
 
-                        @Override public Object
+                        @Override public String
                         produce() {
                             String g = MatcherImpl.this.group(finalGroupNumber);
                             return g != null ? g : "";
@@ -579,17 +580,12 @@ class MatcherImpl implements Matcher {
                     });
                 }
             } else {
+
+                // Literal segment, including escape sequences like "\Q...\E".
                 StringBuilder sb = new StringBuilder();
-                for (;; cursor++) {
-                    if (c == '\\') {
-                        sb.append(replacement.charAt(cursor++));
-                    } else {
-                        sb.append(c);
-                    }
-                    if (cursor >= replacement.length()) break;
-                    c = replacement.charAt(cursor);
-                    if (c == '$') break;
-                }
+                do {
+                    cursor = unescape(replacement, cursor, replacement.length(), sb);
+                } while (cursor < replacement.length() && replacement.charAt(cursor) != '$');
 
                 segments.add(ProducerUtil.constantProducer(sb.toString()));
             }
@@ -617,7 +613,7 @@ class MatcherImpl implements Matcher {
                 default:
                     StringBuilder result = new StringBuilder();
                     for (Producer<?> segment : segments) result.append(segment.produce());
-                    s =  result.toString();
+                    s = result.toString();
                     break;
                 }
 
@@ -667,6 +663,113 @@ class MatcherImpl implements Matcher {
                 return MatcherImpl.this.appendTail(sb).toString();
             }
         };
+    }
+
+    private static final java.util.regex.Pattern OCTAL_LITERAL = java.util.regex.Pattern.compile("\\\\0([0-7]{0,3})");
+    private static final java.util.regex.Pattern HEX_LITERAL   = java.util.regex.Pattern.compile("\\\\x([0-9A-Fa-f]{2})");
+    private static final java.util.regex.Pattern U_LITERAL     = java.util.regex.Pattern.compile("\\\\u([0-9A-Fa-f]{4})");
+    private static final java.util.regex.Pattern CP_LITERAL    = java.util.regex.Pattern.compile("\\\\x\\{([0-9A-Fa-f]{1,8})\\}");
+    private static final java.util.regex.Pattern QE_LITERAL    = java.util.regex.Pattern.compile("\\\\Q(.*?)\\\\E");
+    private static final java.util.regex.Pattern Q_LITERAL     = java.util.regex.Pattern.compile("\\\\Q(.*+)");
+    private static final java.util.regex.Pattern ESCAPE        = java.util.regex.Pattern.compile("\\\\([tnrfaeb])");
+    private static final java.util.regex.Pattern CONTROL       = java.util.regex.Pattern.compile("\\\\c([A-Z])");
+    private static final java.util.regex.Pattern MASKED        = java.util.regex.Pattern.compile("\\\\([^0xuQc])");
+    
+    /**
+     * Scans the <var>input</var>, starting at <var>offset</var>, and adds one codepoint to the <var>result</var>. The
+     * {@code "\Q...\E"} escape sequence adds multiple codepoints to the <var>result</var>.
+     *
+     * @return The offset of the first character <em>after</em> the parsed codepoint
+     * @throws IllegalArgumentException <var>offset</var> >= <var>end</var>
+     * @throws IllegalArgumentException Invalid escape sequence at <var>offset</var>
+     */
+    private static int
+    unescape(String input, int offset, int end, StringBuilder result) {
+
+        if (offset >= end) throw new IllegalArgumentException("End of input");
+        
+        int cp = input.codePointAt(offset);
+
+        if (cp != '\\') {
+            result.appendCodePoint(cp);
+            return offset + Character.charCount(cp);
+        }
+
+        java.util.regex.Matcher m;
+        
+        // \0 \0n \0nn \0mnn
+        m = OCTAL_LITERAL.matcher(input);
+        m.region(offset, end);
+        if (m.lookingAt()) {
+            result.append((char) Integer.parseInt(m.group(1), 8));
+            return m.end();
+        }
+        
+        // \xhh
+        m = HEX_LITERAL.matcher(input);
+        m.region(offset, end);
+        if (m.lookingAt()) {
+            result.append((char) Integer.parseInt(m.group(1), 16));
+            return m.end();
+        }
+
+        // \ uhhhh
+        m = U_LITERAL.matcher(input);
+        m.region(offset, end);
+        if (m.lookingAt()) {
+            result.append((char) Integer.parseInt(m.group(1), 16));
+            return m.end();
+        }
+        
+        // \x{h...h}
+        m = CP_LITERAL.matcher(input);
+        m.region(offset, end);
+        if (m.lookingAt()) {
+            result.appendCodePoint(Integer.parseInt(m.group(1), 16));
+            return m.end();
+        }
+        
+        // \Q...\E
+        m = QE_LITERAL.matcher(input);
+        m.region(offset, end);
+        if (m.lookingAt()) {
+            result.append(m.group(1));
+            return m.end();
+        }
+        
+        // \Q...
+        m = Q_LITERAL.matcher(input);
+        m.region(offset, end);
+        if (m.lookingAt()) {
+            result.append(m.group(1));
+            return m.end();
+        }
+        
+        // \t \n \r \f \a \e \b  (TAB NL CR FF BEL ESC BACKSPACE)
+        m = ESCAPE.matcher(input);
+        m.region(offset, end);
+        if (m.lookingAt()) {
+            result.append("\t\n\r\f\07\033\b".charAt("tnrfaeb".indexOf(m.group(1).charAt(0))));
+            return m.end();
+        }
+        
+        // \cx
+        m = CONTROL.matcher(input);
+        m.region(offset, end);
+        if (m.lookingAt()) {
+            result.append((char) (31 & m.group(1).charAt(0)));
+            return m.end();
+        }
+
+        // \ <any>
+        m = MASKED.matcher(input);
+        m.region(offset, end);
+        if (m.lookingAt()) {
+            result.append(m.group(1));
+            return m.end();
+        }
+        
+        throw new IllegalArgumentException("Invalid escape sequence starting with \"" + input.substring(offset, Math.min(end, offset + 2)) + "\"");
     }
 
     @Override public <T extends Appendable> T
