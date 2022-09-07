@@ -117,7 +117,7 @@ interface Pattern {
      *   and then calls find, for example a predicate of the form:
      * </p>
      * <pre>
-     *     s -> matcher(s).find();
+     *     s -&gt; matcher(s).find();
      * </pre>
      *
      * @return The predicate which can be used for finding a match on a subsequence of a string
@@ -132,7 +132,7 @@ interface Pattern {
      *   then calls matches, for example a predicate of the form:
      * </p>
      * <pre>
-     *     s -> matcher(s).matches();
+     *     s -&gt; matcher(s).matches();
      * </pre>
      *
      * @return The predicate which can be used for matching an input string against this pattern.
