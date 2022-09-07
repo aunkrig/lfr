@@ -29,7 +29,7 @@ package de.unkrig.lfr.core;
 import de.unkrig.commons.lang.protocol.Predicate;
 
 /**
- * An optimization of {@link Predicate Predicate<Integer>} which saves the overhead of boxing and unboxing.
+ * An optimization of {@link Predicate Predicate}{@code <Integer>} which saves the overhead of boxing and unboxing.
  */
 public
 interface IntPredicate {
