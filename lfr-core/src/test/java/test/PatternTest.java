@@ -833,7 +833,7 @@ class PatternTest extends ParameterizedWithPatternFactory {
             this.assertReplaceAllEquals("_A_A_\\x41_X_",     "(?<ncg>.)", "a", "_\\0101_${m.group(1).toUpperCase()}_\\Q\\x41\\E_\\X_");
         }
     }
-s
+
     private void
     assertReplaceAllEquals(String expected, String regex, String subject, String replacement) {
         Assert.assertEquals(expected, this.patternFactory.compile(regex).matcher(subject).replaceAll(replacement));
