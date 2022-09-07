@@ -742,12 +742,6 @@ class Pattern implements de.unkrig.ref4j.Pattern, Serializable {
     public static String
     quote(String s) { return java.util.regex.Pattern.quote(s); }
 
-    /**
-     * Equivalent with {@code pattern.matcher(subject).matches()}, but is slightly faster because it does not expose the
-     * {@link Matcher} and can thus save some overhead.
-     *
-     * @return Whether the suffix starting at position <var>offset</var> matches this pattern
-     */
     @Override public boolean
     matches(CharSequence subject) { return this.matches(subject, 0, subject.length()); }
 
