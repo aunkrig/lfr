@@ -170,23 +170,22 @@ class MatcherImpl implements Matcher {
     @Override public MatchResult
     toMatchResult() {
 
-        // It is not clearly documented, but the MR is available also in the non-match case.
-//        if (this.endOfPreviousMatch < 0) throw new IllegalStateException("No match available");
-
+        // It is not clearly documented, but the MR is available also in the non-match case, and has weird properties...
         if (this.groups[0] < 0) {
             return new MatchResult() {
 
-                final IllegalStateException ise = new IllegalStateException("No match found");
+                RuntimeException ise() { return new IllegalStateException("No match found"); }
 
                 @Override public int              groupCount()           { return MatcherImpl.this.groups.length / 2 - 1; }
-                @Override public int              start()                { throw this.ise; }
-                @Override public int              end()                  { throw this.ise; }
-                @Override @Nullable public String group()                { throw this.ise; }
-                @Override public int              start(int groupNumber) { throw this.ise; }
-                @Override public int              end(int groupNumber)   { throw this.ise; }
-                @Override @Nullable public String group(int groupNumber) { throw this.ise; }
+                @Override public int              start()                { throw this.ise(); }
+                @Override public int              end()                  { throw this.ise(); }
+                @Override @Nullable public String group()                { throw this.ise(); }
+                @Override public int              start(int groupNumber) { throw this.ise(); }
+                @Override public int              end(int groupNumber)   { throw this.ise(); }
+                @Override @Nullable public String group(int groupNumber) { throw this.ise(); }
             };
         }
+
         return new MatchResult() {
 
             final CharSequence subject = MatcherImpl.this.subject;
